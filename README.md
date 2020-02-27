@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/ml-datasets/badge/?version=latest)](https://ml-datasets.readthedocs.io/en/latest/?badge=latest)
+
 # ML-Datasets
 Flexible datasets for machine learning - under construction ⚙️
 
