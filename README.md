@@ -56,18 +56,18 @@ import MLDatasets as mlds
 raw_data_path = '../data/raw/nested_folder'
 processed_path = '../data/processed/my_dataset'
 
-train, val, test = \
+train, val, test =                                    \
     mlds.create(name='MyDataset', path=raw_data_path) \       
     .transform([mlds.rescale(16,16), mlds.normalize(auto=True)], mlds.one_hot()) \
-    .split({'train':0.6, 'val': 0.1, 'test': 0.3}) \      
-    .save(processed_path) \
+    .split({'train':0.6, 'val': 0.1, 'test': 0.3})    \      
+    .save(processed_path)                             \
     .to_pytorch()
 
 # Do your magic using PyTorch
 
-train, val, test = \
-    mlds.load(processed_path) \
-    .transform(lambda x: x+1, mlds.to_categorical())
+train, val, test =                                    \
+    mlds.load(processed_path)                         \
+    .transform(lambda x: x+1, mlds.to_categorical())  \
     .to_tf()
 
 # Rule the world with Tensorflow
