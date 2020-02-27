@@ -46,7 +46,7 @@ target = 'dslr'
 my_dataset_name = f"{source}-{target}-{seed}"
 
 if mlds.exists(my_dataset_name):
-    train, 
+    train, val, test = mlds.open(my_dataset_name)
 else:
     source_train = \
         mlds.create(name='amazon', path='../data/Office31/amazon/images') \
@@ -85,7 +85,7 @@ else:
 
     train = train.shuffle()
 
-    mlds.save([train, val, test], name=my_dataset_name)
+    mlds.save(my_dataset_name, [train, val, test])
 
 # Port to tensorflow
 train, val, test = [ds.to_tf() for ds in [train, val, test]]
