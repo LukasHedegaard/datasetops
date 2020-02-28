@@ -135,10 +135,10 @@ path = './KITTI'
 
 
 def process_label(text):
-    return <process_text>
+    return process_text
 
 def process_calib(text):
-    return <process_text>
+    return process_text
 
 
 with mlds.seed(123):
@@ -147,8 +147,9 @@ with mlds.seed(123):
         .transofrm(["image_2", "image_3"], mlds.normalize)
         .transform("label_2", process_label)
         .transform("calib", process_calib)
-    
-    train_tf, test_tf, val_tf = mlds.all(train, test, v
+
+    train, val = train
+        .split ([0.81, -1])
     
     train_tf, test_tf, val_tf = mlds.all(train, test, val)
         .shuffle()
