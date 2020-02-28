@@ -43,51 +43,45 @@ seed = 1
 source = 'amazon'
 target = 'dslr'
 
-my_dataset_name = f"{source}-{target}-{seed}"
+processed_dataset_path = f"../data/processed/{source}-{target}-{seed}"
 
-if mlds.exists(my_dataset_name):
-    train, val, test = mlds.open(my_dataset_name)
-else:
+if not mlds.exists(my_dataset_name):
     source_train = \
-        mlds.create(name='amazon', path='../data/Office31/amazon/images') \
-        .subsample_classwise(per_class=20, seed=seed)
+        mlds.load(path='../data/Office31/amazon/images') \
+        .sample(20, per_class=True, seed=seed)
 
-    target_trainval, target_test = \
-        mlds.create(name='dslr', path='../data/Office31/dslr/images') \
-        .split([0.7, 0.3])
+    target_test, target_rest  = \
+        mlds.load(path='../data/Office31/dslr/images') \
+        .split([0.3, 0.7], seed=42)
 
     target_train, target_val = \
-        target_trainval
-        .subsample_classwise(per_class=3, seed=seed, return_rest=True)
+        target_trainval.split_sample(3, per_class=True, seed=seed)
 
     # transform all data to use a one-hot encoding for the label
-    source_train, target_train, target_val, target_test = [
-        ds.transform(None, mlds.one_hot()) 
-        for ds in (source_train, target_train, target_val, target_test]
-    ]
+    source_train, target_train, target_val, target_test = \
+        mlds.all(source_train, target_train, target_val, target_test) \
+        .transform(None, mlds.one_hot()) 
 
-    # Combine data in a pairwise manner 
-    train = mlds.combine_parallel(
-        datasets=(source_train, target_train), 
-        cartesian_product=True # pair up all combinations of the datasets
-    )
-    val = mlds.combine_parallel((target_val, target_val))
-    test = mlds.combine_parallel((target_test, target_test))
+    # Pair up all combinations of the datasets
+    train = mlds.cartesian_product(source_train, target_train)
+    val = mlds.zip(target_val, target_val)
+    test = mlds.zip(target_test, target_test)
 
     # Change the data representation a bit
-    train, val, test = [
-        ds.transform(
-            lambda x: {'i1':x[0], 'i2':x[1]},
-            lambda y: {'y1':y[0], 'y2':y[1], 'y3':y[0]==y[1]} 
-        )
-        for ds in [train, val, test]
-    ]
+    train, val, test = mlds.all(train, val, test).transform(
+        lambda x: {'i1':x[0], 'i2':x[1]},
+        lambda y: {'y1':y[0], 'y2':y[1], 'y3':y[0]==y[1]} 
+    )
 
     train = train.shuffle()
 
-    mlds.save(my_dataset_name, [train, val, test])
+    datasets = mlds.all(train, val, test)
+    datasets.save(processed_dataset_path)
+
+else:
+    datasets = mlds.load(processed_dataset_path)
 
 # Port to tensorflow
-train, val, test = [ds.to_tf() for ds in [train, val, test]]
+train, val, test = datasets.to_tensorflow()
 
 ```

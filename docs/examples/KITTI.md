@@ -28,11 +28,6 @@ KITTI
             |- 000000.txt
             |- 000001.txt
             |- ...
-    |- testing
-        |- label_2
-            |- 000000.txt
-            |- 000001.txt
-            |- ...
 |- image_3
     |- training
         |- image_3
@@ -130,9 +125,7 @@ We use second data storage format where data is in training/testing folders
 ```python
 import mldatasets as mlds
 
-
 path = './KITTI'
-
 
 def process_label(text):
     return process_text
@@ -140,19 +133,17 @@ def process_label(text):
 def process_calib(text):
     return process_text
 
-
 with mlds.seed(123):
     
-    train, test = mlds.load(path)
-        .transofrm(["image_2", "image_3"], mlds.normalize)
-        .transform("label_2", process_label)
-        .transform("calib", process_calib)
+    train, test = mlds.load(path) \
+        .transform(["image_2", "image_3"], mlds.normalize) \
+        .transform("calib", process_calib) \
+        .transform("label_2", process_label) # prints "warning: mlds.transform('label2', process_label) ignored for 'testing' dataset
 
-    train, val = train
-        .split ([0.81, -1])
+    train, val = train.split([0.81, -1])
     
-    train_tf, test_tf, val_tf = mlds.all(train, test, val)
-        .shuffle()
-        .batch(32, drop_rest=True)
+    train_tf, test_tf, val_tf = mlds.all(train, test, val) \
+        .shuffle() \
+        .batch(32, remainder='cycle') \ # if datasize doesn't divide by 32, use first samples to pad (consider leaving batching to tensorflow or pytorch)
         .to_tensorflow()
 ```
