@@ -23,3 +23,12 @@ And then running pip install in the root of the folder:
    pip install .
 
 This will install the package in the current environment.
+
+In case you wish to edit the code it may be useful to pass the editable flag to pip:
+
+.. code-block:: bash
+
+   pip install -e .
+
+This makes imports point to the local files instead of the ones installed globally. 
+The benefit of this is that pip install does not have to be invoked manually to update files.
