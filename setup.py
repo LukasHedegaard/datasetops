@@ -6,6 +6,6 @@ setup(
     package_dir={'': 'src'},
 
     install_requires=[
-        "numpy", "pandas", "pytest", "Sphinx", "recommonmark", "sphinx_rtd_theme"
+        "numpy", "pandas", "pytest", "Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"
     ]
 )

@@ -22,3 +22,4 @@ Its highligts are:
    installing
    getting_started
    examples
+   autoapi/index
