@@ -6,6 +6,6 @@ setup(
     package_dir={'': 'src'},
 
     install_requires=[
-        "numpy", "Sphinx", "pandas"
+        "numpy", "Sphinx", "pandas", "pytest"
     ]
 )
