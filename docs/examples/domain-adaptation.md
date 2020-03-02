@@ -45,7 +45,7 @@ target = 'dslr'
 
 processed_dataset_path = f"../data/processed/{source}-{target}-{seed}"
 
-if not mlds.exists(my_dataset_name):
+if not mlds.exists(processed_dataset_path):
     source_train = \
         mlds.load(path='../data/Office31/amazon/images') \
         .sample(20, per_class=True, seed=seed)
@@ -62,18 +62,23 @@ if not mlds.exists(my_dataset_name):
         mlds.all(source_train, target_train, target_val, target_test) \
         .transform(None, mlds.one_hot()) 
 
-    # Pair up all combinations of the datasets
-    train = mlds.cartesian_product(source_train, target_train)
+    # Pair up all combinations of the datasets: ((xs1, xt1), (ys1, yt1)), ((xs1, xt2), (ys1, yt2)), ...
+    train_cart = mlds.cartesian_product(source_train, target_train)
+
+    # Limit the train set to have a 1:3 ratio of same-label and different-label pairs
+    train_same, train_diff = train_cart.split_by(lambda _, y: y[0] == y[1])
+    train_diff_sub = train_diff.sample(3*len(train_same), per_class=False, seed=seed)
+    train = mlds.concat(train_same, train_diff_sub).shuffle()
+    
+    # Pair each datapoint with itself, ((x,x), (y,y))  
     val = mlds.zip(target_val, target_val)
     test = mlds.zip(target_test, target_test)
 
-    # Change the data representation a bit
+    # Change the data representations slightly
     train, val, test = mlds.all(train, val, test).transform(
         lambda x: {'i1':x[0], 'i2':x[1]},
         lambda y: {'y1':y[0], 'y2':y[1], 'y3':y[0]==y[1]} 
     )
-
-    train = train.shuffle()
 
     datasets = mlds.all(train, val, test)
     datasets.save(processed_dataset_path)
