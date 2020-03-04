@@ -11,7 +11,7 @@ class ItemGetter(ABC):
         pass
 
 
-class BaseDataset(ItemGetter):
+class AbstractDataset(ItemGetter):
     """Abstract base class defining a generic dataset interface.
     """
     

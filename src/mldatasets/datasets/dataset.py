@@ -1,34 +1,36 @@
 import random
-from mldatasets.datasets.base import ItemGetter, BaseDataset
+from mldatasets.datasets.abstract import ItemGetter, AbstractDataset
 from typing import Callable, Dict, Union, Any, Optional, List, Tuple, Type, TypeVar
 
 # types
 IdIndex = int
 Id = int
+Ids = List[Id]
 Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
 
-class Dataset(BaseDataset):
+class Dataset(AbstractDataset):
     """ Contains information on how to access the raw data, and performs sampling and splitting related operations
         Tricky implementation notes:
             self._ids contains the identifiers that are use to grab the downstream data
             self._classwise_id_inds are the classwise sorted indexes of self._ids (not the ids themselves)
     """
 
-    def __init__(self, downstream_getter:ItemGetter, ids:List[Id]=None, classwise_id_refs:IdIndexSet=None):
+    def __init__(self, downstream_getter:ItemGetter, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None):
         """Initialise
         
         Keyword Arguments:
             downstream_getter {ItemGetter} -- Any object which implements the __getitem__ function (default: {None})
-            ids {List[Id]} -- List of ids used in the downstream_getter (default: {None})
+            ids {Ids} -- List of ids used in the downstream_getter (default: {None})
             classwise_id_refs {IdIndexSet} -- Classwise sorted indexes of the ids, NB: not the ids, but their indexes (default: {None})
         """
         self._downstream_getter = downstream_getter
         self._ids = []
         self._classwise_id_inds = {}
+        self._item_transform_fn = item_transform_fn or (lambda x: x)
 
         if ids and classwise_id_refs:
-            self._ids:List[Id] = ids
+            self._ids:Ids = ids
             self._classwise_id_inds:IdIndexSet = classwise_id_refs
 
 
@@ -37,12 +39,16 @@ class Dataset(BaseDataset):
 
 
     def __getitem__(self, i: int):
-        return self._downstream_getter[self._ids[i]] 
+        return self._item_transform_fn(self._downstream_getter[self._ids[i]])
 
+
+    def __iter__(self):
+        for i in range(self.__len__()):
+            yield self.__getitem__(i)
     
-    # def _set_ids(self, ids: List[Id], classwise_id_refs: IdIndexSet):
-    #     self._ids = ids
-    #     self._classwise_id_inds = classwise_id_refs
+
+    def _set_item_transform(self, transform_fn: Callable):
+        self._item_transform_fn = transform_fn
     
 
     def _append(self, identifier:Data, label:Optional[str]=None):
@@ -100,9 +106,9 @@ class Dataset(BaseDataset):
 
         # group the new samples items into class-buckets
         new_classwise_id_inds = {k:[] for k in self._classwise_id_inds.keys()}
-        for i in enumerate(new_ids):
+        for i, v in enumerate(new_ids):
             for k, r in ranges.items():
-                if r[0] <= i < r[1]:
+                if r[0] <= v < r[1]:
                     new_classwise_id_inds[k].append(i)
 
         return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
