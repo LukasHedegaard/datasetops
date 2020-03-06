@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 
 from typing import List, Tuple, Any, Union
 
-Subscriptable = Union[List, Tuple]
-
 
 class ItemGetter(ABC):
     @abstractmethod
@@ -42,7 +40,7 @@ class AbstractDataset(ItemGetter):
 
 
     @abstractmethod
-    def sample(self, num):
+    def sample(self, num, seed:int=None):
         """Samples a number of samples from the dataset 
         
         Parameters
@@ -53,7 +51,8 @@ class AbstractDataset(ItemGetter):
         pass
 
 
-    def sample_classwise(self, num_per_class: int):
+    @abstractmethod
+    def sample_classwise(self, num_per_class:int, seed:int=None):
         """Samples the dataset with a desired number of samples per class
         
         Parameters
@@ -64,16 +63,28 @@ class AbstractDataset(ItemGetter):
         pass
 
 
-    # @abstractmethod
-    # def split(self, fractions:Subscriptable[float]) -> List[BaseDataset]: #type: ignore
-    #     """Splits the dataset using the specified fractions
+    @abstractmethod
+    def split(self, fractions:List[float], seed:int=None): 
+        """Splits the dataset using the specified fractions
         
-    #     Parameters
-    #     ----------
-    #     fractions : {Subscriptable[float]}
-    #         A list of real values determining the relative size of each split.
-    #     """
-    #     pass
+        Parameters
+        ----------
+        fractions : {Subscriptable[float]}
+            A list of real values determining the relative size of each split.
+        """
+        pass
+
+
+    @abstractmethod
+    def shuffle(self, seed:int=None): 
+        """Splits the dataset using the specified fractions
+        
+        Parameters
+        ----------
+        fractions : {Subscriptable[float]}
+            A list of real values determining the relative size of each split.
+        """
+        pass
 
 
     # @abstractmethod
