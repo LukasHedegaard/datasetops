@@ -1,10 +1,10 @@
 
-from mldatasets.loaders import DataGetter
-from mldatasets.datasets.dataset import Dataset, _DEFAULT_SHAPE
+from mldatasets.loaders import FunctionDataset
+from mldatasets.dataset import Dataset, _DEFAULT_SHAPE
 import pytest
 import numpy as np
 
-def load_dummy_data() -> Dataset:
+def load_dummy_data() -> FunctionDataset:
 
     a_ids = list(range(5))
     b_ids = list(range(5,11))
@@ -12,9 +12,7 @@ def load_dummy_data() -> Dataset:
     def get_data(i):
         return i
 
-    datagetter = DataGetter(get_data)
-
-    ds = Dataset(downstream_getter=datagetter)
+    ds = FunctionDataset(get_data)
     ds._extend(a_ids, 'a')
     ds._extend(b_ids, 'b')
     return ds
@@ -114,7 +112,7 @@ def test_split():
 DUMMY_NUMPY_DATA_SHAPE_2D = (4,4)
 DUMMY_NUMPY_DATA_SHAPE_1D = 4*4
 
-def load_dummy_numpy_data() -> Dataset:
+def load_dummy_numpy_data() -> FunctionDataset:
 
     a_ids = list(range(5))
     b_ids = list(range(5,11))
@@ -133,9 +131,7 @@ def load_dummy_numpy_data() -> Dataset:
     def get_data(idx):
         return data[idx], labels[idx]
 
-    datagetter = DataGetter(get_data)
-
-    ds = Dataset(downstream_getter=datagetter)
+    ds = FunctionDataset(get_data)
     ds._extend(a_ids, '1')
     ds._extend(b_ids, '2')
     return ds

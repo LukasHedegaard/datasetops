@@ -1,18 +1,9 @@
 import random
-from mldatasets.datasets.abstract import ItemGetter, AbstractDataset
-from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
+from mldatasets.abstract import ItemGetter, AbstractDataset
+from mldatasets.types import *
 import numpy as np
 import warnings
 import functools
-
-# types
-Shape = Sequence[int]
-IdIndex = int
-Id = int
-Ids = List[Id]
-Data = Any
-IdIndexSet = Dict[Any, List[IdIndex]]
-TransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
 
 _DEFAULT_SHAPE = (1,)
 
@@ -23,7 +14,7 @@ class Dataset(AbstractDataset):
             self._classwise_id_inds are the classwise sorted indexes of self._ids (not the ids themselves)
     """
 
-    def __init__(self, downstream_getter:ItemGetter, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None, name:str=None):
+    def __init__(self, downstream_getter:ItemGetter, name:str=None, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None):
         """Initialise
         
         Keyword Arguments:
@@ -176,30 +167,6 @@ class Dataset(AbstractDataset):
 
     def _set_item_transform(self, transform_fn: Callable):
         self._item_transform_fn = transform_fn
-    
-
-    def _append(self, identifier:Data, label:Optional[str]=None):
-        i_new = len(self._ids)
-
-        self._ids.append(identifier)
-
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = [i_new]
-        else:
-            self._classwise_id_inds[label].append(i_new)
-
-
-    def _extend(self, ids:Union[List[Data], np.ndarray], label:Optional[str]=None):
-        i_lo = len(self._ids)
-        i_hi = i_lo + len(ids)
-        l_new = list(range(i_lo, i_hi))
-
-        self._ids.extend(list(ids))
-
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = l_new
-        else:
-            self._classwise_id_inds[label].extend(l_new)
 
 
     @staticmethod

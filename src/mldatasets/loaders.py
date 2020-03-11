@@ -1,23 +1,45 @@
 from pathlib import Path
 from glob import glob
+from mldatasets.abstract import ItemGetter
 from scipy.io import loadmat
-from mldatasets.datasets.abstract import ItemGetter
-from mldatasets.datasets.dataset import Dataset
-from typing import Callable, Any, Union, List, Dict
+from mldatasets.dataset import Dataset
+from mldatasets.types import *
 from PIL import Image
 import numpy as np
 
-AnyPath = Union[str, Path]
+class FunctionDataset(Dataset):
+
+    def __init__(self, getdata:Callable[[Any], Any], name='function dataset'):
+        class Getter(ItemGetter):
+            def __getitem__(self, i:int):
+                return getdata(i)
+
+        super().__init__(downstream_getter=Getter(), name=name)
 
 
-class DataGetter(ItemGetter):
+    def _append(self, identifier:Data, label:Optional[str]=None):
+        i_new = len(self._ids)
 
-    def __init__(self, getdata:Callable[[Any], Any], description='data getter'):
-        self._getdata = getdata
-        self._description = description
+        self._ids.append(identifier)
 
-    def __getitem__(self, i: int):
-        return self._getdata(i)
+        if not label in self._classwise_id_inds:
+            self._classwise_id_inds[label] = [i_new]
+        else:
+            self._classwise_id_inds[label].append(i_new)
+
+
+    def _extend(self, ids:Union[List[Data], np.ndarray], label:Optional[str]=None):
+        i_lo = len(self._ids)
+        i_hi = i_lo + len(ids)
+        l_new = list(range(i_lo, i_hi))
+
+        self._ids.extend(list(ids))
+
+        if not label in self._classwise_id_inds:
+            self._classwise_id_inds[label] = l_new
+        else:
+            self._classwise_id_inds[label].extend(l_new)
+
 
 
 # def get_file_reader(file_example: AnyPath):
@@ -49,9 +71,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return str(p/i)
 
-    datagetter = DataGetter(get_data, "Data Getter for folder with structure 'root/data'")
-
-    ds = Dataset(downstream_getter=datagetter)
+    ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
     ds._extend(ids)
 
     return ds
@@ -65,9 +85,8 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return str(p/i)
 
-    datagetter = DataGetter(get_data, "Data Getter for folder with structure 'root/classes/data'")
+    ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/classes/data'")
 
-    ds = Dataset(downstream_getter=datagetter)
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob('[!._]*')]
         ds._extend(ids, str(c))
@@ -117,7 +136,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys:List[str], label
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = Dataset(downstream_getter=DataGetter(get_data), name=name)
+    ds = FunctionDataset(get_data, name=name)
 
     # populate data getter
     if label_key:
