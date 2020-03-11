@@ -6,18 +6,21 @@ from typing import List, Tuple, Any, Union
 class ItemGetter(ABC):
     @abstractmethod
     def __getitem__(self, i:int):
-        pass
+        pass # pragma: no cover
 
 
 class AbstractDataset(ItemGetter):
     """Abstract base class defining a generic dataset interface.
     """
     
+    def __init__(self):
+        pass # pragma: no cover
+    
     @abstractmethod
     def __len__(self) -> int:
         """Return the total number of elements in the dataset
         """
-        pass
+        pass # pragma: no cover
 
 
     @abstractmethod
@@ -29,14 +32,19 @@ class AbstractDataset(ItemGetter):
         idx : int
             the index from which to read the sample.
         """
-        pass
+        pass # pragma: no cover
+
+
+    @abstractmethod
+    def __iter__(self) -> Any:
+        pass # pragma: no cover
 
 
     # @abstractmethod
     # def describe(self):
     #     """Returns a summary of the dataset.
     #     """
-    #     pass
+    #     pass # pragma: no cover
 
 
     @abstractmethod
@@ -48,7 +56,7 @@ class AbstractDataset(ItemGetter):
         fractions : List{float}
             A list of real values determining the relative size of each split.
         """
-        pass
+        pass # pragma: no cover
 
 
     @abstractmethod
@@ -60,7 +68,7 @@ class AbstractDataset(ItemGetter):
         fractions : num_per_class{int}
             Number of samples per class
         """
-        pass
+        pass # pragma: no cover
 
 
     @abstractmethod
@@ -72,7 +80,7 @@ class AbstractDataset(ItemGetter):
         fractions : {Subscriptable[float]}
             A list of real values determining the relative size of each split.
         """
-        pass
+        pass # pragma: no cover
 
 
     @abstractmethod
@@ -84,21 +92,21 @@ class AbstractDataset(ItemGetter):
         fractions : {Subscriptable[float]}
             A list of real values determining the relative size of each split.
         """
-        pass
+        pass # pragma: no cover
 
 
     # @abstractmethod
     # def center(self, mean=None) -> Dataset: #type: ignore
     #     """ Whiten the dataset
     #     """
-    #     pass
+    #     pass # pragma: no cover
 
 
     # @abstractmethod
     # def normalize(self, mean=None, std=None) -> Dataset: #type: ignore
     #     """ Normalize the dataset
     #     """
-    #     pass
+    #     pass # pragma: no cover
 
 
     # @abstractmethod
@@ -112,4 +120,4 @@ class AbstractDataset(ItemGetter):
     #     n_samples : int, optional
     #         [description], by default 1
     #     """
-    #     pass
+    #     pass # pragma: no cover

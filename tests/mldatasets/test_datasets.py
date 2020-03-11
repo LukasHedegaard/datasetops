@@ -1,6 +1,6 @@
 
 from mldatasets.loaders import FunctionDataset
-from mldatasets.dataset import Dataset, _DEFAULT_SHAPE
+from mldatasets.dataset import Dataset, reshape, _DEFAULT_SHAPE
 import pytest
 import numpy as np
 
@@ -152,30 +152,36 @@ def test_reshape():
     assert(ds_r.shape == ( DUMMY_NUMPY_DATA_SHAPE_2D, _DEFAULT_SHAPE) )
     assert(ds_r[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_2D)
 
-    for (old_data, old_label), (new_data, new_label) in zip(items, items_r):
+    for (old_data, _), (new_data, _) in zip(items, items_r):
         assert(set(old_data) == set(new_data.flatten()))
         assert(old_data.shape != new_data.shape)
 
     # use wildcard
     ds_wild = ds.reshape((-1,DUMMY_NUMPY_DATA_SHAPE_2D[1]))
     items_wild = [x for x in ds_wild]
-    for (old_data, old_label), (new_data, new_label) in zip(items_r, items_wild):
+    for (old_data, _), (new_data, _) in zip(items_r, items_wild):
         assert(np.array_equal(old_data, new_data))
 
     # reshape back, alternative syntax
     ds_back = ds_r.reshape((DUMMY_NUMPY_DATA_SHAPE_1D,), None)
     items_back = [x for x in ds_back]
 
-    for (old_data, old_label), (new_data, new_label) in zip(items, items_back):
+    for (old_data, _), (new_data, _) in zip(items, items_back):
+        assert(np.array_equal(old_data, new_data))
+
+    # yet another syntax
+    ds_trans = ds.transform(reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    items_trans = [x for x in ds_trans]
+    for (old_data, _), (new_data, _) in zip(items_r, items_trans):
         assert(np.array_equal(old_data, new_data))
 
     # doing nothing also works
     ds_dummy = ds.reshape(None, None)
     items_dummy = [x for x in ds_dummy]
-    for (old_data, old_label), (new_data, new_label) in zip(items, items_dummy):
+    for (old_data, _), (new_data, _) in zip(items, items_dummy):
         assert(np.array_equal(old_data, new_data))
 
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         ds.reshape() # No input
     
     with pytest.raises(ValueError):
@@ -183,3 +189,35 @@ def test_reshape():
 
     with pytest.raises(ValueError):
         ds.reshape((13,13)) # Dimensions don't match
+
+
+def test_item_naming():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+    assert(ds.item_names == [])
+
+    item_names = ['mydata', 'mylabel']
+
+    # named transform syntax doesn't work without item_names
+    with pytest.raises(Exception):
+        ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+    # passed one by one as arguments
+    ds.set_item_names(*item_names)
+    assert(ds.item_names == item_names)
+
+    # passed in a list
+    item_names2 = ['moddata', 'modlabel']
+    ds.set_item_names(item_names2) #type: ignore
+    assert(ds.item_names == item_names2)
+
+    # test named transform syntax
+    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    items_trans = [x for x in ds_trans]
+    for (old_data, _), (new_data, _) in zip(items, items_trans):
+        assert(set(old_data) == set(new_data.flatten()))
+        assert(old_data.shape != new_data.shape)
+
+    # invalid name doesn't work
+    with pytest.raises(Exception):
+        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))

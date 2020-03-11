@@ -1,34 +1,87 @@
 import random
 from mldatasets.abstract import ItemGetter, AbstractDataset
 from mldatasets.types import *
+# import mldatasets.transforms as tfm
 import numpy as np
 import warnings
 import functools
 
+from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
+from mldatasets.abstract import AbstractDataset
+from pathlib import Path
+
+########## Types ####################
+Shape = Sequence[int]
+IdIndex = int
+Id = int
+Ids = List[Id]
+Data = Any
+IdIndexSet = Dict[Any, List[IdIndex]]
+ItemTransformFn = Callable[[Any],Any]
+DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
+AnyPath = Union[str, Path]
+
+########## Defaults ####################
+
 _DEFAULT_SHAPE = (1,)
+
+
+########## Defaults ####################
+def warn_no_args(skip=0):
+    def with_args(fn):
+        @functools.wraps(fn)
+        def wrapped(*args, **kwargs):
+            if len(args) + len(kwargs) <= skip:
+                warnings.warn('Too few args passed to {}'.format(fn.__code__))
+            return fn(*args, **kwargs)
+        return wrapped
+    return with_args
+
+
+########## Dataset ####################
 
 class Dataset(AbstractDataset):
     """ Contains information on how to access the raw data, and performs sampling and splitting related operations.
         Notes on internal data representation:
             self._ids contains the identifiers that are use to grab the downstream data
             self._classwise_id_inds are the classwise sorted indexes of self._ids (not the ids themselves)
+            naming: an `item` is a single datapoint, containing multiple `elements` (e.g. np.array and label)
     """
 
-    def __init__(self, downstream_getter:ItemGetter, name:str=None, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None):
+    def __init__(self, 
+        downstream_getter:Union[ItemGetter,'Dataset'], 
+        name:str=None, 
+        ids:Ids=None, 
+        classwise_id_refs:IdIndexSet=None, 
+        item_transform_fn:ItemTransformFn=lambda x: x
+    ):
         """Initialise
         
         Keyword Arguments:
             downstream_getter {ItemGetter} -- Any object which implements the __getitem__ function (default: {None})
+            name {str} -- A name for the dataset
             ids {Ids} -- List of ids used in the downstream_getter (default: {None})
             classwise_id_refs {IdIndexSet} -- Classwise sorted indexes of the ids, NB: not the ids, but their indexes (default: {None})
+            item_transform_fn: {Calleable} -- a function
         """
         self._downstream_getter = downstream_getter
-        self._ids = []
-        self._classwise_id_inds = {}
-        self._item_transform_fn = item_transform_fn or (lambda x: x)
+        
+        if type(downstream_getter) == Dataset or issubclass(type(downstream_getter), Dataset):
+            self._ids = self._downstream_getter._ids                                #type: ignore
+            self._classwise_id_inds = self._downstream_getter._classwise_id_inds    #type: ignore
+            self.name = self._downstream_getter.name                            #type: ignore
+        else:
+            self._ids = []
+            self._classwise_id_inds = {}
+            self.name = ''
+
+        if name:
+            self.name = name
+
+        self._item_transform_fn = item_transform_fn
+
         self._shape = None
-        self.name = name
-        self._item_names = None 
+        self._item_names: Optional[Dict[str,int]] = None 
 
         if ids and classwise_id_refs:
             self._ids:Ids = ids
@@ -72,7 +125,7 @@ class Dataset(AbstractDataset):
         }
 
 
-    def sample(self, num: int, seed:int=None):
+    def sample(self, num:int, seed:int=None):
         if seed:
             random.seed(seed)
 
@@ -83,7 +136,7 @@ class Dataset(AbstractDataset):
         return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
 
 
-    def sample_classwise(self, num_per_class: int, seed:int=None):
+    def sample_classwise(self, num_per_class:int, seed:int=None):
         if seed:
             random.seed(seed)
 
@@ -165,8 +218,8 @@ class Dataset(AbstractDataset):
         return datasets
 
 
-    def _set_item_transform(self, transform_fn: Callable):
-        self._item_transform_fn = transform_fn
+    # def _set_item_transform(self, transform_fn: Callable):
+    #     self._item_transform_fn = transform_fn
 
 
     @staticmethod
@@ -193,12 +246,31 @@ class Dataset(AbstractDataset):
         return new_classwise_id_inds
 
 
-    def set_item_names(self, *names: str):
+    def set_item_names(self, first:Union[str, Sequence[str]], *rest:str):
+        
+        names:List[str] = []
+
+        if type(first) == str:
+            names.append(first) #type: ignore
+        else:
+            assert(type(first) is list)
+            assert(type(first[0]) is str)
+            names = first #type: ignore
+
+        names.extend(rest)
+
         assert(len(names) <= len(self.shape))
         self._item_names = {
             n: i
             for i, n in enumerate(names)
         }
+
+    @property
+    def item_names(self) -> List[str]:
+        if self._item_names:
+            return list(self._item_names.keys())
+        else:
+            return []
 
 
     def _itemname2ind(self, name:str) -> int:
@@ -209,79 +281,156 @@ class Dataset(AbstractDataset):
 
     ########## Methods relating to numpy data #########################
 
-    def transform(self, *fns: TransformFn, **kwfns: TransformFn):
+    def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
+
+        if len(fns) + len(kwfns) > len(self.shape):
+            raise ValueError("More transforms ({}) given than can be performed on item with {} elements".format(len(fns) + len(kwfns), len(self.shape)))
 
         new_dataset: AbstractDataset = self
 
-        for i, f in enumerate(fns):
-            new_dataset = f(i, new_dataset)
+        for i, f in enumerate(fns): #type:ignore
+            if f:
+                new_dataset = f(i, new_dataset)
 
         for k, f in kwfns.items():
-            new_dataset = f(self._itemname2ind(k), new_dataset)
+            if f:
+                new_dataset = f(self._itemname2ind(k), new_dataset)
 
         return new_dataset
 
     
+    # def reshape(self, *new_shapes:Optional[Shape]):
+    #     """ Reshape the data
+        
+    #     Raises:
+    #         ValueError: If no new_shapes are given
+    #         ValueError: If too many new shapes are given
+    #         ValueError: If shapes cannot be matched
+        
+    #     Returns:
+    #         TensorDataset -- Dataset with reshaped elements
+    #     """
+    #     if len(new_shapes) > len(self.shape):
+    #         raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Too many input shapes given".format(self.shape, new_shapes))
+
+    #     if len(new_shapes) == 0:
+    #         raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. No target shape given".format(self.shape, new_shapes))
+
+    #     transform_fns = []
+
+    #     for old_shape, new_shape in zip(self.shape, new_shapes):
+    #         if new_shape is None:
+    #             transform_fns.append(lambda x: x)
+    #             continue
+            
+    #         if np.prod(old_shape) != np.prod(new_shape) and not (-1 in new_shape): #type:ignore
+    #             raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(old_shape, new_shape))
+            
+    #         transform_fns.append(functools.partial(np.reshape, newshape=new_shape))
+
+    #     # ensure that len(transform_fns) == len(self.shape)
+    #     for _ in range(len(self.shape)-len(transform_fns)):
+    #         transform_fns.append(lambda x: x)
+
+    #     def item_transform_fn(item: Any):
+    #         nonlocal transform_fns
+    #         transformed_item = tuple([
+    #             fn(x) for fn, x in zip(transform_fns, item)
+    #         ])
+    #         return transformed_item
+
+    #     return Dataset(
+    #         downstream_getter=self, 
+    #         ids=self._ids, 
+    #         classwise_id_refs=self._classwise_id_inds, 
+    #         item_transform_fn=item_transform_fn,
+    #         name=self.name
+    #     )
+
+
+    def _check_transform_args(self, *args):
+        if len(self.shape) < len(args):
+            raise ValueError("Unable to perform transform: Too many arguments given")
+        if len(args) == 0:
+            raise ValueError("Unable to perform transform: No arguments arguments given")
+
+    
+    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFn, args:Tuple[Any]):
+        self._check_transform_args(args)
+
+        return self.transform(*[
+            transform_fn(a) if a is not None else None #type:ignore
+            for a in args
+        ])
+
+    @warn_no_args(skip=1)
     def reshape(self, *new_shapes:Optional[Shape]):
-        """ Reshape the data
-        
-        Raises:
-            ValueError: If no new_shapes are given
-            ValueError: If too many new shapes are given
-            ValueError: If shapes cannot be matched
-        
-        Returns:
-            TensorDataset -- Dataset with reshaped elements
-        """
-        if len(new_shapes) > len(self.shape):
-            raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Too many input shapes given".format(self.shape, new_shapes))
-
-        if len(new_shapes) == 0:
-            raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. No target shape given".format(self.shape, new_shapes))
-
-        transform_fns = []
-
-        for old_shape, new_shape in zip(self.shape, new_shapes):
-            if new_shape is None:
-                transform_fns.append(lambda x: x)
-                continue
-            
-            if np.prod(old_shape) != np.prod(new_shape) and not (-1 in new_shape): #type:ignore
-                raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(old_shape, new_shape))
-            
-            transform_fns.append(functools.partial(np.reshape, newshape=new_shape))
-
-        # ensure that len(transform_fns) == len(self.shape)
-        for _ in range(len(self.shape)-len(transform_fns)):
-            transform_fns.append(lambda x: x)
-
-        def item_transform_fn(item: Any):
-            nonlocal transform_fns
-            transformed_item = tuple([
-                fn(x) for fn, x in zip(transform_fns, item)
-            ])
-            return transformed_item
-
-        return Dataset(
-            downstream_getter=self, 
-            ids=self._ids, 
-            classwise_id_refs=self._classwise_id_inds, 
-            item_transform_fn=item_transform_fn,
-            name=self.name
-        )
+        return self._optional_argument_indexed_transform(transform_fn=reshape, args=new_shapes) #type: ignore
 
 
-    def scale(self, scaler):
-        pass
+
+    # def scale(self, scaler):
+    #     pass
 
 
-    def add_noise(self, noise):
-        pass
+    # def add_noise(self, noise):
+    #     pass
 
     ########## Methods below assume data is an image ##########
 
-    def im_transform(self, transform):
-        pass
+    # def im_transform(self, transform):
+    #     pass
 
-    def im_filter(self, filter_fn):
-        pass
+    # def im_filter(self, filter_fn):
+    #     pass
+
+
+########## Handy decorators ####################
+
+def _dataset_element_transforming(fn:Callable, check:Callable=None):
+    """ Applies the function to dataset item elements """
+
+    # @functools.wraps(fn)
+    def wrapped(idx:int, ds:AbstractDataset) -> AbstractDataset:
+
+        if check:
+            # grab an item and check its elements
+            for i, elem in enumerate(ds[0]):
+                if i == idx:
+                    check(elem)
+
+        def item_transform_fn(item:Sequence):
+            return tuple([
+                fn(elem) if i == idx else elem
+                for i, elem in enumerate(item)
+            ])
+
+        return Dataset(
+            downstream_getter=ds, 
+            item_transform_fn=item_transform_fn,
+        )
+
+    return wrapped
+
+
+def _check_shape_compatibility(shape:Shape):
+    def check(elem):
+        if not hasattr(elem, 'shape'):
+            raise ValueError('{} needs a shape attribute for shape compatibility to be checked'.format(elem))
+
+        if (
+            np.prod(elem.shape) != np.prod(shape) #type: ignore
+            and not (-1 in shape) 
+        ) or any([s > np.prod(elem.shape) for s in shape]) :
+            raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(elem.shape, shape))
+
+    return check
+
+
+########## Transform implementations ####################
+
+def reshape(new_shape:Shape):
+    return _dataset_element_transforming(
+        fn=functools.partial(np.reshape, newshape=(new_shape)), #type: ignore
+        check=_check_shape_compatibility(new_shape)
+    )
