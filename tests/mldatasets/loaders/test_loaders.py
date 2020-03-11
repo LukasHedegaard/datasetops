@@ -1,6 +1,6 @@
 from pathlib import Path
 import mldatasets.loaders as loaders
-
+import random
 from pathlib import Path
 from enum import Enum
 
@@ -22,7 +22,7 @@ def get_test_dataset_path(dataset_enum: TestDatasets) -> str:
 def test_folder_data():
     path = get_test_dataset_path(TestDatasets.FOLDER_DATA)
 
-    expected_items = [str(Path(path)/f'frame_000{i}.jpg') for i in range(1,7)]
+    expected_items = [str(Path(path)/'frame_000{}.jpg'.format(i)) for i in range(1,7)]
 
     ds = loaders.load_folder_data(path)
     found_items = [i for i in ds]
@@ -61,6 +61,26 @@ def test_folder_dataset_class_data():
         assert(any([expected_items_set == found_items for found_items in sets_of_found_items]))
 
 
-# def mat_single_with_multi_data():
-#     path = get_test_dataset_path(TestDatasets.MAT_SINGLE_WITH_MULTI_DATA)
-#     assert(False)
+def test_mat_single_with_multi_data():
+    path = get_test_dataset_path(TestDatasets.MAT_SINGLE_WITH_MULTI_DATA)
+
+    datasets = loaders.load_mat_single_mult_data(path)
+
+    for ds in datasets:
+        # check dataset sizes and names
+        if ds.name == 'src':
+            assert(len(ds) == 2000)
+        elif ds.name == 'tar':
+            assert(len(ds) == 1800)
+        else:
+            assert(False)
+
+        # randomly check some samples for their dimension
+        ids = random.sample(range(len(ds)), 42)
+        class_names = ds.class_names()
+        for i in ids:
+            data, label = ds[i]
+
+            assert(data.shape == (256,))
+            assert(str(int(label)) in class_names)
+
