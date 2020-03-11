@@ -1,13 +1,20 @@
 import random
 from mldatasets.datasets.abstract import ItemGetter, AbstractDataset
-from typing import Callable, Dict, Union, Any, Optional, List, Tuple, Type, TypeVar
+from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
+import numpy as np
+import warnings
+import functools
 
 # types
+Shape = Sequence[int]
 IdIndex = int
 Id = int
 Ids = List[Id]
 Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
+TransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
+
+_DEFAULT_SHAPE = (1,)
 
 class Dataset(AbstractDataset):
     """ Contains information on how to access the raw data, and performs sampling and splitting related operations.
@@ -16,7 +23,7 @@ class Dataset(AbstractDataset):
             self._classwise_id_inds are the classwise sorted indexes of self._ids (not the ids themselves)
     """
 
-    def __init__(self, downstream_getter:ItemGetter, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None):
+    def __init__(self, downstream_getter:ItemGetter, ids:Ids=None, classwise_id_refs:IdIndexSet=None, item_transform_fn:Callable=None, name:str=None):
         """Initialise
         
         Keyword Arguments:
@@ -28,6 +35,9 @@ class Dataset(AbstractDataset):
         self._ids = []
         self._classwise_id_inds = {}
         self._item_transform_fn = item_transform_fn or (lambda x: x)
+        self._shape = None
+        self.name = name
+        self._item_names = None 
 
         if ids and classwise_id_refs:
             self._ids:Ids = ids
@@ -45,6 +55,19 @@ class Dataset(AbstractDataset):
     def __iter__(self):
         for i in range(self.__len__()):
             yield self.__getitem__(i)
+
+
+    @property
+    def shape(self):
+        if not self._shape:
+            item = self.__getitem__(0)
+            if hasattr(item, '__getitem__'):
+                item_shape = tuple([getattr(s, "shape", _DEFAULT_SHAPE) for s in item])
+            else:
+                item_shape = _DEFAULT_SHAPE
+            self._shape = item_shape
+
+        return self._shape
     
 
     def class_names(self) -> List[str]:
@@ -166,12 +189,12 @@ class Dataset(AbstractDataset):
             self._classwise_id_inds[label].append(i_new)
 
 
-    def _extend(self, ids:List[Data], label:Optional[str]=None):
+    def _extend(self, ids:Union[List[Data], np.ndarray], label:Optional[str]=None):
         i_lo = len(self._ids)
         i_hi = i_lo + len(ids)
         l_new = list(range(i_lo, i_hi))
 
-        self._ids.extend(ids)
+        self._ids.extend(list(ids))
 
         if not label in self._classwise_id_inds:
             self._classwise_id_inds[label] = l_new
@@ -201,3 +224,97 @@ class Dataset(AbstractDataset):
                     new_classwise_id_inds[k].append(i)
 
         return new_classwise_id_inds
+
+
+    def set_item_names(self, *names: str):
+        assert(len(names) <= len(self.shape))
+        self._item_names = {
+            n: i
+            for i, n in enumerate(names)
+        }
+
+
+    def _itemname2ind(self, name:str) -> int:
+        if not self._item_names:
+            raise ValueError("Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`")
+        return self._item_names[name]
+    
+
+    ########## Methods relating to numpy data #########################
+
+    def transform(self, *fns: TransformFn, **kwfns: TransformFn):
+
+        new_dataset: AbstractDataset = self
+
+        for i, f in enumerate(fns):
+            new_dataset = f(i, new_dataset)
+
+        for k, f in kwfns.items():
+            new_dataset = f(self._itemname2ind(k), new_dataset)
+
+        return new_dataset
+
+    
+    def reshape(self, *new_shapes:Optional[Shape]):
+        """ Reshape the data
+        
+        Raises:
+            ValueError: If no new_shapes are given
+            ValueError: If too many new shapes are given
+            ValueError: If shapes cannot be matched
+        
+        Returns:
+            TensorDataset -- Dataset with reshaped elements
+        """
+        if len(new_shapes) > len(self.shape):
+            raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Too many input shapes given".format(self.shape, new_shapes))
+
+        if len(new_shapes) == 0:
+            raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. No target shape given".format(self.shape, new_shapes))
+
+        transform_fns = []
+
+        for old_shape, new_shape in zip(self.shape, new_shapes):
+            if new_shape is None:
+                transform_fns.append(lambda x: x)
+                continue
+            
+            if np.prod(old_shape) != np.prod(new_shape) and not (-1 in new_shape): #type:ignore
+                raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(old_shape, new_shape))
+            
+            transform_fns.append(functools.partial(np.reshape, newshape=new_shape))
+
+        # ensure that len(transform_fns) == len(self.shape)
+        for _ in range(len(self.shape)-len(transform_fns)):
+            transform_fns.append(lambda x: x)
+
+        def item_transform_fn(item: Any):
+            nonlocal transform_fns
+            transformed_item = tuple([
+                fn(x) for fn, x in zip(transform_fns, item)
+            ])
+            return transformed_item
+
+        return Dataset(
+            downstream_getter=self, 
+            ids=self._ids, 
+            classwise_id_refs=self._classwise_id_inds, 
+            item_transform_fn=item_transform_fn,
+            name=self.name
+        )
+
+
+    def scale(self, scaler):
+        pass
+
+
+    def add_noise(self, noise):
+        pass
+
+    ########## Methods below assume data is an image ##########
+
+    def im_transform(self, transform):
+        pass
+
+    def im_filter(self, filter_fn):
+        pass

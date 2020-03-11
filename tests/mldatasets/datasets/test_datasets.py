@@ -1,6 +1,8 @@
 
 from mldatasets.loaders import DataGetter
-from mldatasets.datasets.dataset import Dataset
+from mldatasets.datasets.dataset import Dataset, _DEFAULT_SHAPE
+import pytest
+import numpy as np
 
 def load_dummy_data() -> Dataset:
 
@@ -32,7 +34,7 @@ def test_shuffle():
     seed = 42
     ds = load_dummy_data()
     expected_items = [i for i in ds]
-    ds_shuffled = ds.shuffle()
+    ds_shuffled = ds.shuffle(seed)
     found_items = [i for i in ds_shuffled]
 
     # same data
@@ -105,3 +107,83 @@ def test_split():
     assert(set(ds2) == set(ds2w))
     assert(set(ds3) == set(ds3w))
 
+
+
+########## Tests relating to numpy data #########################
+
+DUMMY_NUMPY_DATA_SHAPE_2D = (4,4)
+DUMMY_NUMPY_DATA_SHAPE_1D = 4*4
+
+def load_dummy_numpy_data() -> Dataset:
+
+    a_ids = list(range(5))
+    b_ids = list(range(5,11))
+    # labels = [
+    #     *[np.array([1]) for _ in a_ids],
+    #     *[np.array([2]) for _ in b_ids]
+    # ]
+    labels = [
+        *[1 for _ in a_ids],
+        *[2 for _ in b_ids]
+    ]
+
+    num_samples = len(a_ids)+len(b_ids)
+    data = np.arange(num_samples*DUMMY_NUMPY_DATA_SHAPE_1D).reshape((num_samples, DUMMY_NUMPY_DATA_SHAPE_1D))
+
+    def get_data(idx):
+        return data[idx], labels[idx]
+
+    datagetter = DataGetter(get_data)
+
+    ds = Dataset(downstream_getter=datagetter)
+    ds._extend(a_ids, '1')
+    ds._extend(b_ids, '2')
+    return ds
+
+
+def test_reshape():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+
+    s = ds.shape
+    assert(ds.shape == ((DUMMY_NUMPY_DATA_SHAPE_1D,), _DEFAULT_SHAPE) )
+    assert(ds[0][0].shape == (DUMMY_NUMPY_DATA_SHAPE_1D,))
+
+    # reshape adding extra dim
+    ds_r = ds.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    items_r = [x for x in ds_r]
+
+    assert(ds_r.shape == ( DUMMY_NUMPY_DATA_SHAPE_2D, _DEFAULT_SHAPE) )
+    assert(ds_r[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_2D)
+
+    for (old_data, old_label), (new_data, new_label) in zip(items, items_r):
+        assert(set(old_data) == set(new_data.flatten()))
+        assert(old_data.shape != new_data.shape)
+
+    # use wildcard
+    ds_wild = ds.reshape((-1,DUMMY_NUMPY_DATA_SHAPE_2D[1]))
+    items_wild = [x for x in ds_wild]
+    for (old_data, old_label), (new_data, new_label) in zip(items_r, items_wild):
+        assert(np.array_equal(old_data, new_data))
+
+    # reshape back, alternative syntax
+    ds_back = ds_r.reshape((DUMMY_NUMPY_DATA_SHAPE_1D,), None)
+    items_back = [x for x in ds_back]
+
+    for (old_data, old_label), (new_data, new_label) in zip(items, items_back):
+        assert(np.array_equal(old_data, new_data))
+
+    # doing nothing also works
+    ds_dummy = ds.reshape(None, None)
+    items_dummy = [x for x in ds_dummy]
+    for (old_data, old_label), (new_data, new_label) in zip(items, items_dummy):
+        assert(np.array_equal(old_data, new_data))
+
+    with pytest.raises(ValueError):
+        ds.reshape() # No input
+    
+    with pytest.raises(ValueError):
+        ds.reshape(None, None, None) # Too many inputs
+
+    with pytest.raises(ValueError):
+        ds.reshape((13,13)) # Dimensions don't match
