@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import sys
 import os
+from typing import List
 sys.path.append(os.path.dirname(__file__))
 from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
 
@@ -115,8 +116,9 @@ def test_split():
 
 ########## Tests relating to numpy data #########################
 
-DUMMY_NUMPY_DATA_SHAPE_2D = (4,4)
-DUMMY_NUMPY_DATA_SHAPE_1D = 4*4
+DUMMY_NUMPY_DATA_SHAPE_1D = 18
+DUMMY_NUMPY_DATA_SHAPE_2D = (6,3)
+DUMMY_NUMPY_DATA_SHAPE_3D = (2,3,3)
 
 def load_dummy_numpy_data() -> FunctionDataset:
 
@@ -138,6 +140,37 @@ def load_dummy_numpy_data() -> FunctionDataset:
     ds._extend(a_ids, '1')
     ds._extend(b_ids, '2')
     return ds
+
+
+def test_shape():
+
+    def get_data(i):
+        return i,i
+
+    # no shape yet
+    ds = FunctionDataset(get_data)
+    assert(ds.shape == _DEFAULT_SHAPE)
+
+    # shape given
+    ds._append(1)
+    assert(ds.shape == (_DEFAULT_SHAPE, _DEFAULT_SHAPE))
+
+    # numpy data
+    ds_np = load_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    assert( ds_np.shape == (DUMMY_NUMPY_DATA_SHAPE_2D,_DEFAULT_SHAPE) )
+
+    # changed to new size
+    IMG_SIZE = (6,6)
+    ds_img = ds_np.img_resize(IMG_SIZE)
+    assert( ds_img.shape == (IMG_SIZE,_DEFAULT_SHAPE) )
+
+    # image with three channels
+    DUMMY_NUMPY_DATA_SHAPE_3D
+    ds_np3 = ds_np.reshape(DUMMY_NUMPY_DATA_SHAPE_3D)
+    assert( ds_np3.shape == (DUMMY_NUMPY_DATA_SHAPE_3D,_DEFAULT_SHAPE) )
+
+    ds_img3 = ds_np3.img_resize(IMG_SIZE)
+    assert( ds_img3.shape == ((*IMG_SIZE,3),_DEFAULT_SHAPE) )
 
 
 def test_reshape():
@@ -184,14 +217,28 @@ def test_reshape():
     for (old_data, _), (new_data, _) in zip(items, items_dummy):
         assert(np.array_equal(old_data, new_data))
 
-    with pytest.warns(UserWarning):
-        ds.reshape() # No input
-    
-    with pytest.raises(ValueError):
-        ds.reshape(None, None, None) # Too many inputs
+    # TODO test reshape on string data
+    ds_str = loaders.load_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
 
     with pytest.raises(ValueError):
-        ds.reshape((13,13)) # Dimensions don't match
+        # string has no shape 
+        ds_str.reshape((1,2))
+
+    with pytest.raises(ValueError):
+        # No input
+        ds.reshape() 
+
+    with pytest.raises(TypeError):
+        # bad input
+        ds.reshape('whazzagh') 
+    
+    with pytest.raises(ValueError):
+        # Too many inputs
+        ds.reshape(None, None, None) 
+
+    with pytest.raises(ValueError):
+        # Dimensions don't match
+        ds.reshape((13,13)) 
 
 
 def test_item_naming():
@@ -226,7 +273,7 @@ def test_item_naming():
         ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
 
-def test_custom_transform():
+def test_transform():
     ds = load_dummy_numpy_data()
     items = [x for x in ds]
 
@@ -244,6 +291,15 @@ def test_custom_transform():
     for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
         assert(np.array_equal(ldata, rdata))
         assert(llbl == rlbl)
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        # no args
+        ds.transform()
+    
+    with pytest.raises(ValueError): 
+        # too many transforms given
+        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
 
 
 ########## Tests relating to image data #########################
@@ -292,6 +348,13 @@ def test_numpy_image_numpy_conversion():
         assert(np.array_equal(one, two))
         assert(lbl1 == lbl2)
 
+    # well get a warning if it doens't convert any
+    with pytest.warns(UserWarning):
+        ds_img.as_numpy(False)
+
+
+    
+
 
 def test_string_image_conversion():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
@@ -305,7 +368,7 @@ def test_string_image_conversion():
         assert(issubclass(type(data), Image.Image))
 
 
-def test_resize():
+def test_image_resize():
     ds = load_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
     for tpl in ds:
         data = tpl[0]
@@ -341,7 +404,7 @@ def test_resize():
         assert(data.size == DUMMY_NUMPY_DATA_SHAPE_2D)
 
     # Test error scenarios
-    with pytest.warns(UserWarning):
+    with pytest.raises(ValueError):
         ds.img_resize() # No args
 
     with pytest.raises(ValueError):

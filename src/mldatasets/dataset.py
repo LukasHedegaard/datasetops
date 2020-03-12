@@ -25,10 +25,9 @@ AnyPath = Union[str, Path]
 
 ########## Defaults ####################
 
-_DEFAULT_SHAPE = (1,)
+_DEFAULT_SHAPE = tuple()
 
 
-########## Defaults ####################
 def warn_no_args(skip=0):
     def with_args(fn):
         @functools.wraps(fn)
@@ -38,7 +37,6 @@ def warn_no_args(skip=0):
             return fn(*args, **kwargs)
         return wrapped
     return with_args
-
 
 ########## Dataset ####################
 
@@ -53,7 +51,6 @@ class Dataset(AbstractDataset):
     def __init__(self, 
         downstream_getter:Union[ItemGetter,'Dataset'], 
         name:str=None, 
-        item_names:List[str]=None,
         ids:Ids=None, 
         classwise_id_refs:IdIndexSet=None, 
         item_transform_fn:ItemTransformFn=lambda x: x
@@ -81,9 +78,6 @@ class Dataset(AbstractDataset):
         if name:
             self.name = name
 
-        if item_names:
-            self.set_item_names(item_names)
-
         self._item_transform_fn = item_transform_fn
 
         self._shape = None
@@ -110,16 +104,25 @@ class Dataset(AbstractDataset):
 
     @property
     def shape(self):
-        if not self._shape:
-            item = self.__getitem__(0)
-            if hasattr(item, '__getitem__'):
-                # TODO: validate that this works with images as well
-                item_shape = tuple([getattr(s, "shape", _DEFAULT_SHAPE) for s in item])
-            else:
-                item_shape = _DEFAULT_SHAPE
-            self._shape = item_shape
 
-        return self._shape
+        if len(self) == 0:
+            return _DEFAULT_SHAPE
+        
+        item = self.__getitem__(0)
+        if hasattr(item, '__getitem__'):
+            item_shape = []
+            for i in item:
+                if hasattr(i, 'shape'): # numpy arrays
+                    item_shape.append(i.shape)
+                elif hasattr(i, 'size'): # PIL.Image.Image
+                    item_shape.append(np.array(i).shape)
+                else:
+                    item_shape.append(_DEFAULT_SHAPE)
+
+            return tuple(item_shape)
+
+        return _DEFAULT_SHAPE
+
     
 
     def class_names(self) -> List[str]:
@@ -282,7 +285,7 @@ class Dataset(AbstractDataset):
             raise ValueError("Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`")
         return self._item_names[name]
     
-
+    @warn_no_args(skip=1)
     def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
 
         if len(fns) + len(kwfns) > len(self.shape): # type:ignore
@@ -343,16 +346,12 @@ class Dataset(AbstractDataset):
 
 
     ########## Methods relating to numpy data #########################
-
-    def _check_transform_args(self, *args):
+    
+    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Tuple[Any]):
         if len(args) == 0:
             raise ValueError("Unable to perform transform: No arguments arguments given")
         if len(self.shape) < len(args):
             raise ValueError("Unable to perform transform: Too many arguments given")
-
-    
-    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Tuple[Any]):
-        self._check_transform_args(args)
 
         tfs = [
             transform_fn(a) if a else None 
@@ -361,7 +360,6 @@ class Dataset(AbstractDataset):
         return self.transform(*tfs) #type:ignore
 
 
-    @warn_no_args(skip=1)
     def reshape(self, *new_shapes:Optional[Shape]):
         return self._optional_argument_indexed_transform(transform_fn=reshape, args=new_shapes) 
 
@@ -375,7 +373,6 @@ class Dataset(AbstractDataset):
 
     ########## Methods below assume data is an image ##########
 
-    @warn_no_args(skip=1)
     def img_resize(self, *new_sizes:Optional[Shape]):
         return self._optional_argument_indexed_transform(transform_fn=img_resize, args=new_sizes) 
 

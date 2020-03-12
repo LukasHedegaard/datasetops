@@ -1,5 +1,4 @@
 from pathlib import Path
-from glob import glob
 from mldatasets.abstract import ItemGetter
 from scipy.io import loadmat
 from mldatasets.dataset import Dataset
@@ -7,10 +6,14 @@ from mldatasets.types import *
 from PIL import Image
 import numpy as np
 import re
+import warnings
 
 class FunctionDataset(Dataset):
 
-    def __init__(self, getdata:Callable[[Any], Any], name='function dataset'):
+    def __init__(self, 
+        getdata:Callable[[Any], Any], 
+        name:str=None,
+    ):
         class Getter(ItemGetter):
             def __getitem__(self, i:int):
                 return getdata(i)
@@ -112,7 +115,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys:List[str], label
     common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
-        print("Warning: More than one common shape found for mat dataset. Using the largest dimension as index") # TODO: setup propper warning system
+        warnings.warn("Warning: More than one common shape found for mat dataset. Using the largest dimension as index") 
 
     common_shape = max(common_shapes)
 
