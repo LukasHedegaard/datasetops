@@ -4,12 +4,12 @@ from pathlib import Path
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
-from testing_utils import get_test_dataset_path, TestDatasets # type:ignore
+from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
 
 # tests ##########################
 
 def test_folder_data():
-    path = get_test_dataset_path(TestDatasets.FOLDER_DATA)
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
 
     expected_items = [str(Path(path)/'frame_000{}.jpg'.format(i)) for i in range(1,7)]
 
@@ -20,7 +20,7 @@ def test_folder_data():
 
 
 def test_folder_class_data():
-    path = get_test_dataset_path(TestDatasets.FOLDER_CLASS_DATA)
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_CLASS_DATA)
 
     expected_items = [str(p) for p in Path(path).glob('*/*.jpg')]
 
@@ -32,7 +32,7 @@ def test_folder_class_data():
 
 
 def test_folder_dataset_class_data():
-    path = get_test_dataset_path(TestDatasets.FOLDER_DATASET_CLASS_DATA)
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_CLASS_DATA)
     sets = Path(path).glob('[!._]*')
 
     sets_of_expected_items = [
@@ -51,7 +51,7 @@ def test_folder_dataset_class_data():
 
 
 def test_mat_single_with_multi_data():
-    path = get_test_dataset_path(TestDatasets.MAT_SINGLE_WITH_MULTI_DATA)
+    path = get_test_dataset_path(DATASET_PATHS.MAT_SINGLE_WITH_MULTI_DATA)
 
     datasets = loaders.load_mat_single_mult_data(path)
 

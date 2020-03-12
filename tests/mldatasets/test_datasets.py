@@ -8,7 +8,7 @@ from PIL import Image
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
-from testing_utils import get_test_dataset_path, TestDatasets # type:ignore
+from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
 
 def load_dummy_data() -> FunctionDataset:
 
@@ -294,7 +294,7 @@ def test_numpy_image_numpy_conversion():
 
 
 def test_string_image_conversion():
-    path = get_test_dataset_path(TestDatasets.FOLDER_DATA)
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
     ds_str = loaders.load_folder_data(path)
 
     ds_img = ds_str.as_img()
@@ -328,7 +328,7 @@ def test_resize():
         assert(data.mode == 'F') # grayscale float
 
     # works directly on strings
-    ds_str = loaders.load_folder_data(get_test_dataset_path(TestDatasets.FOLDER_DATA))
+    ds_str = loaders.load_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
     ds_resized_from_str = ds_str.img_resize(NEW_SIZE)
     for tpl in ds_resized_from_str:
         data = tpl[0]
