@@ -283,3 +283,44 @@ def test_string_image_conversion():
     for data in items_img:
         data = data[0]
         assert(issubclass(type(data), Image.Image))
+
+
+def test_resize():
+    ds = load_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    for tpl in ds:
+        data = tpl[0]
+        assert(data.shape == DUMMY_NUMPY_DATA_SHAPE_2D)
+
+    NEW_SIZE = (5,5)
+
+    # works directly on numpy arrays (scaling up)
+    ds_resized = ds.img_resize(NEW_SIZE)
+    for tpl in ds_resized:
+        data = tpl[0]
+        assert(data.size == NEW_SIZE)
+
+    # works directly on strings
+    ds_str = loaders.load_folder_data(get_test_dataset_path(TestDatasets.FOLDER_DATA))
+    ds_resized_from_str = ds_str.img_resize(NEW_SIZE)
+    for tpl in ds_resized_from_str:
+        data = tpl[0]
+        assert(data.size == NEW_SIZE)
+
+    # works on other images (scaling down)
+    ds_resized_again = ds_resized.img_resize(DUMMY_NUMPY_DATA_SHAPE_2D)
+    for tpl in ds_resized_again:
+        data = tpl[0]
+        assert(data.size == DUMMY_NUMPY_DATA_SHAPE_2D)
+
+    # Test error scenarios
+    with pytest.warns(UserWarning):
+        ds.img_resize() # No args
+
+    with pytest.raises(ValueError):
+        ds.img_resize(NEW_SIZE, NEW_SIZE, NEW_SIZE) # Too many args
+
+    with pytest.raises(AssertionError):
+        ds.img_resize((4,4,4)) # Invalid size
+
+
+    

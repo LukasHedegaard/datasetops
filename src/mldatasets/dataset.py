@@ -346,10 +346,10 @@ class Dataset(AbstractDataset):
     ########## Methods relating to numpy data #########################
 
     def _check_transform_args(self, *args):
-        if len(self.shape) < len(args):
-            raise ValueError("Unable to perform transform: Too many arguments given")
         if len(args) == 0:
             raise ValueError("Unable to perform transform: No arguments arguments given")
+        if len(self.shape) < len(args):
+            raise ValueError("Unable to perform transform: Too many arguments given")
 
     
     def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Tuple[Any]):
@@ -430,7 +430,7 @@ def _check_shape_compatibility(shape:Shape):
 
 
 def convert2img(elem:Union[Image.Image, str, Path, np.ndarray]) -> Image.Image:
-    if type(elem) == Image:
+    if issubclass(type(elem), Image.Image):
         return elem
     
     if type(elem) in [str, Path]:
@@ -444,13 +444,6 @@ def convert2img(elem:Union[Image.Image, str, Path, np.ndarray]) -> Image.Image:
             return Image.fromarray(np.float32(elem))    # type:ignore
 
     raise ValueError("Unable to convert element {} to Image".format(elem))
-
-
-def image_converting(fn:Callable):
-    @functools.wraps(fn)
-    def wrapped(elem:Any): 
-        return convert2img(elem)
-    return wrapped
 
 
 def _check_image_compatibility(elem):
