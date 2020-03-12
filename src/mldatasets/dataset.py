@@ -3,6 +3,7 @@ from mldatasets.abstract import ItemGetter, AbstractDataset
 from mldatasets.types import *
 # import mldatasets.transforms as tfm
 import numpy as np
+from PIL import Image
 import warnings
 import functools
 
@@ -19,6 +20,7 @@ Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
 ItemTransformFn = Callable[[Any],Any]
 DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
+DatasetTransformFnCreator = Callable[[Any], DatasetTransformFn]
 AnyPath = Union[str, Path]
 
 ########## Defaults ####################
@@ -51,6 +53,7 @@ class Dataset(AbstractDataset):
     def __init__(self, 
         downstream_getter:Union[ItemGetter,'Dataset'], 
         name:str=None, 
+        item_names:List[str]=None,
         ids:Ids=None, 
         classwise_id_refs:IdIndexSet=None, 
         item_transform_fn:ItemTransformFn=lambda x: x
@@ -67,16 +70,19 @@ class Dataset(AbstractDataset):
         self._downstream_getter = downstream_getter
         
         if type(downstream_getter) == Dataset or issubclass(type(downstream_getter), Dataset):
-            self._ids = self._downstream_getter._ids                                #type: ignore
-            self._classwise_id_inds = self._downstream_getter._classwise_id_inds    #type: ignore
-            self.name = self._downstream_getter.name                            #type: ignore
+            self.name = self._downstream_getter.name                    #type: ignore
+            self._ids = list(range(len(self._downstream_getter._ids)))  #type: ignore
+            self._classwise_id_inds = self._make_classwise_id_ids(self._downstream_getter._classwise_id_inds, self._ids)  #type: ignore
         else:
+            self.name = ''
             self._ids = []
             self._classwise_id_inds = {}
-            self.name = ''
 
         if name:
             self.name = name
+
+        if item_names:
+            self.set_item_names(item_names)
 
         self._item_transform_fn = item_transform_fn
 
@@ -86,6 +92,7 @@ class Dataset(AbstractDataset):
         if ids and classwise_id_refs:
             self._ids:Ids = ids
             self._classwise_id_inds:IdIndexSet = classwise_id_refs
+            
 
 
     def __len__(self):
@@ -106,6 +113,7 @@ class Dataset(AbstractDataset):
         if not self._shape:
             item = self.__getitem__(0)
             if hasattr(item, '__getitem__'):
+                # TODO: validate that this works with images as well
                 item_shape = tuple([getattr(s, "shape", _DEFAULT_SHAPE) for s in item])
             else:
                 item_shape = _DEFAULT_SHAPE
@@ -279,8 +287,6 @@ class Dataset(AbstractDataset):
         return self._item_names[name]
     
 
-    ########## Methods relating to numpy data #########################
-
     def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
 
         if len(fns) + len(kwfns) > len(self.shape):
@@ -298,55 +304,46 @@ class Dataset(AbstractDataset):
 
         return new_dataset
 
+
+    ########## Conversion methods #########################
+
+    def as_img(self, *positional_flags:Any):
+        if len(positional_flags) == 0:
+            # convert all that can be converted
+            positional_flags = []
+            for elem in self.__getitem__(0):
+                try:
+                    _check_image_compatibility(elem)
+                    positional_flags.append(True) # didn't raise error
+                except:
+                    positional_flags.append(False)
+                   
+        if any(positional_flags):
+            return self._optional_argument_indexed_transform(transform_fn=as_img, args=positional_flags)       
+        else: 
+            warnings.warn('Conversion to image skipped. No elements were compatible')
+            return self
+
     
-    # def reshape(self, *new_shapes:Optional[Shape]):
-    #     """ Reshape the data
-        
-    #     Raises:
-    #         ValueError: If no new_shapes are given
-    #         ValueError: If too many new shapes are given
-    #         ValueError: If shapes cannot be matched
-        
-    #     Returns:
-    #         TensorDataset -- Dataset with reshaped elements
-    #     """
-    #     if len(new_shapes) > len(self.shape):
-    #         raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Too many input shapes given".format(self.shape, new_shapes))
+    def as_numpy(self, *positional_flags:Any):
+        if len(positional_flags) == 0:
+            # convert all that can be converted
+            positional_flags = []
+            for elem in self.__getitem__(0):
+                try:
+                    _check_numpy_compatibility(elem)
+                    positional_flags.append(True) # didn't raise error
+                except:
+                    positional_flags.append(False)
+                   
+        if any(positional_flags):
+            return self._optional_argument_indexed_transform(transform_fn=as_numpy, args=positional_flags)       
+        else: 
+            warnings.warn('Conversion to numpy.array skipped. No elements were compatible')
+            return self
 
-    #     if len(new_shapes) == 0:
-    #         raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. No target shape given".format(self.shape, new_shapes))
 
-    #     transform_fns = []
-
-    #     for old_shape, new_shape in zip(self.shape, new_shapes):
-    #         if new_shape is None:
-    #             transform_fns.append(lambda x: x)
-    #             continue
-            
-    #         if np.prod(old_shape) != np.prod(new_shape) and not (-1 in new_shape): #type:ignore
-    #             raise ValueError("Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(old_shape, new_shape))
-            
-    #         transform_fns.append(functools.partial(np.reshape, newshape=new_shape))
-
-    #     # ensure that len(transform_fns) == len(self.shape)
-    #     for _ in range(len(self.shape)-len(transform_fns)):
-    #         transform_fns.append(lambda x: x)
-
-    #     def item_transform_fn(item: Any):
-    #         nonlocal transform_fns
-    #         transformed_item = tuple([
-    #             fn(x) for fn, x in zip(transform_fns, item)
-    #         ])
-    #         return transformed_item
-
-    #     return Dataset(
-    #         downstream_getter=self, 
-    #         ids=self._ids, 
-    #         classwise_id_refs=self._classwise_id_inds, 
-    #         item_transform_fn=item_transform_fn,
-    #         name=self.name
-    #     )
-
+    ########## Methods relating to numpy data #########################
 
     def _check_transform_args(self, *args):
         if len(self.shape) < len(args):
@@ -355,18 +352,19 @@ class Dataset(AbstractDataset):
             raise ValueError("Unable to perform transform: No arguments arguments given")
 
     
-    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFn, args:Tuple[Any]):
+    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Tuple[Any]):
         self._check_transform_args(args)
 
-        return self.transform(*[
-            transform_fn(a) if a is not None else None #type:ignore
+        tfs = [
+            transform_fn(a) if a else None 
             for a in args
-        ])
+        ]
+        return self.transform(*tfs) #type:ignore
+
 
     @warn_no_args(skip=1)
     def reshape(self, *new_shapes:Optional[Shape]):
-        return self._optional_argument_indexed_transform(transform_fn=reshape, args=new_shapes) #type: ignore
-
+        return self._optional_argument_indexed_transform(transform_fn=reshape, args=new_shapes) 
 
 
     # def scale(self, scaler):
@@ -378,10 +376,14 @@ class Dataset(AbstractDataset):
 
     ########## Methods below assume data is an image ##########
 
-    # def im_transform(self, transform):
+    @warn_no_args(skip=1)
+    def img_resize(self, *new_sizes:Optional[Shape]):
+        return self._optional_argument_indexed_transform(transform_fn=img_resize, args=new_sizes) 
+
+    # def img_transform(self, transform):
     #     pass
 
-    # def im_filter(self, filter_fn):
+    # def img_filter(self, filter_fn):
     #     pass
 
 
@@ -427,10 +429,69 @@ def _check_shape_compatibility(shape:Shape):
     return check
 
 
+def convert2img(elem:Union[Image.Image, str, Path, np.ndarray]) -> Image.Image:
+    if type(elem) == Image:
+        return elem
+    
+    if type(elem) in [str, Path]:
+        if Path(elem).is_file(): #type: ignore
+            return Image.open(elem)
+
+    if type(elem) == np.ndarray:
+        if issubclass(elem.dtype.type, np.integer):     # type:ignore
+            return Image.fromarray(np.uint8(elem))      # type:ignore
+        elif issubclass(elem.dtype.type, np.floating):  # type:ignore
+            return Image.fromarray(np.float32(elem))    # type:ignore
+
+    raise ValueError("Unable to convert element {} to Image".format(elem))
+
+
+def image_converting(fn:Callable):
+    @functools.wraps(fn)
+    def wrapped(elem:Any): 
+        return convert2img(elem)
+    return wrapped
+
+
+def _check_image_compatibility(elem):
+    # check if this raises an Exception
+    convert2img(elem)
+
+
+def _check_numpy_compatibility(elem):
+    # skip simple datatypes such as int and float as well
+    if type(elem) in [dict, str, int, float]:
+        raise ValueError("Unable to convert element {} to numpy".format(elem))
+    # check if this raises an Exception
+    np.array(elem)
+
+
 ########## Transform implementations ####################
 
-def reshape(new_shape:Shape):
+def reshape(new_shape:Shape) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=functools.partial(np.reshape, newshape=(new_shape)), #type: ignore
         check=_check_shape_compatibility(new_shape)
+    )
+
+
+def as_img(dummy_input=None) -> DatasetTransformFn:
+    return _dataset_element_transforming(
+        fn=convert2img,
+        check=_check_image_compatibility
+    )
+
+
+def as_numpy(dummy_input=None) -> DatasetTransformFn:
+    return _dataset_element_transforming(
+        fn=np.array,
+        check=_check_numpy_compatibility
+    )
+
+
+def img_resize(new_size:Shape, resample=Image.NEAREST) -> DatasetTransformFn:
+    assert(len(new_size)==2)
+    return _dataset_element_transforming(
+        fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
+        check=_check_image_compatibility
     )

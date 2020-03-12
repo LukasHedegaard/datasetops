@@ -1,8 +1,14 @@
 
-from mldatasets.loaders import FunctionDataset
 from mldatasets.dataset import Dataset, reshape, _DEFAULT_SHAPE
+from mldatasets.loaders import FunctionDataset
+import mldatasets.loaders as loaders
 import pytest
 import numpy as np
+from PIL import Image
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+from testing_utils import get_test_dataset_path, TestDatasets # type:ignore
 
 def load_dummy_data() -> FunctionDataset:
 
@@ -116,10 +122,6 @@ def load_dummy_numpy_data() -> FunctionDataset:
 
     a_ids = list(range(5))
     b_ids = list(range(5,11))
-    # labels = [
-    #     *[np.array([1]) for _ in a_ids],
-    #     *[np.array([2]) for _ in b_ids]
-    # ]
     labels = [
         *[1 for _ in a_ids],
         *[2 for _ in b_ids]
@@ -127,6 +129,7 @@ def load_dummy_numpy_data() -> FunctionDataset:
 
     num_samples = len(a_ids)+len(b_ids)
     data = np.arange(num_samples*DUMMY_NUMPY_DATA_SHAPE_1D).reshape((num_samples, DUMMY_NUMPY_DATA_SHAPE_1D))
+    # data = data / data.max()
 
     def get_data(idx):
         return data[idx], labels[idx]
@@ -206,7 +209,7 @@ def test_item_naming():
     ds.set_item_names(*item_names)
     assert(ds.item_names == item_names)
 
-    # passed in a list
+    # passed in a list, overide previous
     item_names2 = ['moddata', 'modlabel']
     ds.set_item_names(item_names2) #type: ignore
     assert(ds.item_names == item_names2)
@@ -221,3 +224,62 @@ def test_item_naming():
     # invalid name doesn't work
     with pytest.raises(Exception):
         ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+
+########## Tests relating to image data #########################
+
+def test_numpy_image_numpy_conversion():
+    ds_1d = load_dummy_numpy_data()
+    items_1d = [x for x in ds_1d]
+
+    # Warns because no elements where converted
+    with pytest.warns(None) as record:
+        ds2 = ds_1d.as_img() # skipped all because they could't be converted
+        ds3 = ds_1d.as_img(False, False)
+    assert(len(record) == 2) # warns on both
+
+    # The two previous statements didn't create any changes
+    items2 = [x for x in ds2]
+    items3 = [x for x in ds3]
+    for (one, _), (two, _), (three, _) in zip(items_1d, items2, items3):
+        assert(np.array_equal(one, two))
+        assert(np.array_equal(two, three))
+
+    # Force conversion of first arg - doesn't work due to shape incompatibility
+    with pytest.raises(Exception):
+        # Tries to convert first argument
+        ds_1d.as_img(True)
+
+    ds_2d = ds_1d.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    items_2d = [x for x in ds_2d]
+
+    # Succesful conversion should happen here
+    with pytest.warns(None) as record:
+        ds_img = ds_2d.as_img()
+    assert(len(record) == 0)
+
+    items_img = [x for x in ds_img]
+    for (one, lbl1), (two, lbl2) in zip(items_2d, items_img):
+        assert(type(one) == np.ndarray)
+        assert(type(two) == Image.Image)
+        assert(lbl1 == lbl2)
+
+    # test the backward-conversion
+    ds_np = ds_img.as_numpy()
+    items_np = [x for x in ds_np]
+    for (one, lbl1), (two, lbl2) in zip(items_2d, items_np):
+        assert(type(one) == type(two))
+        assert(np.array_equal(one, two))
+        assert(lbl1 == lbl2)
+
+
+def test_string_image_conversion():
+    path = get_test_dataset_path(TestDatasets.FOLDER_DATA)
+    ds_str = loaders.load_folder_data(path)
+
+    ds_img = ds_str.as_img()
+    items_img = [x for x in ds_img]
+
+    for data in items_img:
+        data = data[0]
+        assert(issubclass(type(data), Image.Image))

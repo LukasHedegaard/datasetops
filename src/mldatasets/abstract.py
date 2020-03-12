@@ -5,7 +5,7 @@ from typing import List, Tuple, Any, Union
 
 class ItemGetter(ABC):
     @abstractmethod
-    def __getitem__(self, i:int):
+    def __getitem__(self, i:int) -> Tuple:
         pass # pragma: no cover
 
 

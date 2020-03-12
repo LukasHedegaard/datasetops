@@ -6,6 +6,7 @@ from mldatasets.dataset import Dataset
 from mldatasets.types import *
 from PIL import Image
 import numpy as np
+import re
 
 class FunctionDataset(Dataset):
 
@@ -67,9 +68,9 @@ def load_folder_data(path: AnyPath) -> Dataset:
     p = Path(path)
     ids = [str(x.relative_to(p)) for x in p.glob('[!._]*')]
 
-    def get_data(i):
+    def get_data(i) -> Tuple:
         nonlocal p
-        return str(p/i)
+        return (str(p/i),)
 
     ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
     ds._extend(ids)
@@ -81,9 +82,9 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
     p = Path(path)
     classes = [x for x in p.glob('[!._]*')]
 
-    def get_data(i):
+    def get_data(i) -> Tuple:
         nonlocal p
-        return str(p/i)
+        return ( str(p/i), re.split(r'/|\\',i)[0] )
 
     ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/classes/data'")
 
