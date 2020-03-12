@@ -1,5 +1,5 @@
 
-from mldatasets.dataset import Dataset, reshape, _DEFAULT_SHAPE
+from mldatasets.dataset import Dataset, reshape, custom, _DEFAULT_SHAPE
 from mldatasets.loaders import FunctionDataset
 import mldatasets.loaders as loaders
 import pytest
@@ -226,6 +226,26 @@ def test_item_naming():
         ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
 
+def test_custom_transform():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+
+    ds_tf = ds.transform(custom(lambda x: x/255.0))
+    items_tf = [x for x in ds_tf]
+    
+    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
+        assert(np.array_equal(ldata/255.0, rdata))
+        assert(llbl == rlbl)
+
+    # passing the function directly also works
+    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
+    items_tf_alt = [x for x in ds_tf]
+
+    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+
 ########## Tests relating to image data #########################
 
 def test_numpy_image_numpy_conversion():
@@ -293,11 +313,19 @@ def test_resize():
 
     NEW_SIZE = (5,5)
 
-    # works directly on numpy arrays (scaling up)
+    # works directly on numpy arrays (ints)
     ds_resized = ds.img_resize(NEW_SIZE)
     for tpl in ds_resized:
         data = tpl[0]
         assert(data.size == NEW_SIZE)
+        assert(data.mode == 'L') # grayscale int
+
+    # also if they are floats
+    ds_resized_float = ds.transform(custom(np.float32)).img_resize(NEW_SIZE)
+    for tpl in ds_resized_float:
+        data = tpl[0]
+        assert(data.size == NEW_SIZE)
+        assert(data.mode == 'F') # grayscale float
 
     # works directly on strings
     ds_str = loaders.load_folder_data(get_test_dataset_path(TestDatasets.FOLDER_DATA))

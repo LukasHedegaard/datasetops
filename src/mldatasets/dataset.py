@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import warnings
 import functools
-
+from inspect import signature
 from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
 from mldatasets.abstract import AbstractDataset
 from pathlib import Path
@@ -226,10 +226,6 @@ class Dataset(AbstractDataset):
         return datasets
 
 
-    # def _set_item_transform(self, transform_fn: Callable):
-    #     self._item_transform_fn = transform_fn
-
-
     @staticmethod
     def _label2name(label:Any) -> str:
         return str(label)
@@ -289,13 +285,16 @@ class Dataset(AbstractDataset):
 
     def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
 
-        if len(fns) + len(kwfns) > len(self.shape):
+        if len(fns) + len(kwfns) > len(self.shape): # type:ignore
             raise ValueError("More transforms ({}) given than can be performed on item with {} elements".format(len(fns) + len(kwfns), len(self.shape)))
 
         new_dataset: AbstractDataset = self
 
         for i, f in enumerate(fns): #type:ignore
             if f:
+                # if user passed a function with a single argument, wrap it
+                if len(signature(f).parameters) == 1:
+                    f = custom(f) #type:ignore
                 new_dataset = f(i, new_dataset)
 
         for k, f in kwfns.items():
@@ -465,6 +464,24 @@ def reshape(new_shape:Shape) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=functools.partial(np.reshape, newshape=(new_shape)), #type: ignore
         check=_check_shape_compatibility(new_shape)
+    )
+
+
+def custom(elem_transform_fn:Callable[[Any], Any], elem_check_fn:Callable[[Any],None]=None) -> DatasetTransformFn:
+    """ Create a user defined transform
+    
+    Arguments:
+        fn {Callable[[Any], Any]} -- A user defined function, which takes the element as only argumnet
+    
+    Keyword Arguments:
+        check_fn {Callable[[Any]]} -- A function that raises an Exception if the elem is incompatible (default: {None})
+    
+    Returns:
+        DatasetTransformFn -- [description]
+    """
+    return _dataset_element_transforming(
+        fn=elem_transform_fn, 
+        check=elem_check_fn
     )
 
 
