@@ -7,28 +7,30 @@ def _get_data(i):
     return i
 
 
-def test_extend_identicalIds_throwsValueError():
+def test_extend_identicalValues_valid():
 
     ds = FunctionDataset(_get_data)
 
-    with pytest.raises(ValueError):
-        ds._extend([1])
-        ds._extend([1])
+    ds._extend(['a'])
+    ds._extend(['a'])
 
-    with pytest.raises(ValueError):
-        ds._extend([1, 1])
+    ds._extend(['a', 'a'])
+
+    assert(ds._ids[0] == 'a')
+    assert(ds._ids[1] == 'a')
+    assert(ds._ids[2] == 'a')
+    assert(ds._ids[3] == 'a')
 
 
 def test_append_identicalIds_throwsValueError():
 
     ds = FunctionDataset(_get_data)
 
-    with pytest.raises(ValueError):
-        ds._append([1])
-        ds._append([1])
+    ds._append('a')
+    ds._append('a')
 
-    with pytest.raises(ValueError):
-        ds._append([1, 1])
+    assert(ds._ids[0] == 'a')
+    assert(ds._ids[1] == 'a')
 
 
 def test_extend_nonContingousIds_valid():

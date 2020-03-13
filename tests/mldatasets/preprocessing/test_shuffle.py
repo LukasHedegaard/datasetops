@@ -3,15 +3,16 @@ import pytest
 from mldatasets.loaders import FunctionDataset
 
 
+def _get_data(i):
+    return i
+
+
 def load_dummy_data() -> FunctionDataset:
 
     a_ids = list(range(5))
     b_ids = list(range(5, 11))
 
-    def get_data(i):
-        return i
-
-    ds = FunctionDataset(get_data)
+    ds = FunctionDataset(_get_data)
     ds._extend(a_ids, 'a')
     ds._extend(b_ids, 'b')
     return ds
@@ -25,26 +26,23 @@ def test_noSeed_valid():
 
 def test_emptyDataset_valid():
 
-    def get_data(i):
-        return i
-
-    ds = FunctionDataset(get_data)
-
+    ds = FunctionDataset(_get_data)
     ds.shuffle()
+    assert(len(ds) == 0)
 
 
 def test_shuffleStringIds_valid():
 
-    def get_data(i):
+    def _get_data(i):
         return i
 
-    ds = FunctionDataset(get_data)
+    ds = FunctionDataset(_get_data)
     ds._extend(['1', '2'])
 
     ds_shuffled = ds.shuffle()
 
-    diff = {'1', '2'}.difference(ds_shuffled._ids)
-    assert(diff == {})
+    assert('1' in ds_shuffled)
+    assert('2' in ds_shuffled)
 
 
 def test_containsSameElements():

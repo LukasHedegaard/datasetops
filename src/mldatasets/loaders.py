@@ -39,10 +39,10 @@ class FunctionDataset(Dataset):
 
     def _extend(self, ids: Union[List[Data], np.ndarray], label: Optional[str] = None):
 
-        has_duplicate_keys = not set(self._ids).isdisjoint(ids)
-        if(has_duplicate_keys):
-            raise ValueError(
-                'Unable to extend the with the supplied ids due to duplicate ids.')
+        # has_duplicate_keys = not set(self._ids).isdisjoint(ids)
+        # if(has_duplicate_keys):
+        #     raise ValueError(
+        #         'Unable to extend the with the supplied ids due to duplicate ids.')
 
         i_lo = len(self._ids)
         i_hi = i_lo + len(ids)

@@ -165,8 +165,8 @@ class Dataset(AbstractDataset):
 
 
     def shuffle(self, seed=None):
-        if seed:
-            random.seed(seed)
+    
+        random.seed(seed)
 
         new_ids = list(range(len(self)))
         random.shuffle(new_ids)
