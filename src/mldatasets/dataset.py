@@ -309,7 +309,7 @@ class Dataset(AbstractDataset):
 
     ########## Conversion methods #########################
 
-    def as_img(self, *positional_flags:Any):
+    def as_image(self, *positional_flags:Any):
         if len(positional_flags) == 0:
             # convert all that can be converted
             positional_flags = []
@@ -321,7 +321,7 @@ class Dataset(AbstractDataset):
                     positional_flags.append(False)
                    
         if any(positional_flags):
-            return self._optional_argument_indexed_transform(transform_fn=as_img, args=positional_flags)       
+            return self._optional_argument_indexed_transform(transform_fn=as_image, args=positional_flags)       
         else: 
             warnings.warn('Conversion to image skipped. No elements were compatible')
             return self
@@ -482,7 +482,7 @@ def custom(elem_transform_fn:Callable[[Any], Any], elem_check_fn:Callable[[Any],
     )
 
 
-def as_img(dummy_input=None) -> DatasetTransformFn:
+def as_image(dummy_input=None) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=convert2img,
         check=_check_image_compatibility
