@@ -1,7 +1,7 @@
 import random
 from mldatasets.abstract import ItemGetter, AbstractDataset
 from mldatasets.types import *
-# import mldatasets.transforms as tfm
+import mldatasets.compose as compose 
 import numpy as np
 from PIL import Image
 import warnings
@@ -11,17 +11,6 @@ from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, 
 from mldatasets.abstract import AbstractDataset
 from pathlib import Path
 
-########## Types ####################
-Shape = Sequence[int]
-IdIndex = int
-Id = int
-Ids = List[Id]
-Data = Any
-IdIndexSet = Dict[Any, List[IdIndex]]
-ItemTransformFn = Callable[[Any],Any]
-DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
-DatasetTransformFnCreator = Callable[[Any], DatasetTransformFn]
-AnyPath = Union[str, Path]
 
 ########## Defaults ####################
 
@@ -66,7 +55,7 @@ class Dataset(AbstractDataset):
         """
         self._downstream_getter = downstream_getter
         
-        if type(downstream_getter) == Dataset or issubclass(type(downstream_getter), Dataset):
+        if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name                    #type: ignore
             self._ids = list(range(len(self._downstream_getter._ids)))  #type: ignore
             self._classwise_id_inds = self._make_classwise_id_ids(self._downstream_getter._classwise_id_inds, self._ids)  #type: ignore
@@ -88,22 +77,16 @@ class Dataset(AbstractDataset):
             self._classwise_id_inds:IdIndexSet = classwise_id_refs
             
 
-
     def __len__(self):
         return len(self._ids)
 
 
-    def __getitem__(self, i: int):
+    def __getitem__(self, i: int) -> Tuple:
         return self._item_transform_fn(self._downstream_getter[self._ids[i]])
 
 
-    def __iter__(self):
-        for i in range(self.__len__()):
-            yield self.__getitem__(i)
-
-
     @property
-    def shape(self):
+    def shape(self) -> Sequence[int]:
 
         if len(self) == 0:
             return _DEFAULT_SHAPE
@@ -229,6 +212,75 @@ class Dataset(AbstractDataset):
         return datasets
 
 
+    def take(self, num:int):
+        """ Take the first elements of a datatset
+        
+        Arguments:
+            num {int} -- number of elements to take
+        
+        Returns:
+            Dataset -- A dataset with only the first `num` elements
+        """
+        if num > len(self):
+            raise ValueError("Can't take more elements than are available in dataset")
+        
+        new_ids = list(range(num))
+        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
+        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+
+    
+    def repeat(self, repeats=1, mode='itemwise'):
+        """ Repeat the dataset elements
+        
+        Keyword Arguments:
+            repeats {int} -- Number of repeats for each element (default: {1})
+            mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole' (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
+        
+        Returns:
+            [type] -- [description]
+        """
+        new_ids = {
+            'whole'    : lambda : [i for _ in range(repeats) for i in list(range(len(self)))],
+            'itemwise' : lambda : [i for i in list(range(len(self))) for _ in range(repeats)]
+        }[mode]()
+        
+        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
+        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+
+
+    def reorder(self, *new_inds:Union[int,str]):
+        """ Reorder items in the dataset (similar to numpy.transpose)
+
+        Arguments:
+            new_inds {Union[int,str]} -- positioned item index or key (if item names were previously set) of item
+            
+        Returns:
+            [type] -- [description]
+        """
+        if len(new_inds) == 0:
+            warnings.warn('No indexes given in Dataset.reorder. The dataset remains unchanged')
+            return self
+
+        inds:List[int] = []
+        for i in new_inds:
+            if type(i)==str:
+                inds.append(self._itemname2ind(str(i))) 
+            else:
+                inds.append(int(i))
+
+        for i in inds:
+            if i > len(self.shape):
+                raise ValueError("reoder index {} is out of range (maximum allowed index is {})".format(i, len(self.shape)))
+
+        def item_transform_fn(item:Tuple):
+            return tuple([item[i] for i in inds])
+
+        return Dataset(
+            downstream_getter=self, 
+            item_transform_fn=item_transform_fn,
+        )
+
+
     @staticmethod
     def _label2name(label:Any) -> str:
         return str(label)
@@ -343,6 +395,12 @@ class Dataset(AbstractDataset):
         else: 
             warnings.warn('Conversion to numpy.array skipped. No elements were compatible')
             return self
+
+
+    ########## Composition methods #########################
+
+    def zip(self,*datasets):
+        return zipped(self, *datasets)
 
 
     ########## Methods relating to numpy data #########################
@@ -501,4 +559,14 @@ def img_resize(new_size:Shape, resample=Image.NEAREST) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
         check=_check_image_compatibility
+    )
+
+
+
+########## Compose functions ####################
+
+@warn_no_args(skip=2)
+def zipped(*datasets:AbstractDataset):
+    return Dataset(
+        downstream_getter=compose.ZipDataset(*datasets)
     )

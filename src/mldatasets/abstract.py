@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from typing import List, Tuple, Any, Union
+from typing import List, Sequence, Tuple, Any, Union
 
 
 class ItemGetter(ABC):
@@ -15,6 +15,8 @@ class AbstractDataset(ItemGetter):
     
     def __init__(self):
         pass # pragma: no cover
+
+    name = ''
     
     @abstractmethod
     def __len__(self) -> int:
@@ -24,7 +26,7 @@ class AbstractDataset(ItemGetter):
 
 
     @abstractmethod
-    def __getitem__(self, idx : int) -> Any:
+    def __getitem__(self, idx : int) -> Tuple:
         """Returns the element at the specified index
         
         Parameters
@@ -35,89 +37,12 @@ class AbstractDataset(ItemGetter):
         pass # pragma: no cover
 
 
+    def __iter__(self):
+        for i in range(self.__len__()):
+            yield self.__getitem__(i)
+
+
+    @property
     @abstractmethod
-    def __iter__(self) -> Any:
+    def shape(self) -> Sequence[int]:
         pass # pragma: no cover
-
-
-    # @abstractmethod
-    # def describe(self):
-    #     """Returns a summary of the dataset.
-    #     """
-    #     pass # pragma: no cover
-
-
-    @abstractmethod
-    def sample(self, num, seed:int=None):
-        """Samples a number of samples from the dataset 
-        
-        Parameters
-        ----------
-        fractions : List{float}
-            A list of real values determining the relative size of each split.
-        """
-        pass # pragma: no cover
-
-
-    @abstractmethod
-    def sample_classwise(self, num_per_class:int, seed:int=None):
-        """Samples the dataset with a desired number of samples per class
-        
-        Parameters
-        ----------
-        fractions : num_per_class{int}
-            Number of samples per class
-        """
-        pass # pragma: no cover
-
-
-    @abstractmethod
-    def split(self, fractions:List[float], seed:int=None): 
-        """Splits the dataset using the specified fractions
-        
-        Parameters
-        ----------
-        fractions : {Subscriptable[float]}
-            A list of real values determining the relative size of each split.
-        """
-        pass # pragma: no cover
-
-
-    @abstractmethod
-    def shuffle(self, seed:int=None): 
-        """Splits the dataset using the specified fractions
-        
-        Parameters
-        ----------
-        fractions : {Subscriptable[float]}
-            A list of real values determining the relative size of each split.
-        """
-        pass # pragma: no cover
-
-
-    # @abstractmethod
-    # def center(self, mean=None) -> Dataset: #type: ignore
-    #     """ Whiten the dataset
-    #     """
-    #     pass # pragma: no cover
-
-
-    # @abstractmethod
-    # def normalize(self, mean=None, std=None) -> Dataset: #type: ignore
-    #     """ Normalize the dataset
-    #     """
-    #     pass # pragma: no cover
-
-
-    # @abstractmethod
-    # def plot(self, idx : int = None, n_samples : int = 1):
-    #     """Plots the data. The concrete behavior is determined by the type of data in the dataset.
-        
-    #     Parameters
-    #     ----------
-    #     idx : int, optional
-    #         [description], by default None
-    #     n_samples : int, optional
-    #         [description], by default 1
-    #     """
-    #     pass # pragma: no cover

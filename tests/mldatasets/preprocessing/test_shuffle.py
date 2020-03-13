@@ -1,6 +1,5 @@
 import pytest
-
-from mldatasets.loaders import FunctionDataset
+from mldatasets.function_dataset import FunctionDataset
 
 
 def _get_data(i):

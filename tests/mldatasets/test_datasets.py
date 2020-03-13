@@ -9,21 +9,10 @@ import sys
 import os
 from typing import List
 sys.path.append(os.path.dirname(__file__))
-from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
-
-def load_dummy_data() -> FunctionDataset:
-
-    a_ids = list(range(5))
-    b_ids = list(range(5,11))
-
-    def get_data(i):
-        return i
-
-    ds = FunctionDataset(get_data)
-    ds._extend(a_ids, 'a')
-    ds._extend(b_ids, 'b')
-    return ds
-
+from testing_utils import ( # type:ignore
+    get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
+    DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
+)
 
 def test_class_names():
     ds = load_dummy_data()
@@ -59,7 +48,7 @@ def test_sample():
     assert(len(found_items) == len(set(found_items)))
 
     # check items
-    expected_items = [10,1,0,4,9]
+    expected_items = [ (i,) for i in [10,1,0,4,9]]
     assert(set(expected_items) == set(found_items))
 
     # check that different seeds yield different results
@@ -82,7 +71,7 @@ def test_sample_classwise():
     assert(set(ds_sampled.class_counts().items()) == set([('a', num_per_class),('b', num_per_class)]))
 
     # check items
-    expected_items = [0,4,10,7]
+    expected_items = [(i,) for i in [0,4,10,7]]
     assert(set(expected_items) == set(found_items))
 
     # check that different seeds yield different results
@@ -113,34 +102,82 @@ def test_split():
     assert(set(ds3) == set(ds3w))
 
 
+def test_repeat():
+    ds = load_dummy_data()
+
+    # itemwise
+    ds_item = ds.repeat(3)
+    ds_item_alt = ds.repeat(3, mode='itemwise')
+
+    assert(set(ds) == set(ds_item_alt))
+    assert(list(ds_item) == list(ds_item_alt))
+
+    # whole
+    ds_whole = ds.repeat(2, mode='whole')
+    assert(set(ds) == set(ds_whole))
+    assert(list(ds) == list(ds_whole)[:len(ds)] == list(ds_whole)[len(ds):])
+
+
+def test_take():
+    ds = load_dummy_data().transform(lambda x: 10*x)
+
+    ds_5 = ds.take(5)
+    assert(list(ds)[:5] == list(ds_5))
+
+    with pytest.raises(ValueError):
+        ds.take(10000000)
+
+
+def test_reorder():
+    ds = load_dummy_numpy_data()
+    ds.set_item_names("mydata", "mylabel")
+
+    ## error scenarios
+    with pytest.warns(UserWarning):
+        # no order given
+        ds_ignored = ds.reorder()
+        assert(ds == ds_ignored)
+
+    with pytest.raises(ValueError):
+        # indexes out of range
+        ds_re = ds.reorder(3,4)
+
+    with pytest.raises(KeyError):
+        # a keys doesn't exist
+        ds_re = ds.reorder("badkey", "mydata")
+
+    ## working scenarios
+
+    # using indexes
+    ds_re = ds.reorder(1,0)
+    for (ldata, llbl), (rlbl, rdata) in zip(list(ds), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # same results using keys
+    ds_re_key = ds.reorder("mylabel","mydata")
+    for (llbl, ldata), (rlbl, rdata) in zip(list(ds_re_key), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # same result using a mix
+    ds_re_mix = ds.reorder(1,"mydata")
+    for (llbl, ldata), (rlbl, rdata) in zip(list(ds_re_mix), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # we can even place the same element multiple times
+    ds_re_creative = ds.reorder(0,1,1,0)
+    for (ldata, llbl), (rdata1, rlbl1, rlbl2, rdata2 ) in zip(list(ds), list(ds_re_creative)):
+        assert(np.array_equal(ldata, rdata1))
+        assert(np.array_equal(ldata, rdata2))
+        assert(llbl == rlbl1 == rlbl2)
+
+    # shape updates accordingly
+    assert(ds_re_creative.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE, _DEFAULT_SHAPE, DUMMY_NUMPY_DATA_SHAPE_1D))
+
 
 ########## Tests relating to numpy data #########################
-
-DUMMY_NUMPY_DATA_SHAPE_1D = 18
-DUMMY_NUMPY_DATA_SHAPE_2D = (6,3)
-DUMMY_NUMPY_DATA_SHAPE_3D = (2,3,3)
-
-def load_dummy_numpy_data() -> FunctionDataset:
-
-    a_ids = list(range(5))
-    b_ids = list(range(5,11))
-    labels = [
-        *[1 for _ in a_ids],
-        *[2 for _ in b_ids]
-    ]
-
-    num_samples = len(a_ids)+len(b_ids)
-    data = np.arange(num_samples*DUMMY_NUMPY_DATA_SHAPE_1D).reshape((num_samples, DUMMY_NUMPY_DATA_SHAPE_1D))
-    # data = data / data.max()
-
-    def get_data(idx):
-        return data[idx], labels[idx]
-
-    ds = FunctionDataset(get_data)
-    ds._extend(a_ids, '1')
-    ds._extend(b_ids, '2')
-    return ds
-
 
 def test_shape():
 
@@ -178,8 +215,8 @@ def test_reshape():
     items = [x for x in ds]
 
     s = ds.shape
-    assert(ds.shape == ((DUMMY_NUMPY_DATA_SHAPE_1D,), _DEFAULT_SHAPE) )
-    assert(ds[0][0].shape == (DUMMY_NUMPY_DATA_SHAPE_1D,))
+    assert(ds.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE) )
+    assert(ds[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_1D)
 
     # reshape adding extra dim
     ds_r = ds.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
@@ -199,7 +236,7 @@ def test_reshape():
         assert(np.array_equal(old_data, new_data))
 
     # reshape back, alternative syntax
-    ds_back = ds_r.reshape((DUMMY_NUMPY_DATA_SHAPE_1D,), None)
+    ds_back = ds_r.reshape(DUMMY_NUMPY_DATA_SHAPE_1D, None)
     items_back = [x for x in ds_back]
 
     for (old_data, _), (new_data, _) in zip(items, items_back):
