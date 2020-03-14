@@ -42,7 +42,7 @@ class AbstractDataset(ItemGetter):
             yield self.__getitem__(i)
 
 
-    @property
-    @abstractmethod
-    def shape(self) -> Sequence[int]:
-        pass # pragma: no cover
+    # @property
+    # @abstractmethod
+    # def shape(self) -> Sequence[int]:
+    #     pass # pragma: no cover

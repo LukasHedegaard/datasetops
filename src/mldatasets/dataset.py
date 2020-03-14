@@ -22,7 +22,7 @@ def warn_no_args(skip=0):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
             if len(args) + len(kwargs) <= skip:
-                warnings.warn('Too few args passed to {}'.format(fn.__code__))
+                warnings.warn('Too few args passed to {}'.format(fn.__code__.co_name))
             return fn(*args, **kwargs)
         return wrapped
     return with_args
@@ -402,6 +402,10 @@ class Dataset(AbstractDataset):
     def zip(self,*datasets):
         return zipped(self, *datasets)
 
+    
+    def cartesian_product(self,*datasets):
+        return cartesian_product(self, *datasets)
+
 
     ########## Methods relating to numpy data #########################
     
@@ -565,8 +569,15 @@ def img_resize(new_size:Shape, resample=Image.NEAREST) -> DatasetTransformFn:
 
 ########## Compose functions ####################
 
-@warn_no_args(skip=2)
+@warn_no_args(skip=1)
 def zipped(*datasets:AbstractDataset):
     return Dataset(
         downstream_getter=compose.ZipDataset(*datasets)
+    )
+
+
+@warn_no_args(skip=1)
+def cartesian_product(*datasets:AbstractDataset):
+    return Dataset(
+        downstream_getter=compose.CartesianProductDataset(*datasets)
     )
