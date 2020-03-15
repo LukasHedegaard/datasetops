@@ -288,6 +288,7 @@ class Dataset(AbstractDataset):
 
     @staticmethod
     def _make_classwise_id_ids(old_classwise_id_inds: IdIndexSet, new_ids: List[IdIndex]) -> IdIndexSet:
+        # TODO: verify that this does not contain bugs
         # create list of ranges corresponding to classes
         ranges = {}
         prev = 0
@@ -405,6 +406,10 @@ class Dataset(AbstractDataset):
     
     def cartesian_product(self,*datasets):
         return cartesian_product(self, *datasets)
+
+    
+    def concat(self,*datasets):
+        return concat(self, *datasets)
 
 
     ########## Methods relating to numpy data #########################
@@ -571,13 +576,29 @@ def img_resize(new_size:Shape, resample=Image.NEAREST) -> DatasetTransformFn:
 
 @warn_no_args(skip=1)
 def zipped(*datasets:AbstractDataset):
+    comp = compose.ZipDataset(*datasets)
     return Dataset(
-        downstream_getter=compose.ZipDataset(*datasets)
+        downstream_getter=comp,
+        ids=comp._ids,
+        classwise_id_refs=comp._classwise_id_inds
     )
 
 
 @warn_no_args(skip=1)
 def cartesian_product(*datasets:AbstractDataset):
+    comp = compose.CartesianProductDataset(*datasets)
     return Dataset(
-        downstream_getter=compose.CartesianProductDataset(*datasets)
+        downstream_getter=comp,
+        ids=comp._ids,
+        classwise_id_refs=comp._classwise_id_inds
+    )
+
+
+@warn_no_args(skip=1)
+def concat(*datasets:AbstractDataset):
+    comp = compose.ConcatDataset(*datasets)
+    return Dataset(
+        downstream_getter=comp,
+        ids=comp._ids,
+        classwise_id_refs=comp._classwise_id_inds
     )

@@ -37,6 +37,12 @@ def test_shuffle():
     # different sequence
     assert(expected_items != found_items)
 
+    # the classwise sorting holds
+    for k in ds._classwise_id_inds.keys():
+        class_items = [ds[i] for i in ds._classwise_id_inds[k]]
+        shuffled_class_items = [ds_shuffled[i] for i in ds_shuffled._classwise_id_inds[k]]
+        assert(set(class_items) == set(shuffled_class_items))
+
 
 def test_sample():
     seed = 42
