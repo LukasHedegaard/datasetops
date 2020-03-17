@@ -37,6 +37,16 @@ def raise_no_args(skip=0):
             return fn(*args, **kwargs)
         return wrapped
     return with_args
+    
+    
+def raise_no_item_names(fn):
+    @functools.wraps(fn)
+    def wrapped(this, *args, **kwargs):
+        if len(this.item_names) == 0:
+            raise ValueError("Itemnames must be set for {} to work (Hint: use set_item_names('name1','name2',...))".format(fn.__code__.co_name))
+        return fn(this, *args, **kwargs)
+    return wrapped
+
 
 ########## Dataset ####################
 
@@ -89,7 +99,6 @@ class Dataset(AbstractDataset):
 
     @property
     def shape(self) -> Sequence[int]:
-
         if len(self) == 0:
             return _DEFAULT_SHAPE
         
@@ -107,6 +116,50 @@ class Dataset(AbstractDataset):
             return tuple(item_shape)
 
         return _DEFAULT_SHAPE
+
+
+    @functools.lru_cache(1)
+    @warn_no_args(skip=1)
+    def counts(self, *itemkeys:Union[str, int]) -> List[Tuple[Any,int]]:
+        """ Compute the counts of each unique item in the dataset
+            Warning: this operation may be expensive for large datasets
+        
+        Arguments:
+            itemkeys {Union[str, int]} -- The item keys or indexes to be checked for uniqueness. If no key is given, all item-parts must match for them to be considered equal
+
+        Returns:
+            List[Tuple[Any,int]] -- List of tuples, each containing the unique value and its number of occurences
+        """
+        inds:List[int] = [k if type(k) == int else self._itemname2ind(k) for k in itemkeys] # type: ignore
+
+        unique_items, item_counts = {}, {}
+        for item in iter(self):
+            if len(itemkeys) > 0:
+                selected = tuple([val if i in inds else None for i,val in enumerate(item)])
+            else:
+                selected = item
+            h = hash(str(selected))
+            if not h in unique_items.keys():
+                unique_items[h] = selected
+                item_counts[h] = 1
+            else:
+                item_counts[h] += 1
+        
+        return [(unique_items[k], item_counts[k]) for k in unique_items.keys()]
+        
+
+    @warn_no_args(skip=1)
+    def unique(self, *itemkeys:Union[str, int]) -> List[Any]:
+        """ Compute a list of unique values in the dataset
+            Warning: this operation may be expensive for large datasets
+        
+        Arguments:
+            itemkeys {str} -- The item keys to be checked for uniqueness
+
+        Returns:
+            List[Any] -- List of the unique items
+        """
+        return [x[0] for x in self.counts(*itemkeys)] 
 
 
     def sample(self, num:int, seed:int=None):

@@ -244,10 +244,36 @@ def test_reorder():
     assert(ds_re_creative.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE, _DEFAULT_SHAPE, DUMMY_NUMPY_DATA_SHAPE_1D))
 
 
-########## Tests relating to numpy data #########################
+########## Tests relating to stats #########################
+
+def test_counts():
+    num_total=11
+    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+
+    counts = ds.counts('label') # name based
+    counts_alt = ds.counts(1) # index based
+
+    expected_counts = [((None,'a'), 5), ((None,'b'), num_total-5)]
+    assert(counts == counts_alt == expected_counts)
+
+    with pytest.warns(UserWarning):
+        counts_all = ds.counts()
+        # count all if no args are given
+        assert(set(counts_all) == set([(x, 1) for x in ds]))
+
+
+def test_unique():
+    ds = load_dummy_data(with_label=True).set_item_names('data', 'label')
+
+    unique_labels = ds.unique('label')
+    assert(unique_labels == [(None,'a'),(None,'b')])
+
+    with pytest.warns(UserWarning):
+        unique_items = ds.unique()
+        assert(unique_items == list(ds))
+
 
 def test_shape():
-
     def get_data(i):
         return i,i
 
@@ -275,6 +301,70 @@ def test_shape():
 
     ds_img3 = ds_np3.img_resize(IMG_SIZE)
     assert( ds_img3.shape == ((*IMG_SIZE,3),_DEFAULT_SHAPE) )
+
+
+def test_item_naming():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+    assert(ds.item_names == [])
+
+    item_names = ['mydata', 'mylabel']
+
+    # named transform syntax doesn't work without item_names
+    with pytest.raises(Exception):
+        ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+    # passed one by one as arguments
+    ds.set_item_names(*item_names)
+    assert(ds.item_names == item_names)
+
+    # passed in a list, overide previous
+    item_names2 = ['moddata', 'modlabel']
+    ds.set_item_names(item_names2) #type: ignore
+    assert(ds.item_names == item_names2)
+
+    # test named transform syntax
+    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    items_trans = [x for x in ds_trans]
+    for (old_data, _), (new_data, _) in zip(items, items_trans):
+        assert(set(old_data) == set(new_data.flatten()))
+        assert(old_data.shape != new_data.shape)
+
+    # invalid name doesn't work
+    with pytest.raises(Exception):
+        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+
+def test_transform():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+
+    ds_tf = ds.transform(custom(lambda x: x/255.0))
+    items_tf = [x for x in ds_tf]
+    
+    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
+        assert(np.array_equal(ldata/255.0, rdata))
+        assert(llbl == rlbl)
+
+    # passing the function directly also works
+    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
+    items_tf_alt = [x for x in ds_tf]
+
+    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        # no args
+        ds.transform()
+    
+    with pytest.raises(ValueError): 
+        # too many transforms given
+        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
+
+
+########## Tests relating to numpy data #########################
 
 
 def test_reshape():
@@ -344,66 +434,6 @@ def test_reshape():
         # Dimensions don't match
         ds.reshape((13,13)) 
 
-
-def test_item_naming():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
-    assert(ds.item_names == [])
-
-    item_names = ['mydata', 'mylabel']
-
-    # named transform syntax doesn't work without item_names
-    with pytest.raises(Exception):
-        ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-
-    # passed one by one as arguments
-    ds.set_item_names(*item_names)
-    assert(ds.item_names == item_names)
-
-    # passed in a list, overide previous
-    item_names2 = ['moddata', 'modlabel']
-    ds.set_item_names(item_names2) #type: ignore
-    assert(ds.item_names == item_names2)
-
-    # test named transform syntax
-    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-    items_trans = [x for x in ds_trans]
-    for (old_data, _), (new_data, _) in zip(items, items_trans):
-        assert(set(old_data) == set(new_data.flatten()))
-        assert(old_data.shape != new_data.shape)
-
-    # invalid name doesn't work
-    with pytest.raises(Exception):
-        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-
-
-def test_transform():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
-
-    ds_tf = ds.transform(custom(lambda x: x/255.0))
-    items_tf = [x for x in ds_tf]
-    
-    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
-        assert(np.array_equal(ldata/255.0, rdata))
-        assert(llbl == rlbl)
-
-    # passing the function directly also works
-    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
-    items_tf_alt = [x for x in ds_tf]
-
-    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
-        assert(np.array_equal(ldata, rdata))
-        assert(llbl == rlbl)
-
-    # error scenarios
-    with pytest.warns(UserWarning):
-        # no args
-        ds.transform()
-    
-    with pytest.raises(ValueError): 
-        # too many transforms given
-        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
 
 
 ########## Tests relating to image data #########################
