@@ -27,6 +27,17 @@ def warn_no_args(skip=0):
         return wrapped
     return with_args
 
+
+def raise_no_args(skip=0):
+    def with_args(fn):
+        @functools.wraps(fn)
+        def wrapped(*args, **kwargs):
+            if len(args) + len(kwargs) <= skip:
+                raise ValueError('Too few args passed to {}'.format(fn.__code__.co_name))
+            return fn(*args, **kwargs)
+        return wrapped
+    return with_args
+
 ########## Dataset ####################
 
 class Dataset(AbstractDataset):
@@ -130,9 +141,13 @@ class Dataset(AbstractDataset):
 
         return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
 
+    
 
-    @warn_no_args(skip=1)
-    def sample_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+    def _combine_conditions(self, 
+        bulk:DataPredicate=None, 
+        itemwise:Sequence[Optional[DataPredicate]]=[], 
+        **kwpredicates:DataPredicate
+    ) -> DataPredicate:
         assert(len(itemwise) <= len(self.shape))
         assert(all([k in self.item_names for k in kwpredicates.keys()]))
 
@@ -150,9 +165,30 @@ class Dataset(AbstractDataset):
                 all([pred(x[self._itemname2ind(k)]) for k, pred in kwpredicates.items()]) 
             )
 
-        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
+        return condition
 
+
+    @warn_no_args(skip=1)
+    def sample_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+        condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
+        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
+
+    
+    @raise_no_args(skip=1)
+    def split_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+        condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
+        ack, nack = [], []
+        for i in self._ids:
+            if condition(self.__getitem__(i)):
+                ack.append(i)
+            else:
+                nack.append(i)
+
+        return tuple([ 
+            Dataset(downstream_getter=self, ids=new_ids) 
+            for new_ids in [ack, nack] 
+        ])
 
 
     def sample_classwise(self, num_per_class:int, seed:int=None):
