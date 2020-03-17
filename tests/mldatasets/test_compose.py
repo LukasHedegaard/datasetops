@@ -99,7 +99,7 @@ def test_cartesian_product():
 def test_concat():
     ds_pos = load_dummy_data(with_label=True)   \
         .set_item_names('data','label')         \
-        .sample_by(label=allow_unique(2))       \
+        .filter(label=allow_unique(2))       \
         .reorder(0)                             \
         .transform(lambda x: x+1)
     ds_neg = ds_pos.transform(lambda x: -x) 

@@ -142,14 +142,14 @@ class Dataset(AbstractDataset):
 
 
     @warn_no_args(skip=1)
-    def sample_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+    def filter(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
         condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
         new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
 
     
     @raise_no_args(skip=1)
-    def split_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+    def filter_split(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
         condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
         ack, nack = [], []
         for i in self._ids:

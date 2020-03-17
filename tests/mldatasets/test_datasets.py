@@ -48,7 +48,7 @@ def test_sample():
     assert(set(found_items2) != set(found_items))
 
 
-def test_sample_by():
+def test_filter():
     num_total=10
     ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
 
@@ -61,41 +61,41 @@ def test_sample_by():
     odd_b  = [x for x in b if x[0]%2==1]
 
     # itemwise
-    ds_even = ds.sample_by(itemwise=[lambda x: x%2==0])
+    ds_even = ds.filter(itemwise=[lambda x: x%2==0])
     assert(list(ds_even) == even_a + even_b) 
 
-    ds_even_a = ds.sample_by(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    ds_even_a = ds.filter(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
     assert(list(ds_even_a) == even_a) 
 
     # by key
-    ds_b = ds.sample_by(label=lambda x:x=='b')
+    ds_b = ds.filter(label=lambda x:x=='b')
     assert(list(ds_b) == b)
 
     # bulk
-    ds_odd_b = ds.sample_by(lambda x: x[0]%2==1 and x[1]=='b')
+    ds_odd_b = ds.filter(lambda x: x[0]%2==1 and x[1]=='b')
     assert(list(ds_odd_b) == odd_b)
 
     # mix
-    ds_even_b_no_4 = ds.sample_by(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    ds_even_b_no_4 = ds.filter(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
     assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
 
     # sample_classwise
-    ds_classwise = ds.sample_by(label=allow_unique(2))
+    ds_classwise = ds.filter(label=allow_unique(2))
     assert(list(ds_classwise) == list(a[:2] + b[:2]))
 
     # error scenarios
     with pytest.warns(UserWarning):
-        ds_same = ds.sample_by() # no args
+        ds_same = ds.filter() # no args
         assert(list(ds) == list(ds_same))
 
     with pytest.raises(AssertionError):
-        ds.sample_by(itemwise=[None, None, None]) # too many args
+        ds.filter(itemwise=[None, None, None]) # too many args
 
     with pytest.raises(AssertionError):
-        ds.sample_by(badkey=lambda x:True) # key doesn't exist
+        ds.filter(badkey=lambda x:True) # key doesn't exist
 
 
-def test_split_by():
+def test_filter_split():
     num_total=10
     ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
 
@@ -108,43 +108,43 @@ def test_split_by():
     odd_b  = [x for x in b if x[0]%2==1]
 
     # itemwise
-    ds_even, ds_odd = ds.split_by(itemwise=[lambda x: x%2==0])
+    ds_even, ds_odd = ds.filter_split(itemwise=[lambda x: x%2==0])
     assert(list(ds_even) == even_a + even_b) 
     assert(list(ds_odd) == odd_a + odd_b) 
 
-    ds_even_a, ds_not_even_a = ds.split_by(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    ds_even_a, ds_not_even_a = ds.filter_split(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
     assert(list(ds_even_a) == even_a) 
     assert(list(ds_not_even_a) == odd_a + b) 
 
     # by key
-    ds_b, ds_a = ds.split_by(label=lambda x:x=='b')
+    ds_b, ds_a = ds.filter_split(label=lambda x:x=='b')
     assert(list(ds_b) == b)
     assert(list(ds_a) == a)
 
     # bulk
-    ds_odd_b, ds_even_b = ds.split_by(lambda x: x[0]%2==1 and x[1]=='b')
+    ds_odd_b, ds_even_b = ds.filter_split(lambda x: x[0]%2==1 and x[1]=='b')
     assert(list(ds_odd_b) == odd_b)
     assert(list(ds_even_b) == a + even_b)
 
     # mix
-    ds_even_b_no_4, ds_not_even_b_no_4 = ds.split_by(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    ds_even_b_no_4, ds_not_even_b_no_4 = ds.filter_split(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
     assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
     assert(list(ds_not_even_b_no_4) == [x for x in list(ds) if not x in [x for x in even_b if x[0]!=4]] )
 
     # sample_classwise
-    ds_classwise_2, ds_classwise_rest = ds.split_by(label=allow_unique(2))
+    ds_classwise_2, ds_classwise_rest = ds.filter_split(label=allow_unique(2))
     assert(list(ds_classwise_2) == list(a[:2] + b[:2]))
     assert(list(ds_classwise_rest) == list(a[2:] + b[2:]))
 
     # error scenarios
     with pytest.raises(ValueError):
-        ds_same = ds.split_by() # no args
+        ds_same = ds.filter_split() # no args
 
     with pytest.raises(AssertionError):
-        ds.split_by(itemwise=[None, None, None]) # too many args
+        ds.filter_split(itemwise=[None, None, None]) # too many args
 
     with pytest.raises(AssertionError):
-        ds.split_by(badkey=lambda x:True) # key doesn't exist
+        ds.filter_split(badkey=lambda x:True) # key doesn't exist
 
 
 def test_split():
