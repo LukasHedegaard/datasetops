@@ -14,15 +14,6 @@ from testing_utils import ( # type:ignore
     DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
 )
 
-def test_class_names():
-    ds = load_dummy_data()
-    assert(set(ds.class_names()) == set(['a','b']))
-
-
-def test_class_counts():
-    ds = load_dummy_data()
-    assert(set(ds.class_counts().items()) == set([('a', 5),('b',6)]))
-
 
 def test_shuffle():
     seed = 42
@@ -36,12 +27,6 @@ def test_shuffle():
 
     # different sequence
     assert(expected_items != found_items)
-
-    # the classwise sorting holds
-    for k in ds._classwise_id_inds.keys():
-        class_items = [ds[i] for i in ds._classwise_id_inds[k]]
-        shuffled_class_items = [ds_shuffled[i] for i in ds_shuffled._classwise_id_inds[k]]
-        assert(set(class_items) == set(shuffled_class_items))
 
 
 def test_sample():
@@ -160,29 +145,6 @@ def test_split_by():
 
     with pytest.raises(AssertionError):
         ds.split_by(badkey=lambda x:True) # key doesn't exist
-
-
-def test_sample_classwise():
-    seed = 42
-    num_per_class = 2
-    ds = load_dummy_data()
-    ds_sampled = ds.sample_classwise(num_per_class, seed)
-    found_items = [i for i in ds_sampled]
-
-    # check list uniqueness
-    assert(len(found_items) == len(set(found_items)))
-
-    # check equal count
-    assert(set(ds_sampled.class_counts().items()) == set([('a', num_per_class),('b', num_per_class)]))
-
-    # check items
-    expected_items = [(i,) for i in [0,4,10,7]]
-    assert(set(expected_items) == set(found_items))
-
-    # check that different seeds yield different results
-    ds_sampled2 = ds.sample_classwise(num_per_class, seed+1)
-    found_items2 = [i for i in ds_sampled2]
-    assert(set(found_items2) != set(found_items))
 
 
 def test_split():

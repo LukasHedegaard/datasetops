@@ -12,8 +12,8 @@ def load_dummy_data() -> FunctionDataset:
     b_ids = list(range(5, 11))
 
     ds = FunctionDataset(_get_data)
-    ds._extend(a_ids, 'a')
-    ds._extend(b_ids, 'b')
+    ds._extend(a_ids)
+    ds._extend(b_ids)
     return ds
 
 

@@ -1,6 +1,6 @@
 import pytest
 from mldatasets.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
-from mldatasets.dataset import cartesian_product, zipped, concat
+from mldatasets.dataset import cartesian_product, zipped, concat, allow_unique
 import numpy as np
 import os
 import sys
@@ -84,14 +84,6 @@ def test_cartesian_product():
     assert(list(ds_prod3) == list(ds_prod3_alt) == expected3)
     assert(len(ds_prod3) == len(ds_prod3_alt) == len(set(expected3)))
 
-    # classwise information is lost
-    assert(set(ds_prod2._classwise_id_inds.keys())
-        == set(ds_prod2_alt._classwise_id_inds.keys())
-        == set(ds_prod3._classwise_id_inds.keys())
-        == set(ds_prod3_alt._classwise_id_inds.keys())
-        == set([None])
-    )
-
     # error scenarios
     with pytest.raises(ValueError):
         with pytest.warns(UserWarning):
@@ -105,7 +97,11 @@ def test_cartesian_product():
 
 
 def test_concat():
-    ds_pos = load_dummy_data().sample_classwise(2).transform(lambda x: x+1)
+    ds_pos = load_dummy_data(with_label=True)   \
+        .set_item_names('data','label')         \
+        .sample_by(label=allow_unique(2))       \
+        .reorder(0)                             \
+        .transform(lambda x: x+1)
     ds_neg = ds_pos.transform(lambda x: -x) 
     ds_100x = ds_pos.transform(lambda x: 100*x) 
 
@@ -114,22 +110,12 @@ def test_concat():
     ds_concat_alt = ds_pos.concat(ds_neg)
     assert(len(ds_concat) == len(ds_concat_alt) == len(ds_pos) + len(ds_neg))
     assert(list(ds_concat) == list(ds_concat_alt) == list(ds_pos) + list(ds_neg))
-    for key in ds_concat._classwise_id_inds.keys():
-        assert(ds_concat._classwise_id_inds[key] == ds_pos._classwise_id_inds[key] + list(np.array(ds_neg._classwise_id_inds[key])+len(ds_pos)))
 
     # three
     ds_concat3 = concat(ds_pos, ds_neg, ds_100x)
     ds_concat3_alt = ds_pos.concat(ds_neg, ds_100x)
     assert(len(ds_concat3) == len(ds_concat3_alt) == len(ds_pos) + len(ds_neg) + len(ds_100x))
     assert(list(ds_concat3) == list(ds_concat3_alt) == list(ds_pos) + list(ds_neg) + list(ds_100x))
-    for key in ds_concat3._classwise_id_inds.keys():
-        assert( 
-            set([ds_concat3[i] for i in ds_concat3._classwise_id_inds[key]]) 
-            == 
-            set( [ds_pos[i] for i in ds_pos._classwise_id_inds[key]]
-                +[ds_neg[i] for i in ds_neg._classwise_id_inds[key]]
-                +[ds_100x[i] for i in ds_100x._classwise_id_inds[key]] )
-        )
 
     # error scenarios
     with pytest.raises(ValueError):

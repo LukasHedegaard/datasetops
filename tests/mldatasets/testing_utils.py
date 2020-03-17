@@ -28,8 +28,8 @@ def load_dummy_data(num_total=11, with_label=False) -> FunctionDataset:
         return i, 'a' if i < len(a_ids) else 'b'
 
     ds = FunctionDataset(get_labelled_data if with_label else get_data)
-    ds._extend(a_ids, 'a')
-    ds._extend(b_ids, 'b')
+    ds._extend(a_ids)
+    ds._extend(b_ids)
     return ds
 
 
@@ -53,6 +53,6 @@ def load_dummy_numpy_data() -> FunctionDataset:
         return data[idx], labels[idx]
 
     ds = FunctionDataset(get_data)
-    ds._extend(a_ids, '1')
-    ds._extend(b_ids, '2')
+    ds._extend(a_ids)
+    ds._extend(b_ids)
     return ds

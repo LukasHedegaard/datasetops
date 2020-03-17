@@ -42,17 +42,12 @@ def raise_no_args(skip=0):
 
 class Dataset(AbstractDataset):
     """ Contains information on how to access the raw data, and performs sampling and splitting related operations.
-        Notes on internal data representation:
-            self._ids contains the identifiers that are use to grab the downstream data
-            self._classwise_id_inds are the classwise sorted indexes of self._ids (not the ids themselves)
-            naming: an `item` is a single datapoint, containing multiple `elements` (e.g. np.array and label)
     """
 
     def __init__(self, 
         downstream_getter:Union[ItemGetter,'Dataset'], 
         name:str=None, 
         ids:Ids=None, 
-        classwise_id_refs:IdIndexSet=None, 
         item_transform_fn:ItemTransformFn=lambda x: x
     ):
         """Initialise
@@ -61,7 +56,6 @@ class Dataset(AbstractDataset):
             downstream_getter {ItemGetter} -- Any object which implements the __getitem__ function (default: {None})
             name {str} -- A name for the dataset
             ids {Ids} -- List of ids used in the downstream_getter (default: {None})
-            classwise_id_refs {IdIndexSet} -- Classwise sorted indexes of the ids, NB: not the ids, but their indexes (default: {None})
             item_transform_fn: {Calleable} -- a function
         """
         self._downstream_getter = downstream_getter
@@ -69,11 +63,9 @@ class Dataset(AbstractDataset):
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name                    #type: ignore
             self._ids = list(range(len(self._downstream_getter._ids)))  #type: ignore
-            self._classwise_id_inds = self._make_classwise_id_ids(self._downstream_getter._classwise_id_inds, self._ids)  #type: ignore
         else:
             self.name = ''
             self._ids = []
-            self._classwise_id_inds = {}
 
         if name:
             self.name = name
@@ -85,8 +77,6 @@ class Dataset(AbstractDataset):
 
         if ids:
             self._ids:Ids = ids
-        if classwise_id_refs:
-            self._classwise_id_inds:IdIndexSet = classwise_id_refs
             
 
     def __len__(self):
@@ -118,30 +108,13 @@ class Dataset(AbstractDataset):
 
         return _DEFAULT_SHAPE
 
-    
-
-    def class_names(self) -> List[str]:
-        return [self._label2name(k) for k in self._classwise_id_inds.keys()]
-
-
-    def class_counts(self) -> Dict[str, int]:
-        return {
-            self._label2name(k): len(v)
-            for k,v in self._classwise_id_inds.items()
-        }
-
 
     def sample(self, num:int, seed:int=None):
         if seed:
             random.seed(seed)
-
         new_ids = random.sample(range(len(self)), num)
+        return Dataset(downstream_getter=self, ids=new_ids)
 
-        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
-
-        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
-
-    
 
     def _combine_conditions(self, 
         bulk:DataPredicate=None, 
@@ -191,33 +164,11 @@ class Dataset(AbstractDataset):
         ])
 
 
-    def sample_classwise(self, num_per_class:int, seed:int=None):
-        if seed:
-            random.seed(seed)
-
-        new_ids = []
-        new_classwise_id_inds = {}
-        prev_idx = 0
-        for k, v in self._classwise_id_inds.items():
-            next_idx = prev_idx+num_per_class
-            ss = random.sample(v, num_per_class)
-            new_ids.extend(ss)
-            new_classwise_id_inds[k] = list(range(prev_idx, next_idx))
-            prev_idx = next_idx
-
-        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
-
-
     def shuffle(self, seed=None):
-    
         random.seed(seed)
-
         new_ids = list(range(len(self)))
         random.shuffle(new_ids)
-
-        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
-
-        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+        return Dataset(downstream_getter=self, ids=new_ids)
 
     
     def split(self, fractions:List[float], seed:int=None): 
@@ -261,16 +212,13 @@ class Dataset(AbstractDataset):
                 split_ids[i].extend(new_ids[last_ind:])
 
         # create datasets corresponding to each split
-        datasets = [
+        return tuple([
             Dataset(
                 downstream_getter=self, 
                 ids=new_ids, 
-                classwise_id_refs=self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
             )
             for new_ids in split_ids
-        ]
-
-        return datasets
+        ])
 
 
     def take(self, num:int):
@@ -284,10 +232,9 @@ class Dataset(AbstractDataset):
         """
         if num > len(self):
             raise ValueError("Can't take more elements than are available in dataset")
-        
+
         new_ids = list(range(num))
-        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
-        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+        return Dataset(downstream_getter=self, ids=new_ids)
 
     
     def repeat(self, repeats=1, mode='itemwise'):
@@ -304,9 +251,8 @@ class Dataset(AbstractDataset):
             'whole'    : lambda : [i for _ in range(repeats) for i in list(range(len(self)))],
             'itemwise' : lambda : [i for i in list(range(len(self))) for _ in range(repeats)]
         }[mode]()
-        
-        new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
-        return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+
+        return Dataset(downstream_getter=self, ids=new_ids)
 
 
     def reorder(self, *new_inds:Union[int,str]):
@@ -347,26 +293,6 @@ class Dataset(AbstractDataset):
         return str(label)
 
 
-    @staticmethod
-    def _make_classwise_id_ids(old_classwise_id_inds: IdIndexSet, new_ids: List[IdIndex]) -> IdIndexSet:
-        # TODO: verify that this does not contain bugs
-        # create list of ranges corresponding to classes
-        ranges = {}
-        prev = 0
-        for k, v in old_classwise_id_inds.items():
-            ranges[k] = (prev, prev+len(v))
-            prev = len(v)
-
-        # group the new samples items into class-buckets
-        new_classwise_id_inds = {k:[] for k in old_classwise_id_inds.keys()}
-        for i, v in enumerate(new_ids):
-            for k, r in ranges.items():
-                if r[0] <= v < r[1]:
-                    new_classwise_id_inds[k].append(i)
-
-        return new_classwise_id_inds
-
-
     def set_item_names(self, first:Union[str, Sequence[str]], *rest:str):
         names:List[str] = []
 
@@ -386,6 +312,7 @@ class Dataset(AbstractDataset):
         }
         return self
 
+
     @property
     def item_names(self) -> List[str]:
         if self._item_names:
@@ -399,9 +326,9 @@ class Dataset(AbstractDataset):
             raise ValueError("Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`")
         return self._item_names[name]
     
+
     @warn_no_args(skip=1)
     def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
-
         if len(fns) + len(kwfns) > len(self.shape): # type:ignore
             raise ValueError("More transforms ({}) given than can be performed on item with {} elements".format(len(fns) + len(kwfns), len(self.shape)))
 
@@ -660,7 +587,6 @@ def zipped(*datasets:AbstractDataset):
     return Dataset(
         downstream_getter=comp,
         ids=comp._ids,
-        classwise_id_refs=comp._classwise_id_inds
     )
 
 
@@ -670,7 +596,6 @@ def cartesian_product(*datasets:AbstractDataset):
     return Dataset(
         downstream_getter=comp,
         ids=comp._ids,
-        classwise_id_refs=comp._classwise_id_inds
     )
 
 
@@ -680,5 +605,4 @@ def concat(*datasets:AbstractDataset):
     return Dataset(
         downstream_getter=comp,
         ids=comp._ids,
-        classwise_id_refs=comp._classwise_id_inds
     )

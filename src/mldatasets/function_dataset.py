@@ -19,26 +19,10 @@ class FunctionDataset(Dataset):
         super().__init__(downstream_getter=Getter(), name=name)
 
 
-    def _append(self, identifier:Data, label:Optional[str]=None):
-        i_new = len(self._ids)
-
+    def _append(self, identifier:Data):
         self._ids.append(identifier)
 
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = [i_new]
-        else:
-            self._classwise_id_inds[label].append(i_new)
 
-
-    def _extend(self, ids:Union[List[Data], np.ndarray], label:Optional[str]=None):
-        i_lo = len(self._ids)
-        i_hi = i_lo + len(ids)
-        l_new = list(range(i_lo, i_hi))
-
+    def _extend(self, ids:Union[List[Data], np.ndarray]):
         self._ids.extend(list(ids))
-
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = l_new
-        else:
-            self._classwise_id_inds[label].extend(l_new)
 

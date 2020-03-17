@@ -18,8 +18,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p/i),)
 
-    ds = FunctionDataset(
-        get_data, "Data Getter for folder with structure 'root/data'")
+    ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
     ds._extend(ids)
 
     return ds
@@ -38,7 +37,7 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob('[!._]*')]
-        ds._extend(ids, str(c))
+        ds._extend(ids)
 
     return ds
 
@@ -68,8 +67,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], labe
 
     # reshape data to have the instance as first dimensions
     reshaped_data = {
-        k: np.moveaxis(data[k], source=s.index(
-            common_shape), destination=0)  # type:ignore
+        k: np.moveaxis(data[k], source=s.index(common_shape), destination=0)  # type:ignore
         for k, s in zip(all_keys, shapes_list)
     }
 
@@ -98,7 +96,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], labe
                 condition=reshaped_data[label_key].squeeze() == lbl,
                 arr=reshaped_data[label_key].squeeze()
             )
-            ds._extend(lbl_inds, lbl)
+            ds._extend(lbl_inds)
     else:
         ds._extend(list(range(common_shape)))
 
@@ -138,7 +136,6 @@ def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         label_key = label_keys[0] if len(label_keys) > 0 else None
         data_keys = [k for k in keys if k != label_key]
 
-        datasets.append(dataset_from_np_dict(
-            data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
+        datasets.append(dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
 
     return datasets

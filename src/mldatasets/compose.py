@@ -20,7 +20,6 @@ class ZipDataset(AbstractDataset):
             raise ValueError("No datasets given to compose")
         self._downstream_datasets = downstream_datasets
         self._ids = list(range(self.__len__()))
-        self._classwise_id_inds = {None: self._ids}
         self.name = "zipped{}".format([ds.name for ds in self._downstream_datasets ])
 
 
@@ -51,7 +50,6 @@ class CartesianProductDataset(AbstractDataset):
         self._downstream_datasets = downstream_datasets
         self._downstream_lengths = [len(ds) for ds in downstream_datasets]
         self._ids = list(range(self.__len__()))
-        self._classwise_id_inds = {None: self._ids}
         self.name = "cartesian_product{}".format([ds.name for ds in self._downstream_datasets ])
 
 
@@ -92,31 +90,13 @@ class ConcatDataset(AbstractDataset):
                 warnings.warn('Concatenating datasets with different element shapes constitutes undefined behavior')
 
         self._downstream_datasets = downstream_datasets
-
         self._ids = list(range(self.__len__()))
-
+        self.name = "concat{}".format([ds.name for ds in self._downstream_datasets ])
         self._acc_idx_range = functools.reduce(
             lambda acc, ds: acc + [len(ds)+acc[-1]],
             self._downstream_datasets,
             [0]
         )
-
-        # make class-wise ids
-        cwids = {}
-        for i, ds in enumerate(self._downstream_datasets):
-            new_cwids = {
-                key:list(np.array(vals) + self._acc_idx_range[i]) 
-                for key, vals in ds._classwise_id_inds.items() #type: ignore
-            } 
-            for key, vals in new_cwids.items():
-                if not key in cwids:
-                    cwids[key] = vals
-                else:
-                    cwids[key].extend(vals)
-
-        self._classwise_id_inds = cwids
-
-        self.name = "concat{}".format([ds.name for ds in self._downstream_datasets ])
 
 
     def __len__(self) -> int:
