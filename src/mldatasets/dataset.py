@@ -72,8 +72,9 @@ class Dataset(AbstractDataset):
         self._shape = None
         self._item_names: Optional[Dict[str,int]] = None 
 
-        if ids and classwise_id_refs:
+        if ids:
             self._ids:Ids = ids
+        if classwise_id_refs:
             self._classwise_id_inds:IdIndexSet = classwise_id_refs
             
 
@@ -128,6 +129,30 @@ class Dataset(AbstractDataset):
         new_classwise_id_inds = self._make_classwise_id_ids(self._classwise_id_inds, new_ids)
 
         return Dataset(downstream_getter=self, ids=new_ids, classwise_id_refs=new_classwise_id_inds)
+
+
+    @warn_no_args(skip=1)
+    def sample_by(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
+        assert(len(itemwise) <= len(self.shape))
+        assert(all([k in self.item_names for k in kwpredicates.keys()]))
+
+        # clean up predicates
+        if not bulk:
+            bulk = lambda x: True
+        preds:List[DataPredicate] = [((lambda x:True) if p is None else p) for p in itemwise] 
+
+        def condition(x:Any) -> bool:
+            return (
+                bulk(x)
+                and
+                all([pred(x[i]) for i, pred in enumerate(preds)]) 
+                and 
+                all([pred(x[self._itemname2ind(k)]) for k, pred in kwpredicates.items()]) 
+            )
+
+        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
+
+        return Dataset(downstream_getter=self, ids=new_ids)
 
 
     def sample_classwise(self, num_per_class:int, seed:int=None):
@@ -307,7 +332,6 @@ class Dataset(AbstractDataset):
 
 
     def set_item_names(self, first:Union[str, Sequence[str]], *rest:str):
-        
         names:List[str] = []
 
         if type(first) == str:
@@ -324,6 +348,7 @@ class Dataset(AbstractDataset):
             n: i
             for i, n in enumerate(names)
         }
+        return self
 
     @property
     def item_names(self) -> List[str]:
@@ -520,6 +545,25 @@ def _check_numpy_compatibility(elem):
         raise ValueError("Unable to convert element {} to numpy".format(elem))
     # check if this raises an Exception
     np.array(elem)
+
+
+########## Predicate implementations ####################
+
+def allow_unique(max_num_duplicates=1):
+    mem_counts = {}
+
+    def fn(x):
+        nonlocal mem_counts
+        h = hash(str(x))
+        if not h in mem_counts.keys():
+            mem_counts[h]=1
+            return True
+        if mem_counts[h]<max_num_duplicates:
+            mem_counts[h] += 1
+            return True
+        return False
+
+    return fn
 
 
 ########## Transform implementations ####################

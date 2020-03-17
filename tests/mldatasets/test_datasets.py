@@ -1,6 +1,6 @@
 
-from mldatasets.dataset import Dataset, reshape, custom, _DEFAULT_SHAPE
-from mldatasets.loaders import FunctionDataset
+from mldatasets.dataset import Dataset, reshape, custom, allow_unique, _DEFAULT_SHAPE
+from mldatasets.function_dataset import FunctionDataset
 import mldatasets.loaders as loaders
 import pytest
 import numpy as np
@@ -61,6 +61,53 @@ def test_sample():
     ds_sampled2 = ds.sample(5, seed+1)
     found_items2 = [i for i in ds_sampled2]
     assert(set(found_items2) != set(found_items))
+
+
+def test_sample_by():
+    num_total=10
+    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+
+    # expected items
+    a = [ (x, 'a') for x in list(range(5))]
+    b = [ (x, 'b') for x in list(range(5,num_total))]
+    even_a = [x for x in a if x[0]%2==0]
+    odd_a  = [x for x in a if x[0]%2==1]
+    even_b = [x for x in b if x[0]%2==0]
+    odd_b  = [x for x in b if x[0]%2==1]
+
+    # itemwise
+    ds_even = ds.sample_by(itemwise=[lambda x: x%2==0])
+    assert(list(ds_even) == even_a + even_b) 
+
+    ds_even_a = ds.sample_by(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    assert(list(ds_even_a) == even_a) 
+
+    # by key
+    ds_b = ds.sample_by(label=lambda x:x=='b')
+    assert(list(ds_b) == b)
+
+    # bulk
+    ds_odd_b = ds.sample_by(lambda x: x[0]%2==1 and x[1]=='b')
+    assert(list(ds_odd_b) == odd_b)
+
+    # mix
+    ds_even_b_no_4 = ds.sample_by(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
+
+    # sample_classwise
+    ds_classwise = ds.sample_by(label=allow_unique(2))
+    assert(list(ds_classwise) == list(a[:2] + b[:2]))
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        ds_same = ds.sample_by() # no args
+        assert(list(ds) == list(ds_same))
+
+    with pytest.raises(AssertionError):
+        ds.sample_by(itemwise=[None, None, None]) # too many args
+
+    with pytest.raises(AssertionError):
+        ds.sample_by(badkey=lambda x:True) # key doesn't exist
 
 
 def test_sample_classwise():
