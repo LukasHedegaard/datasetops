@@ -11,8 +11,8 @@ from testing_utils import ( # type:ignore
 )
 
 def test_zip():
-    ds_pos = load_dummy_data(num_total=10)
-    ds_neg = load_dummy_data(num_total=11).transform(lambda x: -x)
+    ds_pos = load_dummy_data(num_total=10).set_item_names('pos')
+    ds_neg = load_dummy_data(num_total=11).transform(lambda x: -x).set_item_names('neg')
     ds_np = load_dummy_numpy_data()
     ds_labelled = load_dummy_data(num_total=10, with_label=True)
 
@@ -20,6 +20,8 @@ def test_zip():
     zds = zipped(ds_pos, ds_neg)
     assert(len(zds) == min(len(ds_pos), len(ds_neg)))
     assert(zds.shape == (*ds_pos.shape, *ds_neg.shape))
+    # item names survive because there were no clashes
+    assert(zds.item_names == ['pos','neg'])
 
     # syntax 2
     zds_alt = ds_pos.zip(ds_neg)
@@ -30,6 +32,8 @@ def test_zip():
     zds_self = zipped(ds_pos, ds_pos)
     assert(len(zds_self) == len(ds_pos))
     assert(zds_self.shape == (*ds_pos.shape, *ds_pos.shape))
+    # item names are discarded because there are clashes
+    assert(zds_self.item_names == [])
 
     # mix labelled and unlabelled data
     zds_mix_labelling = ds_neg.zip(ds_labelled)

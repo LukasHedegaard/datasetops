@@ -7,6 +7,16 @@ import math
 import warnings
 
 
+########## Utils ####################
+
+def _zipped_item_names(*datasets:AbstractDataset):
+    if set.intersection(*[set(d.item_names) for d in datasets]): #type:ignore
+        return None
+    else:
+        return {n:i for i,n in enumerate([n for d in datasets for n in d.item_names])} #type:ignore
+
+########## Datasets ####################
+
 class ZipDataset(AbstractDataset):
     def __init__(self, *downstream_datasets:AbstractDataset):
         """ Compose datasets by zipping and flattening their items. 
@@ -21,6 +31,7 @@ class ZipDataset(AbstractDataset):
         self._downstream_datasets = downstream_datasets
         self._ids = list(range(self.__len__()))
         self.name = "zipped{}".format([ds.name for ds in self._downstream_datasets ])
+        self._item_names = _zipped_item_names(*downstream_datasets)
 
 
     def __len__(self) -> int:
@@ -51,6 +62,7 @@ class CartesianProductDataset(AbstractDataset):
         self._downstream_lengths = [len(ds) for ds in downstream_datasets]
         self._ids = list(range(self.__len__()))
         self.name = "cartesian_product{}".format([ds.name for ds in self._downstream_datasets ])
+        self._item_names = _zipped_item_names(*downstream_datasets)
 
 
     def __len__(self) -> int:
