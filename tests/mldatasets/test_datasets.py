@@ -651,7 +651,7 @@ def test_image_resize():
 
 ########## Framework converters #########################
 
-@pytest.mark.longtest
+@pytest.mark.slow
 def test_to_tf_simple():
     # prep data
     ds = load_dummy_numpy_data().set_item_names("data", "label").one_hot("label")
@@ -679,3 +679,4 @@ def test_to_tf_simple():
 
     expected_labels = np.array([v[0] for v in ds.reorder('label').label(0)])
     assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
+
