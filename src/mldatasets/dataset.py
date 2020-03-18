@@ -37,15 +37,6 @@ def _raise_no_args(skip=0):
             return fn(*args, **kwargs)
         return wrapped
     return with_args
-    
-    
-def _raise_no_item_names(fn):
-    @functools.wraps(fn)
-    def wrapped(this, *args, **kwargs):
-        if len(this.item_names) == 0:
-            raise ValueError("Itemnames must be set for {} to work (Hint: use set_item_names('name1','name2',...))".format(fn.__code__.co_name))
-        return fn(this, *args, **kwargs)
-    return wrapped
 
 
 def _dummy_arg_receiving(fn):
