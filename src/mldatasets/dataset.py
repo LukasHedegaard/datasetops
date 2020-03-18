@@ -12,7 +12,7 @@ from mldatasets.abstract import AbstractDataset
 from pathlib import Path
 
 
-########## Defaults ####################
+########## Decorators ####################
 
 _DEFAULT_SHAPE = tuple()
 
@@ -514,6 +514,11 @@ class Dataset(AbstractDataset):
     # def img_filter(self, filter_fn):
     #     pass
 
+    ########## Framework converters #########################
+
+    def to_tf(self):
+        return to_tf(self)
+
 
 ########## Handy decorators ####################
 
@@ -672,7 +677,7 @@ def one_hot(encoding_size:int, mapping_fn:Callable[[Any], int]=None, dtype='bool
         h = hash(str(x)) 
         if not h in mem.keys():
             maxcount += 1
-            if maxcount > encoding_size:
+            if maxcount >= encoding_size:
                 raise ValueError("More unique labels found than were specified by the encoding size ({} given)".format(encoding_size))
             mem[h] = maxcount
         return mem[h]
@@ -735,4 +740,41 @@ def concat(*datasets:AbstractDataset):
     return Dataset(
         downstream_getter=comp,
         ids=comp._ids,
+    )
+
+
+########## Converters ####################
+
+def _compute_tf_type(item:Any):
+    import tensorflow as tf #type:ignore
+
+    if type(item) in [list, tuple]:
+        return tuple([_compute_tf_type(i) for i in item])      
+
+    if type(item) == str:            
+        return { str(k):_compute_tf_type(v) for k,v in item.items() }
+
+    return tf.convert_to_tensor(item).dtype
+
+
+def _compute_tf_shape(item:Any):
+    import tensorflow as tf #type:ignore
+
+    if type(item) in [list, tuple]:
+        return tuple([_compute_tf_shape(i) for i in item])      
+
+    if type(item) == str:            
+        return { str(k):_compute_tf_shape(v) for k,v in item.items() }
+
+    return tf.convert_to_tensor(item).shape
+
+
+def to_tf(dataset:Dataset):
+    import tensorflow as tf #type:ignore
+
+    item = dataset[0]
+    return tf.data.Dataset.from_generator(
+        generator=dataset.generator, 
+        output_types=_compute_tf_type(item), 
+        output_shapes=_compute_tf_shape(item),
     )

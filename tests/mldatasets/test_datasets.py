@@ -430,6 +430,9 @@ def test_one_hot():
     with pytest.raises(ValueError):
         ds.one_hot(42, encoding_size=2) # wrong key
 
+    with pytest.raises(ValueError):
+        list(ds.one_hot('label', encoding_size=1)) # encoding size too small -- found at runtime
+
     with pytest.raises(KeyError):
         ds.one_hot("wrong", encoding_size=2) # wrong key
 
@@ -646,4 +649,33 @@ def test_image_resize():
         ds.img_resize((4,4,4)) # Invalid size
 
 
-    
+########## Framework converters #########################
+
+@pytest.mark.longtest
+def test_to_tf_simple():
+    # prep data
+    ds = load_dummy_numpy_data().set_item_names("data", "label").one_hot("label")
+    tf_ds = ds.to_tf().batch(2)
+
+    # prep model
+    import tensorflow as tf #type:ignore     
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(ds.shape[0]),
+        tf.keras.layers.Dense(10, activation='relu'),
+        tf.keras.layers.Dense(2, activation='softmax'),
+    ])
+
+    model.compile(
+        optimizer='adam',
+        loss=tf.keras.losses.CategoricalCrossentropy(),
+        metrics=['accuracy']
+    )
+
+    # model should be able to fit the data
+    model.fit(tf_ds, epochs=50)
+    preds = model.predict(tf_ds)
+    pred_labels = np.argmax(preds, axis=1)
+
+    expected_labels = np.array([v[0] for v in ds.reorder('label').label(0)])
+    assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
