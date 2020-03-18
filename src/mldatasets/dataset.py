@@ -17,7 +17,7 @@ from pathlib import Path
 _DEFAULT_SHAPE = tuple()
 
 
-def warn_no_args(skip=0):
+def _warn_no_args(skip=0):
     def with_args(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
@@ -28,7 +28,7 @@ def warn_no_args(skip=0):
     return with_args
 
 
-def raise_no_args(skip=0):
+def _raise_no_args(skip=0):
     def with_args(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
@@ -39,12 +39,19 @@ def raise_no_args(skip=0):
     return with_args
     
     
-def raise_no_item_names(fn):
+def _raise_no_item_names(fn):
     @functools.wraps(fn)
     def wrapped(this, *args, **kwargs):
         if len(this.item_names) == 0:
             raise ValueError("Itemnames must be set for {} to work (Hint: use set_item_names('name1','name2',...))".format(fn.__code__.co_name))
         return fn(this, *args, **kwargs)
+    return wrapped
+
+
+def _dummy_arg_receiving(fn):
+    @functools.wraps(fn)
+    def wrapped(dummy, *args, **kwargs):
+        return fn(*args, **kwargs)
     return wrapped
 
 
@@ -58,7 +65,8 @@ class Dataset(AbstractDataset):
         downstream_getter:Union[ItemGetter,'Dataset'], 
         name:str=None, 
         ids:Ids=None, 
-        item_transform_fn:ItemTransformFn=lambda x: x
+        item_transform_fn:ItemTransformFn=lambda x: x,
+        item_names:Dict[str,int]=None,
     ):
         """Initialise
         
@@ -73,20 +81,20 @@ class Dataset(AbstractDataset):
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name                    #type: ignore
             self._ids = list(range(len(self._downstream_getter._ids)))  #type: ignore
+            self._item_names = getattr(downstream_getter, "_item_names", None)
         else:
             self.name = ''
             self._ids = []
+            self._item_names: Optional[Dict[str,int]] = None 
 
         if name:
             self.name = name
-
-        self._item_transform_fn = item_transform_fn
-
-        self._shape = None
-        self._item_names: Optional[Dict[str,int]] = None 
-
+        if item_names:
+            self._item_names = item_names
         if ids:
             self._ids:Ids = ids
+
+        self._item_transform_fn = item_transform_fn
             
 
     def __len__(self):
@@ -118,26 +126,27 @@ class Dataset(AbstractDataset):
         return _DEFAULT_SHAPE
 
 
-    @functools.lru_cache(1)
-    @warn_no_args(skip=1)
-    def counts(self, *itemkeys:Union[str, int]) -> List[Tuple[Any,int]]:
+    @functools.lru_cache(4)
+    @_warn_no_args(skip=1)
+    def counts(self, *itemkeys:Key) -> List[Tuple[Any,int]]:
         """ Compute the counts of each unique item in the dataset
             Warning: this operation may be expensive for large datasets
         
         Arguments:
-            itemkeys {Union[str, int]} -- The item keys or indexes to be checked for uniqueness. If no key is given, all item-parts must match for them to be considered equal
+            itemkeys {Union[str, int]} -- The item keys (str) or indexes (int) to be checked for uniqueness. If no key is given, all item-parts must match for them to be considered equal
 
         Returns:
             List[Tuple[Any,int]] -- List of tuples, each containing the unique value and its number of occurences
         """
         inds:List[int] = [k if type(k) == int else self._itemname2ind(k) for k in itemkeys] # type: ignore
 
+        selector =  (lambda item: item          ) if len(itemkeys) == 0   else \
+                    (lambda item: item[inds[0]] ) if len(inds) == 1       else \
+                    (lambda item: tuple([val for i,val in enumerate(item) if i in inds]) )
+
         unique_items, item_counts = {}, {}
         for item in iter(self):
-            if len(itemkeys) > 0:
-                selected = tuple([val if i in inds else None for i,val in enumerate(item)])
-            else:
-                selected = item
+            selected = selector(item)
             h = hash(str(selected))
             if not h in unique_items.keys():
                 unique_items[h] = selected
@@ -148,8 +157,8 @@ class Dataset(AbstractDataset):
         return [(unique_items[k], item_counts[k]) for k in unique_items.keys()]
         
 
-    @warn_no_args(skip=1)
-    def unique(self, *itemkeys:Union[str, int]) -> List[Any]:
+    @_warn_no_args(skip=1)
+    def unique(self, *itemkeys:Key) -> List[Any]:
         """ Compute a list of unique values in the dataset
             Warning: this operation may be expensive for large datasets
         
@@ -194,14 +203,14 @@ class Dataset(AbstractDataset):
         return condition
 
 
-    @warn_no_args(skip=1)
+    @_warn_no_args(skip=1)
     def filter(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
         condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
         new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
 
     
-    @raise_no_args(skip=1)
+    @_raise_no_args(skip=1)
     def filter_split(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
         condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
         ack, nack = [], []
@@ -335,9 +344,17 @@ class Dataset(AbstractDataset):
         def item_transform_fn(item:Tuple):
             return tuple([item[i] for i in inds])
 
+        item_names = None
+        if self._item_names:
+            if len(set(new_inds)) < len(new_inds):
+                warnings.warn("discarding item_names due to otherwise non-unique labels on transformed dataset")
+            else:
+                item_names = {k:inds[v] for k,v in self._item_names.items() if v < len(inds)}
+
         return Dataset(
             downstream_getter=self, 
             item_transform_fn=item_transform_fn,
+            item_names=item_names
         )
 
 
@@ -380,7 +397,7 @@ class Dataset(AbstractDataset):
         return self._item_names[name]
     
 
-    @warn_no_args(skip=1)
+    @_warn_no_args(skip=1)
     def transform(self, *fns:DatasetTransformFn, **kwfns:DatasetTransformFn):
         if len(fns) + len(kwfns) > len(self.shape): # type:ignore
             raise ValueError("More transforms ({}) given than can be performed on item with {} elements".format(len(fns) + len(kwfns), len(self.shape)))
@@ -400,6 +417,21 @@ class Dataset(AbstractDataset):
 
         return new_dataset
 
+    ########## Label transforming methods #########################
+
+    def label(self, key:Key, mapping_fn:Callable[[Any], int]=None ):
+        idx:int = self._itemname2ind(key) if type(key) == str else key #type:ignore
+        args = [mapping_fn or True if i == idx else None for i in range(idx+1)]
+        return self._optional_argument_indexed_transform(transform_fn=label, args=args) 
+
+
+    def one_hot(self, key:Key, encoding_size:int, mapping_fn:Callable[[Any], int]=None, dtype='bool'):
+        idx:int = self._itemname2ind(key) if type(key) == str else key #type:ignore
+        args = [encoding_size if i == idx else None for i in range(idx+1)]
+        return self._optional_argument_indexed_transform(
+            transform_fn=functools.partial(one_hot, mapping_fn=mapping_fn, dtype=dtype), 
+            args=args
+        ) 
 
     ########## Conversion methods #########################
 
@@ -415,7 +447,7 @@ class Dataset(AbstractDataset):
                     positional_flags.append(False)
                    
         if any(positional_flags):
-            return self._optional_argument_indexed_transform(transform_fn=as_image, args=positional_flags)       
+            return self._optional_argument_indexed_transform(transform_fn=_dummy_arg_receiving(as_image), args=positional_flags)       
         else: 
             warnings.warn('Conversion to image skipped. No elements were compatible')
             return self
@@ -433,7 +465,7 @@ class Dataset(AbstractDataset):
                     positional_flags.append(False)
                    
         if any(positional_flags):
-            return self._optional_argument_indexed_transform(transform_fn=as_numpy, args=positional_flags)       
+            return self._optional_argument_indexed_transform(transform_fn=_dummy_arg_receiving(as_numpy), args=positional_flags)       
         else: 
             warnings.warn('Conversion to numpy.array skipped. No elements were compatible')
             return self
@@ -455,7 +487,7 @@ class Dataset(AbstractDataset):
 
     ########## Methods relating to numpy data #########################
     
-    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Tuple[Any]):
+    def _optional_argument_indexed_transform(self, transform_fn:DatasetTransformFnCreator, args:Sequence[Any]):
         if len(args) == 0:
             raise ValueError("Unable to perform transform: No arguments arguments given")
         if len(self.shape) < len(args):
@@ -584,13 +616,6 @@ def allow_unique(max_num_duplicates=1):
 
 ########## Transform implementations ####################
 
-def reshape(new_shape:Shape) -> DatasetTransformFn:
-    return _dataset_element_transforming(
-        fn=functools.partial(np.reshape, newshape=(new_shape)), #type: ignore
-        check=_check_shape_compatibility(new_shape)
-    )
-
-
 def custom(elem_transform_fn:Callable[[Any], Any], elem_check_fn:Callable[[Any],None]=None) -> DatasetTransformFn:
     """ Create a user defined transform
     
@@ -609,17 +634,77 @@ def custom(elem_transform_fn:Callable[[Any], Any], elem_check_fn:Callable[[Any],
     )
 
 
-def as_image(dummy_input=None) -> DatasetTransformFn:
+def reshape(new_shape:Shape) -> DatasetTransformFn:
     return _dataset_element_transforming(
-        fn=convert2img,
-        check=_check_image_compatibility
+        fn=functools.partial(np.reshape, newshape=(new_shape)), #type: ignore
+        check=_check_shape_compatibility(new_shape)
     )
 
 
-def as_numpy(dummy_input=None) -> DatasetTransformFn:
+def label(mapping_fn:Callable[[Any], int]=None) -> DatasetTransformFn:
+    """ Transform data into an integer label
+    
+    Arguments:
+        mapping_fn {Callable[[Any], int]} -- A function transforming the input data to the integer label. If not specified, labels are automatically inferred from the data.
+    
+    Returns:
+        DatasetTransformFn -- A function to be passed to the Dataset.transform()
+    """
+    mem, maxcount = {}, -1
+    def auto_label(x:Any) -> int:
+        nonlocal mem, maxcount
+        h = hash(str(x)) 
+        if not h in mem.keys():
+            maxcount += 1
+            mem[h] = maxcount
+        return mem[h]
+
+    return _dataset_element_transforming(
+        fn=mapping_fn if callable(mapping_fn) else auto_label # type: ignore
+    )
+
+
+def one_hot(encoding_size:int, mapping_fn:Callable[[Any], int]=None, dtype='bool') -> DatasetTransformFn:
+    """ Transform data into a one-hot encoded label
+    
+    Arguments:
+        encoding_size {int} -- The size of the encoding
+        mapping_fn {Callable[[Any], int]} -- A function transforming the input data to an integer label. If not specified, labels are automatically inferred from the data.
+    
+    Returns:
+        DatasetTransformFn -- A function to be passed to the Dataset.transform()
+    """
+    mem, maxcount = {}, -1
+    def auto_label(x:Any) -> int:
+        nonlocal mem, maxcount, encoding_size
+        h = hash(str(x)) 
+        if not h in mem.keys():
+            maxcount += 1
+            if maxcount > encoding_size:
+                raise ValueError("More unique labels found than were specified by the encoding size ({} given)".format(encoding_size))
+            mem[h] = maxcount
+        return mem[h]
+
+    def encode(x):
+        nonlocal encoding_size, dtype
+        o = np.zeros(encoding_size, dtype=dtype)
+        o[auto_label(x)] = True
+        return o
+
+    return _dataset_element_transforming(fn=encode)
+
+
+def as_numpy() -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=np.array,
         check=_check_numpy_compatibility
+    )
+
+
+def as_image() -> DatasetTransformFn:
+    return _dataset_element_transforming(
+        fn=convert2img,
+        check=_check_image_compatibility
     )
 
 
@@ -634,7 +719,7 @@ def img_resize(new_size:Shape, resample=Image.NEAREST) -> DatasetTransformFn:
 
 ########## Compose functions ####################
 
-@warn_no_args(skip=1)
+@_warn_no_args(skip=1)
 def zipped(*datasets:AbstractDataset):
     comp = compose.ZipDataset(*datasets)
     return Dataset(
@@ -643,7 +728,7 @@ def zipped(*datasets:AbstractDataset):
     )
 
 
-@warn_no_args(skip=1)
+@_warn_no_args(skip=1)
 def cartesian_product(*datasets:AbstractDataset):
     comp = compose.CartesianProductDataset(*datasets)
     return Dataset(
@@ -652,7 +737,7 @@ def cartesian_product(*datasets:AbstractDataset):
     )
 
 
-@warn_no_args(skip=1)
+@_warn_no_args(skip=1)
 def concat(*datasets:AbstractDataset):
     comp = compose.ConcatDataset(*datasets)
     return Dataset(

@@ -1,5 +1,5 @@
 
-from mldatasets.dataset import Dataset, reshape, custom, allow_unique, _DEFAULT_SHAPE
+from mldatasets.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
 from mldatasets.function_dataset import FunctionDataset
 import mldatasets.loaders as loaders
 import pytest
@@ -243,6 +243,10 @@ def test_reorder():
     # shape updates accordingly
     assert(ds_re_creative.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE, _DEFAULT_SHAPE, DUMMY_NUMPY_DATA_SHAPE_1D))
 
+    # error scenarios
+    with pytest.warns(UserWarning):
+        ds.set_item_names('one','two').reorder(0,1,1) # key needs to be unique, but wouldn't be
+
 
 ########## Tests relating to stats #########################
 
@@ -253,7 +257,7 @@ def test_counts():
     counts = ds.counts('label') # name based
     counts_alt = ds.counts(1) # index based
 
-    expected_counts = [((None,'a'), 5), ((None,'b'), num_total-5)]
+    expected_counts = [('a', 5), ('b', num_total-5)]
     assert(counts == counts_alt == expected_counts)
 
     with pytest.warns(UserWarning):
@@ -266,7 +270,7 @@ def test_unique():
     ds = load_dummy_data(with_label=True).set_item_names('data', 'label')
 
     unique_labels = ds.unique('label')
-    assert(unique_labels == [(None,'a'),(None,'b')])
+    assert(unique_labels == ['a','b'])
 
     with pytest.warns(UserWarning):
         unique_items = ds.unique()
@@ -334,6 +338,99 @@ def test_item_naming():
     with pytest.raises(Exception):
         ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
+
+def test_label():
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+
+    assert(ds.unique('label') == ['a','b'])
+
+    ds_label = ds.label(1)
+    ds_label_alt = ds.label('label')
+
+    # alternative syntaxes
+    ds_label = ds.label(1)
+    ds_label_alt1 = ds.label("label")
+    ds_label_alt2 = ds.transform(label=label())
+    ds_label_alt3 = ds.transform(None, label())
+
+    expected = [0, 1]
+
+    for l, l1, l2, l3, e in zip(
+        ds_label.unique('label'), 
+        ds_label_alt1.unique('label'), 
+        ds_label_alt2.unique('label'), 
+        ds_label_alt2.unique('label'), 
+        expected
+    ):
+        assert(np.array_equal(l,l1))
+        assert(np.array_equal(l,l2))
+        assert(np.array_equal(l,l3))
+        assert(np.array_equal(l,e)) #type:ignore
+
+    assert(list(ds_label) == [(d, 0 if l == 'a' else 1 ,l2) for d, l, l2 in ds])
+
+    ds_label_userdef = ds.label('label', lambda x: 1 if x == 'a' else 0)
+
+    assert(ds_label_userdef.unique('label') == [1, 0])
+    assert(list(ds_label_userdef) == [(d, 1 if l == 'a' else 0 ,l2) for d, l, l2 in ds])
+
+    # error scenarios
+    with pytest.raises(TypeError):
+        ds.label() # we need to know what to label
+
+    with pytest.raises(ValueError):
+        ds.label(42) # wrong key
+
+    with pytest.raises(KeyError):
+        ds.label("wrong") # wrong key
+
+
+def test_one_hot():
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+    assert(ds.unique('label') == ['a','b'])
+
+    # alternative syntaxes
+    ds_oh = ds.one_hot(1, encoding_size=2)
+    ds_oh_alt1 = ds.one_hot("label", encoding_size=2)
+    ds_oh_alt2 = ds.transform(label=one_hot(encoding_size=2))
+    ds_oh_alt3 = ds.transform(None, one_hot(encoding_size=2))
+
+    expected = [np.array([True, False]), np.array([False, True])]
+
+    for l, l1, l2, l3, e in zip(
+        ds_oh.unique('label'), 
+        ds_oh_alt1.unique('label'), 
+        ds_oh_alt2.unique('label'), 
+        ds_oh_alt2.unique('label'), 
+        expected
+    ):
+        assert(np.array_equal(l,l1))
+        assert(np.array_equal(l,l2))
+        assert(np.array_equal(l,l3))
+        assert(np.array_equal(l,e)) #type:ignore
+
+    for x, l, l2 in ds_oh:
+        ind = 0 if l2 == 'a' else 1
+        assert(np.array_equal(l, expected[ind])) #type:ignore
+
+    # spiced up
+    ds_oh_userdef = ds.one_hot('label', encoding_size=3, mapping_fn=lambda x: 1 if x == 'a' else 0, dtype='int')
+
+    for l, e in zip(ds_oh_userdef.unique('label'), [np.array([1,0,0]), np.array([0,1,0])]):
+        assert(np.array_equal(l,e)) #type:ignore
+
+    # error scenarios
+    with pytest.raises(TypeError):
+        ds.one_hot() # we need some arguments
+
+    with pytest.raises(TypeError):
+        ds.one_hot('label') # encoding_size is also needed
+
+    with pytest.raises(ValueError):
+        ds.one_hot(42, encoding_size=2) # wrong key
+
+    with pytest.raises(KeyError):
+        ds.one_hot("wrong", encoding_size=2) # wrong key
 
 def test_transform():
     ds = load_dummy_numpy_data()
