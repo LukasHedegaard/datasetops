@@ -8,7 +8,7 @@ setup(
         "numpy", "pillow", "pandas", "scipy"
     ],
     extras_require={
-        "tests": ["pytest", "pytest-cov", "flake8"],
+        "tests": ["pytest", "pytest-cov", "flake8", "tensorflow"],
         "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"] 
     }
 )
