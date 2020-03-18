@@ -395,18 +395,22 @@ def test_one_hot():
     ds_oh_alt2 = ds.transform(label=one_hot(encoding_size=2))
     ds_oh_alt3 = ds.transform(None, one_hot(encoding_size=2))
 
+    ds_oh_auto = ds.one_hot("label") # automatically compute encoding size
+
     expected = [np.array([True, False]), np.array([False, True])]
 
-    for l, l1, l2, l3, e in zip(
+    for l, l1, l2, l3, la, e in zip(
         ds_oh.unique('label'), 
         ds_oh_alt1.unique('label'), 
         ds_oh_alt2.unique('label'), 
         ds_oh_alt2.unique('label'), 
+        ds_oh_auto.unique('label'),
         expected
     ):
         assert(np.array_equal(l,l1))
         assert(np.array_equal(l,l2))
         assert(np.array_equal(l,l3))
+        assert(np.array_equal(l,la))
         assert(np.array_equal(l,e)) #type:ignore
 
     for x, l, l2 in ds_oh:
@@ -422,9 +426,6 @@ def test_one_hot():
     # error scenarios
     with pytest.raises(TypeError):
         ds.one_hot() # we need some arguments
-
-    with pytest.raises(TypeError):
-        ds.one_hot('label') # encoding_size is also needed
 
     with pytest.raises(ValueError):
         ds.one_hot(42, encoding_size=2) # wrong key

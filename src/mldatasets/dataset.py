@@ -416,9 +416,10 @@ class Dataset(AbstractDataset):
         return self._optional_argument_indexed_transform(transform_fn=label, args=args) 
 
 
-    def one_hot(self, key:Key, encoding_size:int, mapping_fn:Callable[[Any], int]=None, dtype='bool'):
+    def one_hot(self, key:Key, encoding_size:int=None, mapping_fn:Callable[[Any], int]=None, dtype='bool'):
+        enc_size = encoding_size or len(self.unique(key))
         idx:int = self._itemname2ind(key) if type(key) == str else key #type:ignore
-        args = [encoding_size if i == idx else None for i in range(idx+1)]
+        args = [enc_size if i == idx else None for i in range(idx+1)]
         return self._optional_argument_indexed_transform(
             transform_fn=functools.partial(one_hot, mapping_fn=mapping_fn, dtype=dtype), 
             args=args
