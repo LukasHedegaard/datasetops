@@ -165,7 +165,12 @@ class Dataset(AbstractDataset):
     def sample(self, num:int, seed:int=None):
         if seed:
             random.seed(seed)
-        new_ids = random.sample(range(len(self)), num)
+        l = self.__len__() 
+        if l >= num:
+            new_ids = random.sample(range(l), num)
+        else:
+            # TODO: determine if we should warn of raise an error instead
+            new_ids = random.sample(range(l), l) + random.sample(range(l), num-l) # Supersample. 
         return Dataset(downstream_getter=self, ids=new_ids)
 
 
@@ -308,7 +313,7 @@ class Dataset(AbstractDataset):
         return Dataset(downstream_getter=self, ids=new_ids)
 
 
-    def reorder(self, *new_inds:Union[int,str]):
+    def reorder(self, *keys:Key):
         """ Reorder items in the dataset (similar to numpy.transpose)
 
         Arguments:
@@ -317,12 +322,12 @@ class Dataset(AbstractDataset):
         Returns:
             [type] -- [description]
         """
-        if len(new_inds) == 0:
+        if len(keys) == 0:
             warnings.warn('No indexes given in Dataset.reorder. The dataset remains unchanged')
             return self
 
         inds:List[int] = []
-        for i in new_inds:
+        for i in keys:
             if type(i)==str:
                 inds.append(self._itemname2ind(str(i))) 
             else:
@@ -337,7 +342,7 @@ class Dataset(AbstractDataset):
 
         item_names = None
         if self._item_names:
-            if len(set(new_inds)) < len(new_inds):
+            if len(set(keys)) < len(keys):
                 warnings.warn("discarding item_names due to otherwise non-unique labels on transformed dataset")
             else:
                 item_names = {k:inds[v] for k,v in self._item_names.items() if v < len(inds)}
@@ -377,7 +382,7 @@ class Dataset(AbstractDataset):
     @property
     def item_names(self) -> List[str]:
         if self._item_names:
-            return list(self._item_names.keys())
+            return [x[0] for x in sorted(self._item_names.items(), key=lambda x: x[1])]
         else:
             return []
 
@@ -394,6 +399,15 @@ class Dataset(AbstractDataset):
             raise ValueError("More transforms ({}) given than can be performed on item with {} elements".format(len(fns) + len(kwfns), len(self.shape)))
 
         new_dataset: AbstractDataset = self
+
+        # a single function taking one argument was given
+        if (len(fns) == 1 and 
+            len(kwfns) == 0 and 
+            len(signature(fns[0]).parameters) == 1 and
+            len(self.shape) > 1
+        ):
+            fn:ItemTransformFn = fns[0] #type:ignore
+            return Dataset(downstream_getter=self, item_transform_fn=fn)
 
         for i, f in enumerate(fns): #type:ignore
             if f:
@@ -751,7 +765,7 @@ def _compute_tf_type(item:Any):
     if type(item) in [list, tuple]:
         return tuple([_compute_tf_type(i) for i in item])      
 
-    if type(item) == str:            
+    if type(item) == dict:            
         return { str(k):_compute_tf_type(v) for k,v in item.items() }
 
     return tf.convert_to_tensor(item).dtype
@@ -763,7 +777,7 @@ def _compute_tf_shape(item:Any):
     if type(item) in [list, tuple]:
         return tuple([_compute_tf_shape(i) for i in item])      
 
-    if type(item) == str:            
+    if type(item) == dict:            
         return { str(k):_compute_tf_shape(v) for k,v in item.items() }
 
     return tf.convert_to_tensor(item).shape
