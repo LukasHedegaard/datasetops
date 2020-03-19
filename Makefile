@@ -43,9 +43,13 @@ build:
 	python setup.py sdist bdist_wheel  
 
 
-## Upload to PyPI
-publish:
+## Upload to TestPyPI
+test-publish:
 	python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+
+publish:
+	python -m twine upload dist/*
 	
 
 #################################################################################

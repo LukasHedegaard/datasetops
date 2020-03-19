@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="datasetops",
-    version="0.0.3",
+    version="0.0.4",
     author="Lukas Hedegaard",
     description="Friendly dataset operations for your data science needs",
     long_description=long_description,
