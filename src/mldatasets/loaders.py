@@ -1,5 +1,6 @@
 from pathlib import Path
 from mldatasets.abstract import ItemGetter
+from mldatasets.function_dataset import FunctionDataset
 from scipy.io import loadmat
 from mldatasets.dataset import Dataset
 from mldatasets.types import *
@@ -7,74 +8,6 @@ from PIL import Image
 import numpy as np
 import re
 import warnings
-
-
-class FunctionDataset(Dataset):
-
-    def __init__(self,
-                 getdata: Callable[[Any], Any],
-                 name: str = None,
-                 ):
-
-        if(not callable(getdata)):
-            raise TypeError(
-                f'Invalid getdata argument. The supplied argument is not callable. Value is:\n{getdata}')
-
-        class Getter(ItemGetter):
-            def __getitem__(self, i: int):
-                return getdata(i)
-
-        super().__init__(downstream_getter=Getter(), name=name)
-
-    def _append(self, identifier: Data, label: Optional[str] = None):
-
-        i_new = len(self._ids)
-
-        self._ids.append(identifier)
-
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = [i_new]
-        else:
-            self._classwise_id_inds[label].append(i_new)
-
-    def _extend(self, ids: Union[List[Data], np.ndarray], label: Optional[str] = None):
-
-        # has_duplicate_keys = not set(self._ids).isdisjoint(ids)
-        # if(has_duplicate_keys):
-        #     raise ValueError(
-        #         'Unable to extend the with the supplied ids due to duplicate ids.')
-
-        i_lo = len(self._ids)
-        i_hi = i_lo + len(ids)
-        l_new = list(range(i_lo, i_hi))
-
-        self._ids.extend(list(ids))
-
-        if not label in self._classwise_id_inds:
-            self._classwise_id_inds[label] = l_new
-        else:
-            self._classwise_id_inds[label].extend(l_new)
-
-
-# def get_file_reader(file_example: AnyPath):
-#     p = str(Path(file_path).absolute())
-
-#     try:
-#         im = Image.load(filename)
-#         im.verify() # throws
-#     except expression as identifier:
-#         pass
-
-#     file_readers = {
-#         'jpg':
-#     }
-
-#     try:
-#         file_reader = file_readers[extention]
-#     except KeyError as e:
-#         raise ValueError(f'File reader for "{extention}" not supported. Currently supported file types are {file_readers.keys()}')
-
-#     return file_reader
 
 
 def load_folder_data(path: AnyPath) -> Dataset:
@@ -85,8 +18,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p/i),)
 
-    ds = FunctionDataset(
-        get_data, "Data Getter for folder with structure 'root/data'")
+    ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
     ds._extend(ids)
 
     return ds
@@ -105,7 +37,7 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob('[!._]*')]
-        ds._extend(ids, str(c))
+        ds._extend(ids)
 
     return ds
 
@@ -135,8 +67,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], labe
 
     # reshape data to have the instance as first dimensions
     reshaped_data = {
-        k: np.moveaxis(data[k], source=s.index(
-            common_shape), destination=0)  # type:ignore
+        k: np.moveaxis(data[k], source=s.index(common_shape), destination=0)  # type:ignore
         for k, s in zip(all_keys, shapes_list)
     }
 
@@ -165,7 +96,7 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], labe
                 condition=reshaped_data[label_key].squeeze() == lbl,
                 arr=reshaped_data[label_key].squeeze()
             )
-            ds._extend(lbl_inds, lbl)
+            ds._extend(lbl_inds)
     else:
         ds._extend(list(range(common_shape)))
 
@@ -205,7 +136,6 @@ def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         label_key = label_keys[0] if len(label_keys) > 0 else None
         data_keys = [k for k in keys if k != label_key]
 
-        datasets.append(dataset_from_np_dict(
-            data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
+        datasets.append(dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
 
     return datasets

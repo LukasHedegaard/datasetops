@@ -1,6 +1,6 @@
 
-from mldatasets.dataset import Dataset, reshape, custom, _DEFAULT_SHAPE
-from mldatasets.loaders import FunctionDataset
+from mldatasets.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
+from mldatasets.function_dataset import FunctionDataset
 import mldatasets.loaders as loaders
 import pytest
 import numpy as np
@@ -9,30 +9,10 @@ import sys
 import os
 from typing import List
 sys.path.append(os.path.dirname(__file__))
-from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
-
-def load_dummy_data() -> FunctionDataset:
-
-    a_ids = list(range(5))
-    b_ids = list(range(5,11))
-
-    def get_data(i):
-        return i
-
-    ds = FunctionDataset(get_data)
-    ds._extend(a_ids, 'a')
-    ds._extend(b_ids, 'b')
-    return ds
-
-
-def test_class_names():
-    ds = load_dummy_data()
-    assert(set(ds.class_names()) == set(['a','b']))
-
-
-def test_class_counts():
-    ds = load_dummy_data()
-    assert(set(ds.class_counts().items()) == set([('a', 5),('b',6)]))
+from testing_utils import ( # type:ignore
+    get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
+    DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
+)
 
 
 def test_shuffle():
@@ -59,7 +39,7 @@ def test_sample():
     assert(len(found_items) == len(set(found_items)))
 
     # check items
-    expected_items = [10,1,0,4,9]
+    expected_items = [ (i,) for i in [10,1,0,4,9]]
     assert(set(expected_items) == set(found_items))
 
     # check that different seeds yield different results
@@ -68,27 +48,103 @@ def test_sample():
     assert(set(found_items2) != set(found_items))
 
 
-def test_sample_classwise():
-    seed = 42
-    num_per_class = 2
-    ds = load_dummy_data()
-    ds_sampled = ds.sample_classwise(num_per_class, seed)
-    found_items = [i for i in ds_sampled]
+def test_filter():
+    num_total=10
+    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
 
-    # check list uniqueness
-    assert(len(found_items) == len(set(found_items)))
+    # expected items
+    a = [ (x, 'a') for x in list(range(5))]
+    b = [ (x, 'b') for x in list(range(5,num_total))]
+    even_a = [x for x in a if x[0]%2==0]
+    odd_a  = [x for x in a if x[0]%2==1]
+    even_b = [x for x in b if x[0]%2==0]
+    odd_b  = [x for x in b if x[0]%2==1]
 
-    # check equal count
-    assert(set(ds_sampled.class_counts().items()) == set([('a', num_per_class),('b', num_per_class)]))
+    # itemwise
+    ds_even = ds.filter(itemwise=[lambda x: x%2==0])
+    assert(list(ds_even) == even_a + even_b) 
 
-    # check items
-    expected_items = [0,4,10,7]
-    assert(set(expected_items) == set(found_items))
+    ds_even_a = ds.filter(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    assert(list(ds_even_a) == even_a) 
 
-    # check that different seeds yield different results
-    ds_sampled2 = ds.sample_classwise(num_per_class, seed+1)
-    found_items2 = [i for i in ds_sampled2]
-    assert(set(found_items2) != set(found_items))
+    # by key
+    ds_b = ds.filter(label=lambda x:x=='b')
+    assert(list(ds_b) == b)
+
+    # bulk
+    ds_odd_b = ds.filter(lambda x: x[0]%2==1 and x[1]=='b')
+    assert(list(ds_odd_b) == odd_b)
+
+    # mix
+    ds_even_b_no_4 = ds.filter(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
+
+    # sample_classwise
+    ds_classwise = ds.filter(label=allow_unique(2))
+    assert(list(ds_classwise) == list(a[:2] + b[:2]))
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        ds_same = ds.filter() # no args
+        assert(list(ds) == list(ds_same))
+
+    with pytest.raises(AssertionError):
+        ds.filter(itemwise=[None, None, None]) # too many args
+
+    with pytest.raises(AssertionError):
+        ds.filter(badkey=lambda x:True) # key doesn't exist
+
+
+def test_filter_split():
+    num_total=10
+    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+
+    # expected items
+    a = [ (x, 'a') for x in list(range(5))]
+    b = [ (x, 'b') for x in list(range(5,num_total))]
+    even_a = [x for x in a if x[0]%2==0]
+    odd_a  = [x for x in a if x[0]%2==1]
+    even_b = [x for x in b if x[0]%2==0]
+    odd_b  = [x for x in b if x[0]%2==1]
+
+    # itemwise
+    ds_even, ds_odd = ds.filter_split(itemwise=[lambda x: x%2==0])
+    assert(list(ds_even) == even_a + even_b) 
+    assert(list(ds_odd) == odd_a + odd_b) 
+
+    ds_even_a, ds_not_even_a = ds.filter_split(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    assert(list(ds_even_a) == even_a) 
+    assert(list(ds_not_even_a) == odd_a + b) 
+
+    # by key
+    ds_b, ds_a = ds.filter_split(label=lambda x:x=='b')
+    assert(list(ds_b) == b)
+    assert(list(ds_a) == a)
+
+    # bulk
+    ds_odd_b, ds_even_b = ds.filter_split(lambda x: x[0]%2==1 and x[1]=='b')
+    assert(list(ds_odd_b) == odd_b)
+    assert(list(ds_even_b) == a + even_b)
+
+    # mix
+    ds_even_b_no_4, ds_not_even_b_no_4 = ds.filter_split(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
+    assert(list(ds_not_even_b_no_4) == [x for x in list(ds) if not x in [x for x in even_b if x[0]!=4]] )
+
+    # sample_classwise
+    ds_classwise_2, ds_classwise_rest = ds.filter_split(label=allow_unique(2))
+    assert(list(ds_classwise_2) == list(a[:2] + b[:2]))
+    assert(list(ds_classwise_rest) == list(a[2:] + b[2:]))
+
+    # error scenarios
+    with pytest.raises(ValueError):
+        ds_same = ds.filter_split() # no args
+
+    with pytest.raises(AssertionError):
+        ds.filter_split(itemwise=[None, None, None]) # too many args
+
+    with pytest.raises(AssertionError):
+        ds.filter_split(badkey=lambda x:True) # key doesn't exist
 
 
 def test_split():
@@ -113,37 +169,115 @@ def test_split():
     assert(set(ds3) == set(ds3w))
 
 
+def test_repeat():
+    ds = load_dummy_data()
 
-########## Tests relating to numpy data #########################
+    # itemwise
+    ds_item = ds.repeat(3)
+    ds_item_alt = ds.repeat(3, mode='itemwise')
 
-DUMMY_NUMPY_DATA_SHAPE_1D = 18
-DUMMY_NUMPY_DATA_SHAPE_2D = (6,3)
-DUMMY_NUMPY_DATA_SHAPE_3D = (2,3,3)
+    assert(set(ds) == set(ds_item_alt))
+    assert(list(ds_item) == list(ds_item_alt))
 
-def load_dummy_numpy_data() -> FunctionDataset:
+    # whole
+    ds_whole = ds.repeat(2, mode='whole')
+    assert(set(ds) == set(ds_whole))
+    assert(list(ds) == list(ds_whole)[:len(ds)] == list(ds_whole)[len(ds):])
 
-    a_ids = list(range(5))
-    b_ids = list(range(5,11))
-    labels = [
-        *[1 for _ in a_ids],
-        *[2 for _ in b_ids]
-    ]
 
-    num_samples = len(a_ids)+len(b_ids)
-    data = np.arange(num_samples*DUMMY_NUMPY_DATA_SHAPE_1D).reshape((num_samples, DUMMY_NUMPY_DATA_SHAPE_1D))
-    # data = data / data.max()
+def test_take():
+    ds = load_dummy_data().transform(lambda x: 10*x)
 
-    def get_data(idx):
-        return data[idx], labels[idx]
+    ds_5 = ds.take(5)
+    assert(list(ds)[:5] == list(ds_5))
 
-    ds = FunctionDataset(get_data)
-    ds._extend(a_ids, '1')
-    ds._extend(b_ids, '2')
-    return ds
+    with pytest.raises(ValueError):
+        ds.take(10000000)
+
+
+def test_reorder():
+    ds = load_dummy_numpy_data()
+    ds.set_item_names("mydata", "mylabel")
+
+    ## error scenarios
+    with pytest.warns(UserWarning):
+        # no order given
+        ds_ignored = ds.reorder()
+        assert(ds == ds_ignored)
+
+    with pytest.raises(ValueError):
+        # indexes out of range
+        ds_re = ds.reorder(3,4)
+
+    with pytest.raises(KeyError):
+        # a keys doesn't exist
+        ds_re = ds.reorder("badkey", "mydata")
+
+    ## working scenarios
+
+    # using indexes
+    ds_re = ds.reorder(1,0)
+    for (ldata, llbl), (rlbl, rdata) in zip(list(ds), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # same results using keys
+    ds_re_key = ds.reorder("mylabel","mydata")
+    for (llbl, ldata), (rlbl, rdata) in zip(list(ds_re_key), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # same result using a mix
+    ds_re_mix = ds.reorder(1,"mydata")
+    for (llbl, ldata), (rlbl, rdata) in zip(list(ds_re_mix), list(ds_re)):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # we can even place the same element multiple times
+    ds_re_creative = ds.reorder(0,1,1,0)
+    for (ldata, llbl), (rdata1, rlbl1, rlbl2, rdata2 ) in zip(list(ds), list(ds_re_creative)):
+        assert(np.array_equal(ldata, rdata1))
+        assert(np.array_equal(ldata, rdata2))
+        assert(llbl == rlbl1 == rlbl2)
+
+    # shape updates accordingly
+    assert(ds_re_creative.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE, _DEFAULT_SHAPE, DUMMY_NUMPY_DATA_SHAPE_1D))
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        ds.set_item_names('one','two').reorder(0,1,1) # key needs to be unique, but wouldn't be
+
+
+########## Tests relating to stats #########################
+
+def test_counts():
+    num_total=11
+    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+
+    counts = ds.counts('label') # name based
+    counts_alt = ds.counts(1) # index based
+
+    expected_counts = [('a', 5), ('b', num_total-5)]
+    assert(counts == counts_alt == expected_counts)
+
+    with pytest.warns(UserWarning):
+        counts_all = ds.counts()
+        # count all if no args are given
+        assert(set(counts_all) == set([(x, 1) for x in ds]))
+
+
+def test_unique():
+    ds = load_dummy_data(with_label=True).set_item_names('data', 'label')
+
+    unique_labels = ds.unique('label')
+    assert(unique_labels == ['a','b'])
+
+    with pytest.warns(UserWarning):
+        unique_items = ds.unique()
+        assert(unique_items == list(ds))
 
 
 def test_shape():
-
     def get_data(i):
         return i,i
 
@@ -173,13 +307,174 @@ def test_shape():
     assert( ds_img3.shape == ((*IMG_SIZE,3),_DEFAULT_SHAPE) )
 
 
+def test_item_naming():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+    assert(ds.item_names == [])
+
+    item_names = ['mydata', 'mylabel']
+
+    # named transform syntax doesn't work without item_names
+    with pytest.raises(Exception):
+        ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+    # passed one by one as arguments
+    ds.set_item_names(*item_names)
+    assert(ds.item_names == item_names)
+
+    # passed in a list, overide previous
+    item_names2 = ['moddata', 'modlabel']
+    ds.set_item_names(item_names2) #type: ignore
+    assert(ds.item_names == item_names2)
+
+    # test named transform syntax
+    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    items_trans = [x for x in ds_trans]
+    for (old_data, _), (new_data, _) in zip(items, items_trans):
+        assert(set(old_data) == set(new_data.flatten()))
+        assert(old_data.shape != new_data.shape)
+
+    # invalid name doesn't work
+    with pytest.raises(Exception):
+        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+
+
+def test_label():
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+
+    assert(ds.unique('label') == ['a','b'])
+
+    ds_label = ds.label(1)
+    ds_label_alt = ds.label('label')
+
+    # alternative syntaxes
+    ds_label = ds.label(1)
+    ds_label_alt1 = ds.label("label")
+    ds_label_alt2 = ds.transform(label=label())
+    ds_label_alt3 = ds.transform(None, label())
+
+    expected = [0, 1]
+
+    for l, l1, l2, l3, e in zip(
+        ds_label.unique('label'), 
+        ds_label_alt1.unique('label'), 
+        ds_label_alt2.unique('label'), 
+        ds_label_alt2.unique('label'), 
+        expected
+    ):
+        assert(np.array_equal(l,l1))
+        assert(np.array_equal(l,l2))
+        assert(np.array_equal(l,l3))
+        assert(np.array_equal(l,e)) #type:ignore
+
+    assert(list(ds_label) == [(d, 0 if l == 'a' else 1 ,l2) for d, l, l2 in ds])
+
+    ds_label_userdef = ds.label('label', lambda x: 1 if x == 'a' else 0)
+
+    assert(ds_label_userdef.unique('label') == [1, 0])
+    assert(list(ds_label_userdef) == [(d, 1 if l == 'a' else 0 ,l2) for d, l, l2 in ds])
+
+    # error scenarios
+    with pytest.raises(TypeError):
+        ds.label() # we need to know what to label
+
+    with pytest.raises(ValueError):
+        ds.label(42) # wrong key
+
+    with pytest.raises(KeyError):
+        ds.label("wrong") # wrong key
+
+
+def test_one_hot():
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+    assert(ds.unique('label') == ['a','b'])
+
+    # alternative syntaxes
+    ds_oh = ds.one_hot(1, encoding_size=2)
+    ds_oh_alt1 = ds.one_hot("label", encoding_size=2)
+    ds_oh_alt2 = ds.transform(label=one_hot(encoding_size=2))
+    ds_oh_alt3 = ds.transform(None, one_hot(encoding_size=2))
+
+    ds_oh_auto = ds.one_hot("label") # automatically compute encoding size
+
+    expected = [np.array([True, False]), np.array([False, True])]
+
+    for l, l1, l2, l3, la, e in zip(
+        ds_oh.unique('label'), 
+        ds_oh_alt1.unique('label'), 
+        ds_oh_alt2.unique('label'), 
+        ds_oh_alt2.unique('label'), 
+        ds_oh_auto.unique('label'),
+        expected
+    ):
+        assert(np.array_equal(l,l1))
+        assert(np.array_equal(l,l2))
+        assert(np.array_equal(l,l3))
+        assert(np.array_equal(l,la))
+        assert(np.array_equal(l,e)) #type:ignore
+
+    for x, l, l2 in ds_oh:
+        ind = 0 if l2 == 'a' else 1
+        assert(np.array_equal(l, expected[ind])) #type:ignore
+
+    # spiced up
+    ds_oh_userdef = ds.one_hot('label', encoding_size=3, mapping_fn=lambda x: 1 if x == 'a' else 0, dtype='int')
+
+    for l, e in zip(ds_oh_userdef.unique('label'), [np.array([1,0,0]), np.array([0,1,0])]):
+        assert(np.array_equal(l,e)) #type:ignore
+
+    # error scenarios
+    with pytest.raises(TypeError):
+        ds.one_hot() # we need some arguments
+
+    with pytest.raises(ValueError):
+        ds.one_hot(42, encoding_size=2) # wrong key
+
+    with pytest.raises(ValueError):
+        list(ds.one_hot('label', encoding_size=1)) # encoding size too small -- found at runtime
+
+    with pytest.raises(KeyError):
+        ds.one_hot("wrong", encoding_size=2) # wrong key
+
+def test_transform():
+    ds = load_dummy_numpy_data()
+    items = [x for x in ds]
+
+    ds_tf = ds.transform(custom(lambda x: x/255.0))
+    items_tf = [x for x in ds_tf]
+    
+    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
+        assert(np.array_equal(ldata/255.0, rdata))
+        assert(llbl == rlbl)
+
+    # passing the function directly also works
+    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
+    items_tf_alt = [x for x in ds_tf]
+
+    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
+        assert(np.array_equal(ldata, rdata))
+        assert(llbl == rlbl)
+
+    # error scenarios
+    with pytest.warns(UserWarning):
+        # no args
+        ds.transform()
+    
+    with pytest.raises(ValueError): 
+        # too many transforms given
+        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
+
+
+########## Tests relating to numpy data #########################
+
+
 def test_reshape():
     ds = load_dummy_numpy_data()
     items = [x for x in ds]
 
     s = ds.shape
-    assert(ds.shape == ((DUMMY_NUMPY_DATA_SHAPE_1D,), _DEFAULT_SHAPE) )
-    assert(ds[0][0].shape == (DUMMY_NUMPY_DATA_SHAPE_1D,))
+    assert(ds.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE) )
+    assert(ds[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_1D)
 
     # reshape adding extra dim
     ds_r = ds.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
@@ -199,7 +494,7 @@ def test_reshape():
         assert(np.array_equal(old_data, new_data))
 
     # reshape back, alternative syntax
-    ds_back = ds_r.reshape((DUMMY_NUMPY_DATA_SHAPE_1D,), None)
+    ds_back = ds_r.reshape(DUMMY_NUMPY_DATA_SHAPE_1D, None)
     items_back = [x for x in ds_back]
 
     for (old_data, _), (new_data, _) in zip(items, items_back):
@@ -240,66 +535,6 @@ def test_reshape():
         # Dimensions don't match
         ds.reshape((13,13)) 
 
-
-def test_item_naming():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
-    assert(ds.item_names == [])
-
-    item_names = ['mydata', 'mylabel']
-
-    # named transform syntax doesn't work without item_names
-    with pytest.raises(Exception):
-        ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-
-    # passed one by one as arguments
-    ds.set_item_names(*item_names)
-    assert(ds.item_names == item_names)
-
-    # passed in a list, overide previous
-    item_names2 = ['moddata', 'modlabel']
-    ds.set_item_names(item_names2) #type: ignore
-    assert(ds.item_names == item_names2)
-
-    # test named transform syntax
-    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-    items_trans = [x for x in ds_trans]
-    for (old_data, _), (new_data, _) in zip(items, items_trans):
-        assert(set(old_data) == set(new_data.flatten()))
-        assert(old_data.shape != new_data.shape)
-
-    # invalid name doesn't work
-    with pytest.raises(Exception):
-        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
-
-
-def test_transform():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
-
-    ds_tf = ds.transform(custom(lambda x: x/255.0))
-    items_tf = [x for x in ds_tf]
-    
-    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
-        assert(np.array_equal(ldata/255.0, rdata))
-        assert(llbl == rlbl)
-
-    # passing the function directly also works
-    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
-    items_tf_alt = [x for x in ds_tf]
-
-    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
-        assert(np.array_equal(ldata, rdata))
-        assert(llbl == rlbl)
-
-    # error scenarios
-    with pytest.warns(UserWarning):
-        # no args
-        ds.transform()
-    
-    with pytest.raises(ValueError): 
-        # too many transforms given
-        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
 
 
 ########## Tests relating to image data #########################
@@ -414,4 +649,34 @@ def test_image_resize():
         ds.img_resize((4,4,4)) # Invalid size
 
 
-    
+########## Framework converters #########################
+
+@pytest.mark.slow
+def test_to_tf_simple():
+    # prep data
+    ds = load_dummy_numpy_data().set_item_names("data", "label").one_hot("label")
+    tf_ds = ds.to_tf().batch(2)
+
+    # prep model
+    import tensorflow as tf #type:ignore     
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(ds.shape[0]),
+        tf.keras.layers.Dense(10, activation='relu'),
+        tf.keras.layers.Dense(2, activation='softmax'),
+    ])
+
+    model.compile(
+        optimizer='adam',
+        loss=tf.keras.losses.CategoricalCrossentropy(),
+        metrics=['accuracy']
+    )
+
+    # model should be able to fit the data
+    model.fit(tf_ds, epochs=50)
+    preds = model.predict(tf_ds)
+    pred_labels = np.argmax(preds, axis=1)
+
+    expected_labels = np.array([v[0] for v in ds.reorder('label').label(0)])
+    assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
+

@@ -8,19 +8,6 @@ from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
 
 # tests ##########################
 
-def test_function_dataset():
-
-    def get_data(i):
-        return (i,)
-
-    ds = loaders.FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
-    ds._append(-1, 'class_b')
-    ds._extend(list(range(3)), 'class_b')
-    ds._append(42, 'class_b')
-
-    items = [x for x in ds]
-    expected_items = [(x,) for x in [-1,0,1,2,42]]
-    assert(items == expected_items)
 
 def test_folder_data():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
@@ -80,10 +67,9 @@ def test_mat_single_with_multi_data():
 
         # randomly check some samples for their dimension
         ids = random.sample(range(len(ds)), 42)
-        class_names = ds.class_names()
         for i in ids:
             data, label = ds[i]
 
             assert(data.shape == (256,))
-            assert(str(int(label)) in class_names)
+            assert(int(label) in range(10))
 

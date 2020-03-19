@@ -46,47 +46,56 @@ target = 'dslr'
 processed_dataset_path = f"../data/processed/{source}-{target}-{seed}"
 
 if not mlds.exists(processed_dataset_path):
-    source_train = \
-        mlds.load(path='../data/Office31/amazon/images') \
-        .sample(20, per_class=True, seed=seed)
+    source_train =                                      \
+        mlds.load(path='../data/Office31/amazon/images')\
+        .set_item_names('s_data', 's_label')            \
+        .shuffle(seed)                                  \
+        .filter(s_label=mlds.allow_unique(20)) # 20 samples form each class
 
-    target_test, target_rest  = \
-        mlds.load(path='../data/Office31/dslr/images') \
-        .split([0.3, 0.7], seed=42)
+    target_test, target_trainval  =                     \
+        mlds.load(path='../data/Office31/dslr/images')  \
+        .set_item_names('t_data', 't_label')            \
+        .target.split(fractions=[0.3, 0.7], seed)
 
-    target_train, target_val = \
-        target_trainval.split_sample(3, per_class=True, seed=seed)
+    target_train, target_val =                          \
+        target_trainval                                 \
+        .shuffle(seed)                                  \
+        .filter_split(t_label=mlds.allow_unique(3)) # 3 samples form each class in first dataset
 
     # transform all data to use a one-hot encoding for the label
-    source_train, target_train, target_val, target_test = \
-        mlds.all(source_train, target_train, target_val, target_test) \
-        .transform(None, mlds.one_hot()) 
+    source_train, target_train, target_val, target_test = [
+        d.one_hot(1) # automatically infer encoding_size
+        for d in [source_train, target_train, target_val, target_test]
+    ]
 
-    # Pair up all combinations of the datasets: ((xs1, xt1), (ys1, yt1)), ((xs1, xt2), (ys1, yt2)), ...
-    train_cart = mlds.cartesian_product(source_train, target_train)
-
-    # Limit the train set to have a 1:3 ratio of same-label and different-label pairs
-    train_same, train_diff = train_cart.split_by(lambda _, y: y[0] == y[1])
-    train_diff_sub = train_diff.sample(3*len(train_same), per_class=False, seed=seed)
-    train = mlds.concat(train_same, train_diff_sub).shuffle()
+    # Pair up all combinations of the datasets and reorder to have inputs first and targets last
+    train_cart = mlds.cartesian_product(source_train, target_train).reorder(0,2,1,3)
     
-    # Pair each datapoint with itself, ((x,x), (y,y))  
-    val = mlds.zip(target_val, target_val)
-    test = mlds.zip(target_test, target_test)
+    # Limit the train set to have at most an 1:3 ratio of same-label and different-label pairs
+    train_same, train_diff = train_cart.filter_split(lambda x: np.array_equal(x[2], x[3]))
+    train_diff = train_diff.sample(3*len(train_same), seed=seed)
+    train = mlds.concat(train_same, train_diff).shuffle(seed)
+    
+    # Pair each datapoint with itself, (x,x,y,y)  
+    val, test = [
+        mlds.zipped(d,d).reorder(0,2,1,3)
+        for d in [target_val, target_test]
+    ]
 
-    # Change the data representations slightly
-    train, val, test = mlds.all(train, val, test).transform(
-        lambda x: {'i1':x[0], 'i2':x[1]},
-        lambda y: {'y1':y[0], 'y2':y[1], 'y3':y[0]==y[1]} 
-    )
-
-    datasets = mlds.all(train, val, test)
-    datasets.save(processed_dataset_path)
+    # Change the data representation into two dicts (in, out) with an extra label in out
+    train, val, test = [
+        d.transform(lambda x: (
+            { 'in1':x[0], 'in2':x[1] }, 
+            { 'out1':x[2], 'out2':x[3], 'out3':x[2]==x[3] }
+        ))
+        for d in [train, val, test]
+    ]
+    mlds.save([train, val, test], processed_dataset_path)
 
 else:
-    datasets = mlds.load(processed_dataset_path)
+    train, val, test = mlds.load(processed_dataset_path)
 
 # Port to tensorflow
-train, val, test = datasets.to_tensorflow()
+train_tf, val_tf, test_tf = [d.to_tf() for d in [train, val, test]]
 
 ```

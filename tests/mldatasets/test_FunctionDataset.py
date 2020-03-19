@@ -1,6 +1,5 @@
 import pytest
-
-from mldatasets.loaders import FunctionDataset
+from mldatasets.function_dataset import FunctionDataset
 
 
 def _get_data(i):
@@ -67,13 +66,13 @@ def test_extend_mixingIdsTypes_valid():
 def test_ctor_nonCallableGetter_throwsTypeError():
 
     with pytest.raises(TypeError):
-        FunctionDataset(None)
+        FunctionDataset(None) #type:ignore
 
     with pytest.raises(TypeError):
-        FunctionDataset("")
+        FunctionDataset("") #type:ignore
 
     with pytest.raises(TypeError):
-        FunctionDataset(1)
+        FunctionDataset(1) #type:ignore
 
 
 def test_len_extendCalled_lenMatchesNumberOfElements():
