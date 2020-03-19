@@ -1,9 +1,9 @@
 import pytest
-import mldatasets.loaders as loaders
-import mldatasets.dataset as mlds
+import datasetops.loaders as loaders
+import datasetops.dataset as mlds
 import numpy as np
 from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
-from mldatasets.examples import domain_adaptation_office31
+from datasetops.examples import domain_adaptation_office31
 from pathlib import Path
 
 @pytest.mark.slow

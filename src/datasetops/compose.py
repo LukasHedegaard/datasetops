@@ -1,5 +1,5 @@
-from mldatasets.abstract import AbstractDataset
-from mldatasets.types import *
+from datasetops.abstract import AbstractDataset
+from datasetops.types import *
 import numpy as np
 from typing import Union
 import functools

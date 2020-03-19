@@ -1,6 +1,6 @@
-from mldatasets.abstract import ItemGetter
-from mldatasets.dataset import Dataset
-from mldatasets.types import *
+from datasetops.abstract import ItemGetter
+from datasetops.dataset import Dataset
+from datasetops.types import *
 import numpy as np
 
 class FunctionDataset(Dataset):

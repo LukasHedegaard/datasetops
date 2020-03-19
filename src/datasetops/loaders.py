@@ -1,9 +1,9 @@
 from pathlib import Path
-from mldatasets.abstract import ItemGetter
-from mldatasets.function_dataset import FunctionDataset
+from datasetops.abstract import ItemGetter
+from datasetops.function_dataset import FunctionDataset
 from scipy.io import loadmat
-from mldatasets.dataset import Dataset
-from mldatasets.types import *
+from datasetops.dataset import Dataset
+from datasetops.types import *
 from PIL import Image
 import numpy as np
 import re
@@ -11,6 +11,19 @@ import warnings
 
 
 def load_folder_data(path: AnyPath) -> Dataset:
+    """Load data from a folder with the data structure:
+
+        folder
+        |- sample1.jpg
+        |- sample2.jpg
+
+    Arguments:
+        path {AnyPath} -- path to folder
+    
+    Returns:
+        Dataset -- A dataset of data paths, 
+                   e.g. ('nested_folder/class1/sample1.jpg')
+    """
     p = Path(path)
     ids = [str(x.relative_to(p)) for x in p.glob('[!._]*')]
 
@@ -25,6 +38,22 @@ def load_folder_data(path: AnyPath) -> Dataset:
 
 
 def load_folder_class_data(path: AnyPath) -> Dataset:
+    """Load data from a folder with the data structure:
+
+        nested_folder
+        |- class1
+            |- sample1.jpg
+            |- sample2.jpg
+        |- class2
+            |- sample3.jpg
+
+    Arguments:
+        path {AnyPath} -- path to nested folder
+    
+    Returns:
+        Dataset -- A labelled dataset of data paths and corresponding class labels, 
+                   e.g. ('nested_folder/class1/sample1.jpg', 'class1')
+    """
     p = Path(path)
     classes = [x for x in p.glob('[!._]*')]
 
@@ -43,12 +72,31 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
 
 
 def load_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
+    """Load data from a folder with the data structure:
+
+        nested_folder
+        |- dataset1
+            |- class1
+                |- sample1.jpg
+                |- sample2.jpg
+            |- class2
+                |- sample3.jpg
+        |- dataset2
+            |- ...
+
+    Arguments:
+        path {AnyPath} -- path to nested folder
+    
+    Returns:
+        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels, 
+                         e.g. ('nested_folder/class1/sample1.jpg', 'class1')
+    """
     p = Path(path)
     dataset_paths = [x for x in p.glob('[!._]*')]
     return [load_folder_class_data(dsp) for dsp in dataset_paths]
 
 
-def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], label_key: str = None, name: str = None) -> Dataset:
+def _dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], label_key: str = None, name: str = None) -> Dataset:
     all_keys = [*data_keys, label_key]
     shapes_list = [data[k].shape for k in data_keys]
     if label_key:
@@ -104,6 +152,17 @@ def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], labe
 
 
 def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
+    """Load data from .mat file consisting of multiple data
+
+       E.g. a .mat file with keys ['X_src', 'Y_src', 'X_tgt', 'Y_tgt']
+
+    Arguments:
+        path {AnyPath} -- path to .mat file
+    
+    Returns:
+        List[Dataset] -- A list of datasets, where a dataset was created for each suffix
+                         e.g. a dataset with data from the keys ('X_src', 'Y_src') and from ('X_tgt', 'Y_tgt')
+    """
     p = Path(path)
     if p.is_dir():
         file_paths = list(p.glob('[!._]*'))
@@ -136,6 +195,6 @@ def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         label_key = label_keys[0] if len(label_keys) > 0 else None
         data_keys = [k for k in keys if k != label_key]
 
-        datasets.append(dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
+        datasets.append(_dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
 
     return datasets

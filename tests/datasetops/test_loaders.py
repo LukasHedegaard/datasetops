@@ -1,9 +1,6 @@
-import mldatasets.loaders as loaders
+import datasetops.loaders as loaders
 import random
 from pathlib import Path
-import sys
-import os
-sys.path.append(os.path.dirname(__file__))
 from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
 
 # tests ##########################

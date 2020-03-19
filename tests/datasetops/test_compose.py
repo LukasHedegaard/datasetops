@@ -1,10 +1,7 @@
 import pytest
-from mldatasets.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
-from mldatasets.dataset import cartesian_product, zipped, concat, allow_unique
+from datasetops.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
+from datasetops.dataset import cartesian_product, zipped, concat, allow_unique
 import numpy as np
-import os
-import sys
-sys.path.append(os.path.dirname(__file__))
 from testing_utils import ( # type:ignore
     get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
     DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D

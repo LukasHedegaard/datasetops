@@ -1,14 +1,11 @@
 
-from mldatasets.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
-from mldatasets.function_dataset import FunctionDataset
-import mldatasets.loaders as loaders
+from datasetops.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
+from datasetops.function_dataset import FunctionDataset
+import datasetops.loaders as loaders
 import pytest
 import numpy as np
 from PIL import Image
-import sys
-import os
 from typing import List
-sys.path.append(os.path.dirname(__file__))
 from testing_utils import ( # type:ignore
     get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
     DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
