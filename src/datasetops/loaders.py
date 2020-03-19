@@ -48,7 +48,7 @@ def load_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     return [load_folder_class_data(dsp) for dsp in dataset_paths]
 
 
-def dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], label_key: str = None, name: str = None) -> Dataset:
+def _dataset_from_np_dict(data: Dict[str, np.ndarray], data_keys: List[str], label_key: str = None, name: str = None) -> Dataset:
     all_keys = [*data_keys, label_key]
     shapes_list = [data[k].shape for k in data_keys]
     if label_key:
@@ -136,6 +136,6 @@ def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         label_key = label_keys[0] if len(label_keys) > 0 else None
         data_keys = [k for k in keys if k != label_key]
 
-        datasets.append(dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
+        datasets.append(_dataset_from_np_dict(data=mat, data_keys=data_keys, label_key=label_key, name=suffix))
 
     return datasets
