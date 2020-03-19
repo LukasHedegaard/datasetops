@@ -20,6 +20,12 @@ endif
 # COMMANDS                                                                      #
 #################################################################################
 
+## Install packages
+install:
+	python -m pip install --upgrade pip
+	pip install -e .[docs,tests,build]
+
+
 ## Delete all compiled Python files
 clean:
 	find . -type f -name "*.py[co]" -delete
@@ -31,10 +37,16 @@ test:
 	py.test --cov mldatasets --cov-report xml:coverage.xml 
 	py.test --cov mldatasets --cov-report term-missing
 
+
+## Build library
+build:
+	python setup.py sdist bdist_wheel  
+
+
+## Upload to PyPI
+publish:
+	python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 	
-
-
-
 
 #################################################################################
 # Self Documenting Commands                                                     #
