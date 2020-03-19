@@ -1,5 +1,5 @@
 from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
-from mldatasets.abstract import AbstractDataset
+from datasetops.abstract import AbstractDataset
 from pathlib import Path
 
 Shape = Sequence[int]

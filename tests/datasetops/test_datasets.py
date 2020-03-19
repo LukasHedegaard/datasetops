@@ -1,7 +1,7 @@
 
-from mldatasets.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
-from mldatasets.function_dataset import FunctionDataset
-import mldatasets.loaders as loaders
+from datasetops.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
+from datasetops.function_dataset import FunctionDataset
+import datasetops.loaders as loaders
 import pytest
 import numpy as np
 from PIL import Image

@@ -1,4 +1,4 @@
-import mldatasets.loaders as loaders
+import datasetops.loaders as loaders
 import random
 from pathlib import Path
 import sys

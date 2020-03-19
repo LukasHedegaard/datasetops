@@ -1,6 +1,6 @@
 import pytest
-from mldatasets.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
-from mldatasets.dataset import cartesian_product, zipped, concat, allow_unique
+from datasetops.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
+from datasetops.dataset import cartesian_product, zipped, concat, allow_unique
 import numpy as np
 import os
 import sys

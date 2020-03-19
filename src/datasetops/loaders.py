@@ -1,9 +1,9 @@
 from pathlib import Path
-from mldatasets.abstract import ItemGetter
-from mldatasets.function_dataset import FunctionDataset
+from datasetops.abstract import ItemGetter
+from datasetops.function_dataset import FunctionDataset
 from scipy.io import loadmat
-from mldatasets.dataset import Dataset
-from mldatasets.types import *
+from datasetops.dataset import Dataset
+from datasetops.types import *
 from PIL import Image
 import numpy as np
 import re

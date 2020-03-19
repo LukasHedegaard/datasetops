@@ -1,14 +1,14 @@
 import random
-from mldatasets.abstract import ItemGetter, AbstractDataset
-from mldatasets.types import *
-import mldatasets.compose as compose 
+from datasetops.abstract import ItemGetter, AbstractDataset
+from datasetops.types import *
+import datasetops.compose as compose 
 import numpy as np
 from PIL import Image
 import warnings
 import functools
 from inspect import signature
 from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
-from mldatasets.abstract import AbstractDataset
+from datasetops.abstract import AbstractDataset
 from pathlib import Path
 
 

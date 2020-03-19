@@ -1,7 +1,7 @@
 from typing import Tuple
-import mldatasets.dataset as mlds
-from mldatasets.types import AnyPath
-from mldatasets.loaders import load_folder_class_data
+import datasetops.dataset as mlds
+from datasetops.types import AnyPath
+from datasetops.loaders import load_folder_class_data
 import numpy as np
 
 

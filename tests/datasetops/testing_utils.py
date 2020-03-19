@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import NamedTuple
-from mldatasets.function_dataset import FunctionDataset
+from datasetops.function_dataset import FunctionDataset
 import numpy as np
 
 class DatasetPaths(NamedTuple):
