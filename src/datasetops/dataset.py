@@ -236,7 +236,7 @@ class Dataset(AbstractDataset):
     
     @_raise_no_args(skip=1)
     def filter_split(self, bulk:DataPredicate=None, itemwise:Sequence[Optional[DataPredicate]]=[], **kwpredicates:DataPredicate):
-         """Split a dataset using a predicate function
+        """Split a dataset using a predicate function
         
         Keyword Arguments:
             bulk {DataPredicate} -- A function taking a single dataset item and returning a bool (default: {None})
