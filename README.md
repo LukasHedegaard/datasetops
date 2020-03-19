@@ -44,11 +44,11 @@ Moreover, they do not aid you in standard scenarios where you want to:
 All of this is usually done by hand. Again and again and again... 
 
 
-## Idea 💡 
+## Idea
 In a nutshell, datasets for data science and machine learning are just a collection of samples that are often accompanied by a label.We should be able to read all these formats into a common representation, where most common operations can be performed.Subsequently, we should be able to transform these into the standard formats used in Tensorflow and PyTorch.
 
 
-## Implementation Status ⚙️
+## Implementation Status
 The library is still under heavy development and the API may be subject to change.
 
 What follows here is a list of implemented and planned features.
