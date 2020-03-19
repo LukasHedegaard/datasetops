@@ -1,4 +1,4 @@
-![Python package](https://github.com/LukasHedegaard/ml-datasets/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/ml-datasets/badge/?version=latest)](https://ml-datasets.readthedocs.io/en/latest/?badge=latest) 
+![Python package](https://github.com/LukasHedegaard/ml-datasets/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/ml-datasets/badge/?version=latest)](https://ml-datasets.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/ml-datasets/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/ml-datasets)
 
 # ML-Datasets
 Flexible datasets for machine learning - under construction ⚙️
