@@ -1,9 +1,9 @@
 name: Publish to PyPI
 
 on: 
-  push:
-    branches:
-      - master
+  create:
+    tags:
+    - '*'
 
 jobs:
   build-n-publish:
