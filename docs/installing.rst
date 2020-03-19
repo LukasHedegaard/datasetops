@@ -7,14 +7,14 @@ To install through a package manager use:
 
 .. code-block:: bash
 
-   pip install mldatasets
-   conda install mldatasets
+   pip install datasetops
+   conda install datasetops
    
 The package can be installed from source by cloning the git repository:
 
 .. code-block:: bash
    
-   git clone https://github.com/LukasHedegaard/ml-datasets.git
+   git clone https://github.com/LukasHedegaard/datasetops.git
 
 And then running pip install in the root of the folder:
 

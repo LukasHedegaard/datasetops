@@ -17,9 +17,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'ML-Datasets'
-copyright = '2020, tbd'
-author = 'tbd'
+project = 'Dataset Ops'
+copyright = '2020, Lukas Hedegaard'
+author = 'Lukas Hedegaard'
 
 
 master_doc = 'index'
