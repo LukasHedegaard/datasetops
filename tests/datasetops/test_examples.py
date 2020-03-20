@@ -1,9 +1,10 @@
 import pytest
 import datasetops.loaders as loaders
 import datasetops.dataset as mlds
+from datasetops.examples import domain_adaptation_office31
+import datasetops as do
 import numpy as np
 from testing_utils import get_test_dataset_path, DATASET_PATHS # type:ignore
-from datasetops.examples import domain_adaptation_office31
 from pathlib import Path
 
 @pytest.mark.slow
@@ -19,3 +20,14 @@ def test_domain_adaptation():
         next(iter(d))
 
     
+def test_readme_examples():
+    path = Path(get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_CLASS_DATA)) / 'amazon'
+
+    train, val, test = (
+        do.load_folder_class_data(path)
+        .set_item_names('data','label')                     
+        .as_image('data').img_resize((240,240)).as_numpy('data') 
+        .one_hot('label')                                  
+        .shuffle(seed=42)                                  
+        .split([0.6,0.2,0.2])     
+    ) 
