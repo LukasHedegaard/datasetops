@@ -30,6 +30,10 @@ install:
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
+	find . -type f -name "*.egg-info" -delete
+	rm -rf .pytest_cache
+	rm -rf build
+	rm -rf dist
 
 
 ## Test the setup
