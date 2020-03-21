@@ -38,8 +38,8 @@ clean:
 
 ## Test the setup
 test:
-	py.test --cov mldatasets --cov-report xml:coverage.xml 
-	py.test --cov mldatasets --cov-report term-missing
+	py.test --cov datasetops --cov-report xml:coverage.xml 
+	py.test --cov datasetops --cov-report term-missing
 
 
 ## Build library
