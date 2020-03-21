@@ -1,12 +1,31 @@
 from pathlib import Path
 from datasetops.abstract import ItemGetter
-from datasetops.function_dataset import FunctionDataset
 from scipy.io import loadmat
 from datasetops.dataset import Dataset
 from datasetops.types import *
 import numpy as np
 import re
 import warnings
+
+
+class Loader(Dataset):
+    def __init__(
+        self, getdata: Callable[[Any], Any], name: str = None,
+    ):
+        if not callable(getdata):
+            raise TypeError("get_data should be callable")
+
+        class Getter(ItemGetter):
+            def __getitem__(self, i: int):
+                return getdata(i)
+
+        super().__init__(downstream_getter=Getter(), name=name)
+
+    def _append(self, identifier: Data):
+        self._ids.append(identifier)
+
+    def _extend(self, ids: Union[List[Data], np.ndarray]):
+        self._ids.extend(list(ids))
 
 
 def load_folder_data(path: AnyPath) -> Dataset:
@@ -30,7 +49,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i),)
 
-    ds = FunctionDataset(get_data, "Data Getter for folder with structure 'root/data'")
+    ds = Loader(get_data, "Data Getter for folder with structure 'root/data'")
     ds._extend(ids)
 
     return ds
@@ -60,9 +79,7 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = FunctionDataset(
-        get_data, "Data Getter for folder with structure 'root/classes/data'"
-    )
+    ds = Loader(get_data, "Data Getter for folder with structure 'root/classes/data'")
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -140,7 +157,7 @@ def _dataset_from_np_dict(
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = FunctionDataset(get_data, name=name)
+    ds = Loader(get_data, name=name)
 
     # populate data getter
     if label_key:

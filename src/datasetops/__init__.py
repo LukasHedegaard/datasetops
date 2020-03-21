@@ -14,9 +14,8 @@ from .dataset import (
     to_tensorflow,
 )
 
-from .function_dataset import FunctionDataset
-
 from .loaders import (
+    Loader,
     load_folder_data,
     load_folder_class_data,
     load_folder_dataset_class_data,
