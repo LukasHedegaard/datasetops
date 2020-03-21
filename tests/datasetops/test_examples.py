@@ -31,11 +31,10 @@ def test_readme_examples():
     train, val, test = (
         do.load_folder_class_data(path)
         .set_item_names("data", "label")
-        .as_image("data")
+        .image("data")
         .img_resize((240, 240))
-        .as_numpy("data")
+        .numpy("data")
         .one_hot("label")
         .shuffle(seed=42)
         .split([0.6, 0.2, 0.2])
     )
-

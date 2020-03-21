@@ -4,7 +4,7 @@ import pytest
 def test_package_import():
     import datasetops as do
 
-    do.as_image()
+    do.image()
 
 
 def test_from_package_import():

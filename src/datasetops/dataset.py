@@ -474,7 +474,7 @@ class Dataset(AbstractDataset):
 
         Arguments:
             If a single function taking one input given, e.g. transform(lambda x: x), it will be applied to the whole item.
-            If comma-separated functions are given, e.g. transform(as_image(), one_hot()) they will be applied to the elements of the item corresponding to the position.
+            If comma-separated functions are given, e.g. transform(image(), one_hot()) they will be applied to the elements of the item corresponding to the position.
             If key is used, e.g. transform(data=custom(lambda x:-x)), the item associated with the key i transformed.
         
         Raises:
@@ -565,7 +565,7 @@ class Dataset(AbstractDataset):
     ########## Conversion methods #########################
 
     # TODO: reconsider API
-    def as_image(self, *positional_flags: Any):
+    def image(self, *positional_flags: Any):
         """Transforms item elements that are either numpy arrays or path strings into a PIL.Image.Image
         
         Arguments:
@@ -586,14 +586,14 @@ class Dataset(AbstractDataset):
 
         if any(positional_flags):
             return self._optional_argument_indexed_transform(
-                transform_fn=_dummy_arg_receiving(as_image), args=positional_flags
+                transform_fn=_dummy_arg_receiving(image), args=positional_flags
             )
         else:
             warnings.warn("Conversion to image skipped. No elements were compatible")
             return self
 
     # TODO: reconsider API
-    def as_numpy(self, *positional_flags: Any):
+    def numpy(self, *positional_flags: Any):
         """Transforms elements into numpy.ndarray
         
         Arguments:
@@ -614,7 +614,7 @@ class Dataset(AbstractDataset):
 
         if any(positional_flags):
             return self._optional_argument_indexed_transform(
-                transform_fn=_dummy_arg_receiving(as_numpy), args=positional_flags
+                transform_fn=_dummy_arg_receiving(numpy), args=positional_flags
             )
         else:
             warnings.warn(
@@ -871,11 +871,11 @@ def one_hot(
     return _dataset_element_transforming(fn=encode)
 
 
-def as_numpy() -> DatasetTransformFn:
+def numpy() -> DatasetTransformFn:
     return _dataset_element_transforming(fn=np.array, check=_check_numpy_compatibility)
 
 
-def as_image() -> DatasetTransformFn:
+def image() -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=convert2img, check=_check_image_compatibility
     )

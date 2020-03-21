@@ -542,8 +542,8 @@ def test_numpy_image_numpy_conversion():
 
     # Warns because no elements where converted
     with pytest.warns(None) as record:
-        ds2 = ds_1d.as_image() # skipped all because they could't be converted
-        ds3 = ds_1d.as_image(False, False)
+        ds2 = ds_1d.image() # skipped all because they could't be converted
+        ds3 = ds_1d.image(False, False)
     assert(len(record) == 2) # warns on both
 
     # The two previous statements didn't create any changes
@@ -556,14 +556,14 @@ def test_numpy_image_numpy_conversion():
     # Force conversion of first arg - doesn't work due to shape incompatibility
     with pytest.raises(Exception):
         # Tries to convert first argument
-        ds_1d.as_image(True)
+        ds_1d.image(True)
 
     ds_2d = ds_1d.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
     items_2d = [x for x in ds_2d]
 
     # Succesful conversion should happen here
     with pytest.warns(None) as record:
-        ds_img = ds_2d.as_image()
+        ds_img = ds_2d.image()
     assert(len(record) == 0)
 
     items_img = [x for x in ds_img]
@@ -573,7 +573,7 @@ def test_numpy_image_numpy_conversion():
         assert(lbl1 == lbl2)
 
     # test the backward-conversion
-    ds_np = ds_img.as_numpy()
+    ds_np = ds_img.numpy()
     items_np = [x for x in ds_np]
     for (one, lbl1), (two, lbl2) in zip(items_2d, items_np):
         assert(type(one) == type(two))
@@ -582,7 +582,7 @@ def test_numpy_image_numpy_conversion():
 
     # well get a warning if it doens't convert any
     with pytest.warns(UserWarning):
-        ds_img.as_numpy(False)
+        ds_img.numpy(False)
 
 
     
@@ -592,7 +592,7 @@ def test_string_image_conversion():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
     ds_str = loaders.load_folder_data(path)
 
-    ds_img = ds_str.as_image()
+    ds_img = ds_str.image()
     items_img = [x for x in ds_img]
 
     for data in items_img:
