@@ -9,16 +9,18 @@ import datasetops as do
 
 # prepare your data
 train, val, test = (
-    do.load_folder_class_data('../data/nested_class_folder')
-    .set_item_names('data','label')                     
-    .as_image('data').img_resize((240,240)).as_numpy('data') 
-    .one_hot('label')                                  
-    .shuffle(seed=42)                                  
-    .split([0.6,0.2,0.2])     
-)  
+    do.load_folder_class_data(path)
+    .set_item_names("data", "label")
+    .image("data")
+    .img_resize((240, 240))
+    .numpy("data")
+    .one_hot("label")
+    .shuffle(seed=42)
+    .split([0.6, 0.2, 0.2])
+)
 
 # use or favorite framework
-train_tf = trian.to_tf() 
+train_tf = trian.to_tensorflow() 
 train_pt = trian.to_pytorch() #coming up!
 
 # or do your own thing

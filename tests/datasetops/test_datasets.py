@@ -649,10 +649,10 @@ def test_image_resize():
 ########## Framework converters #########################
 
 @pytest.mark.slow
-def test_to_tf_simple():
+def test_to_tensorflow_simple():
     # prep data
     ds = load_dummy_numpy_data().set_item_names("data", "label").one_hot("label")
-    tf_ds = ds.to_tf().batch(2)
+    tf_ds = ds.to_tensorflow().batch(2)
 
     # prep model
     import tensorflow as tf #type:ignore     

@@ -674,8 +674,8 @@ class Dataset(AbstractDataset):
 
     ########## Framework converters #########################
 
-    def to_tf(self):
-        return to_tf(self)
+    def to_tensorflow(self):
+        return to_tensorflow(self)
 
 
 ########## Handy decorators ####################
@@ -937,7 +937,7 @@ def _compute_tf_shape(item: Any):
     return tf.convert_to_tensor(item).shape
 
 
-def to_tf(dataset: Dataset):
+def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
     item = dataset[0]

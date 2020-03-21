@@ -11,7 +11,7 @@ from .dataset import (
     zipped,
     cartesian_product,
     concat,
-    to_tf,
+    to_tensorflow,
 )
 
 from .function_dataset import FunctionDataset
