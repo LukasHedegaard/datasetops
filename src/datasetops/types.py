@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Sequence, Union, Any, Optional, List, Tuple, Type, TypeVar
+from typing import Callable, Dict, Sequence, Union, Any, List, Tuple, Optional
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
 
@@ -8,9 +8,9 @@ Id = int
 Ids = List[Id]
 Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
-ItemTransformFn = Callable[[Any],Any]
-DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset] 
+ItemTransformFn = Callable[[Any], Any]
+DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset]
 DatasetTransformFnCreator = Callable[[Any], DatasetTransformFn]
 AnyPath = Union[str, Path]
 DataPredicate = Callable[[Any], bool]
-Key = Union[int,str]
+Key = Union[int, str]

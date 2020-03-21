@@ -1,7 +1,9 @@
 import pytest
 
+
 def test_package_import():
     import datasetops as do
+
     do.as_image()
 
 

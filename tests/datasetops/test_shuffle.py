@@ -27,21 +27,20 @@ def test_emptyDataset_valid():
 
     ds = FunctionDataset(_get_data)
     ds.shuffle()
-    assert(len(ds) == 0)
+    assert len(ds) == 0
 
 
 def test_shuffleStringIds_valid():
-
     def _get_data(i):
         return i
 
     ds = FunctionDataset(_get_data)
-    ds._extend(['1', '2'])
+    ds._extend(["1", "2"])
 
     ds_shuffled = ds.shuffle()
 
-    assert('1' in ds_shuffled)
-    assert('2' in ds_shuffled)
+    assert "1" in ds_shuffled
+    assert "2" in ds_shuffled
 
 
 def test_containsSameElements():
@@ -52,7 +51,7 @@ def test_containsSameElements():
     ds_shuffled = ds.shuffle()
     found_items = [i for i in ds_shuffled]
 
-    assert(set(expected_items) == set(found_items))
+    assert set(expected_items) == set(found_items)
 
 
 def test_elementsShuffled():
@@ -65,4 +64,4 @@ def test_elementsShuffled():
     ds_shuffled = ds.shuffle(seed)
     found_items = [i for i in ds_shuffled]
 
-    assert(expected_items != found_items)
+    assert expected_items != found_items

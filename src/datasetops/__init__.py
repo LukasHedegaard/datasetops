@@ -11,7 +11,7 @@ from .dataset import (
     zipped,
     cartesian_product,
     concat,
-    to_tf
+    to_tf,
 )
 
 from .function_dataset import FunctionDataset
@@ -20,5 +20,5 @@ from .loaders import (
     load_folder_data,
     load_folder_class_data,
     load_folder_dataset_class_data,
-    load_mat_single_mult_data
+    load_mat_single_mult_data,
 )
