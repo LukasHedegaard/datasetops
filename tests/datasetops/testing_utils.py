@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import NamedTuple
-from datasetops.function_dataset import FunctionDataset
+from datasetops.loaders import Loader
 import numpy as np
 
 
@@ -18,7 +18,7 @@ def get_test_dataset_path(dataset_path: str) -> str:
     return str((Path(__file__).parent.parent / "recourses" / dataset_path).absolute())
 
 
-def load_dummy_data(num_total=11, with_label=False) -> FunctionDataset:
+def load_dummy_data(num_total=11, with_label=False) -> Loader:
     a_ids = list(range(5))
     b_ids = list(range(5, num_total))
 
@@ -29,7 +29,7 @@ def load_dummy_data(num_total=11, with_label=False) -> FunctionDataset:
         nonlocal a_ids
         return i, "a" if i < len(a_ids) else "b"
 
-    ds = FunctionDataset(get_labelled_data if with_label else get_data)
+    ds = Loader(get_labelled_data if with_label else get_data)
     ds._extend(a_ids)
     ds._extend(b_ids)
     return ds
@@ -40,7 +40,7 @@ DUMMY_NUMPY_DATA_SHAPE_2D = (6, 3)
 DUMMY_NUMPY_DATA_SHAPE_3D = (2, 3, 3)
 
 
-def load_dummy_numpy_data() -> FunctionDataset:
+def load_dummy_numpy_data() -> Loader:
     a_ids = list(range(5))
     b_ids = list(range(5, 11))
     labels = [*[1 for _ in a_ids], *[2 for _ in b_ids]]
@@ -54,7 +54,7 @@ def load_dummy_numpy_data() -> FunctionDataset:
     def get_data(idx):
         return data[idx], labels[idx]
 
-    ds = FunctionDataset(get_data)
+    ds = Loader(get_data)
     ds._extend(a_ids)
     ds._extend(b_ids)
     return ds

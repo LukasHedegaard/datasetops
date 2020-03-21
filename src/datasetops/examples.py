@@ -25,7 +25,7 @@ def domain_adaptation_office31(
     target_test, target_trainval = target.split(
         fractions=[0.3, 0.7], seed=42
     )  # hard-coded seed
-    target_train, target_val = target_trainval.shuffle(seed).filter_split(
+    target_train, target_val = target_trainval.shuffle(seed).split_filter(
         t_label=do.allow_unique(num_target_per_class)
     )
 
@@ -41,7 +41,7 @@ def domain_adaptation_office31(
     # Limit the train set to have at most an 1:3 ratio of same-label and different-label pairs
     train_same, train_diff = train_cart.reorder(
         "s_data", "t_data", "s_label", "t_label"
-    ).filter_split(lambda x: np.array_equal(x[2], x[3]))
+    ).split_filter(lambda x: np.array_equal(x[2], x[3]))
     if len(train_diff) > 3 * len(train_same):
         train_diff = train_diff.sample(3 * len(train_same), seed=seed)
     train = do.concat(train_same, train_diff).shuffle(seed)

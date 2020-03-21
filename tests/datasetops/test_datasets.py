@@ -1,6 +1,5 @@
 
 from datasetops.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
-from datasetops.function_dataset import FunctionDataset
 import datasetops.loaders as loaders
 import pytest
 import numpy as np
@@ -92,7 +91,7 @@ def test_filter():
         ds.filter(badkey=lambda x:True) # key doesn't exist
 
 
-def test_filter_split():
+def test_split_filter():
     num_total=10
     ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
 
@@ -105,43 +104,43 @@ def test_filter_split():
     odd_b  = [x for x in b if x[0]%2==1]
 
     # itemwise
-    ds_even, ds_odd = ds.filter_split(itemwise=[lambda x: x%2==0])
+    ds_even, ds_odd = ds.split_filter(itemwise=[lambda x: x%2==0])
     assert(list(ds_even) == even_a + even_b) 
     assert(list(ds_odd) == odd_a + odd_b) 
 
-    ds_even_a, ds_not_even_a = ds.filter_split(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
+    ds_even_a, ds_not_even_a = ds.split_filter(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
     assert(list(ds_even_a) == even_a) 
     assert(list(ds_not_even_a) == odd_a + b) 
 
     # by key
-    ds_b, ds_a = ds.filter_split(label=lambda x:x=='b')
+    ds_b, ds_a = ds.split_filter(label=lambda x:x=='b')
     assert(list(ds_b) == b)
     assert(list(ds_a) == a)
 
     # bulk
-    ds_odd_b, ds_even_b = ds.filter_split(lambda x: x[0]%2==1 and x[1]=='b')
+    ds_odd_b, ds_even_b = ds.split_filter(lambda x: x[0]%2==1 and x[1]=='b')
     assert(list(ds_odd_b) == odd_b)
     assert(list(ds_even_b) == a + even_b)
 
     # mix
-    ds_even_b_no_4, ds_not_even_b_no_4 = ds.filter_split(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
+    ds_even_b_no_4, ds_not_even_b_no_4 = ds.split_filter(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
     assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
     assert(list(ds_not_even_b_no_4) == [x for x in list(ds) if not x in [x for x in even_b if x[0]!=4]] )
 
     # sample_classwise
-    ds_classwise_2, ds_classwise_rest = ds.filter_split(label=allow_unique(2))
+    ds_classwise_2, ds_classwise_rest = ds.split_filter(label=allow_unique(2))
     assert(list(ds_classwise_2) == list(a[:2] + b[:2]))
     assert(list(ds_classwise_rest) == list(a[2:] + b[2:]))
 
     # error scenarios
     with pytest.raises(ValueError):
-        ds_same = ds.filter_split() # no args
+        ds_same = ds.split_filter() # no args
 
     with pytest.raises(AssertionError):
-        ds.filter_split(itemwise=[None, None, None]) # too many args
+        ds.split_filter(itemwise=[None, None, None]) # too many args
 
     with pytest.raises(AssertionError):
-        ds.filter_split(badkey=lambda x:True) # key doesn't exist
+        ds.split_filter(badkey=lambda x:True) # key doesn't exist
 
 
 def test_split():
@@ -279,7 +278,7 @@ def test_shape():
         return i,i
 
     # no shape yet
-    ds = FunctionDataset(get_data)
+    ds = loaders.Loader(get_data)
     assert(ds.shape == _DEFAULT_SHAPE)
 
     # shape given

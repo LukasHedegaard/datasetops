@@ -248,7 +248,7 @@ class Dataset(AbstractDataset):
         return Dataset(downstream_getter=self, ids=new_ids)
 
     @_raise_no_args(skip=1)
-    def filter_split(
+    def split_filter(
         self,
         bulk: DataPredicate = None,
         itemwise: Sequence[Optional[DataPredicate]] = [],

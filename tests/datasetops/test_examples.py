@@ -3,7 +3,6 @@ import datasetops.loaders as loaders
 import datasetops.dataset as mlds
 from datasetops.examples import domain_adaptation_office31
 import datasetops as do
-import numpy as np
 from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
 from pathlib import Path
 
