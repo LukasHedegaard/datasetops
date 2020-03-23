@@ -48,7 +48,7 @@ def domain_adaptation_office31(
     # Change the data representation into two tuples (in, out) with an extra label in out
     train, val, test = [
         d.image(True, True)
-        .img_resize((240, 240), (240, 240))
+        .image_resize((240, 240), (240, 240))
         .numpy(True, True)
         .transform(lambda x: ((x[0], x[1]), (x[2], x[3], x[2] == x[3])))
         for d in [train, val, test]

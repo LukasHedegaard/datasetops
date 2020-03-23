@@ -681,9 +681,9 @@ class Dataset(AbstractDataset):
 
     ########## Methods below assume data is an image ##########
 
-    def img_resize(self, *new_sizes: Optional[Shape]):
+    def image_resize(self, *new_sizes: Optional[Shape]):
         return _optional_argument_indexed_transform(
-            self.shape, self.transform, transform_fn=img_resize, args=new_sizes
+            self.shape, self.transform, transform_fn=image_resize, args=new_sizes
         )
 
     # def img_transform(self, transform):
@@ -825,7 +825,7 @@ def custom(
 
 def reshape(new_shape: Shape) -> DatasetTransformFn:
     return _dataset_element_transforming(
-        fn=functools.partial(np.reshape, newshape=(new_shape)),  # type: ignore
+        fn=lambda x: np.reshape(np.array(x), newshape=tuple(new_shape)),
         check=_check_shape_compatibility(new_shape),
     )
 
@@ -901,7 +901,7 @@ def image() -> DatasetTransformFn:
     )
 
 
-def img_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
+def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
     assert len(new_size) == 2
     return _dataset_element_transforming(
         fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
@@ -960,6 +960,7 @@ def _compute_tf_shape(item: Any):
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
+    ds = dataset.numpy()
     item = dataset[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,

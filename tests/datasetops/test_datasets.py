@@ -291,7 +291,7 @@ def test_shape():
 
     # changed to new size
     IMG_SIZE = (6,6)
-    ds_img = ds_np.img_resize(IMG_SIZE)
+    ds_img = ds_np.image_resize(IMG_SIZE)
     assert( ds_img.shape == (IMG_SIZE,_DEFAULT_SHAPE) )
 
     # image with three channels
@@ -299,7 +299,7 @@ def test_shape():
     ds_np3 = ds_np.reshape(DUMMY_NUMPY_DATA_SHAPE_3D)
     assert( ds_np3.shape == (DUMMY_NUMPY_DATA_SHAPE_3D,_DEFAULT_SHAPE) )
 
-    ds_img3 = ds_np3.img_resize(IMG_SIZE)
+    ds_img3 = ds_np3.image_resize(IMG_SIZE)
     assert( ds_img3.shape == ((*IMG_SIZE,3),_DEFAULT_SHAPE) )
 
 
@@ -608,14 +608,14 @@ def test_image_resize():
     NEW_SIZE = (5,5)
 
     # works directly on numpy arrays (ints)
-    ds_resized = ds.img_resize(NEW_SIZE)
+    ds_resized = ds.image_resize(NEW_SIZE)
     for tpl in ds_resized:
         data = tpl[0]
         assert(data.size == NEW_SIZE)
         assert(data.mode == 'L') # grayscale int
 
     # also if they are floats
-    ds_resized_float = ds.transform(custom(np.float32)).img_resize(NEW_SIZE)
+    ds_resized_float = ds.transform(custom(np.float32)).image_resize(NEW_SIZE)
     for tpl in ds_resized_float:
         data = tpl[0]
         assert(data.size == NEW_SIZE)
@@ -623,26 +623,26 @@ def test_image_resize():
 
     # works directly on strings
     ds_str = loaders.load_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
-    ds_resized_from_str = ds_str.img_resize(NEW_SIZE)
+    ds_resized_from_str = ds_str.image_resize(NEW_SIZE)
     for tpl in ds_resized_from_str:
         data = tpl[0]
         assert(data.size == NEW_SIZE)
 
     # works on other images (scaling down)
-    ds_resized_again = ds_resized.img_resize(DUMMY_NUMPY_DATA_SHAPE_2D)
+    ds_resized_again = ds_resized.image_resize(DUMMY_NUMPY_DATA_SHAPE_2D)
     for tpl in ds_resized_again:
         data = tpl[0]
         assert(data.size == DUMMY_NUMPY_DATA_SHAPE_2D)
 
     # Test error scenarios
     with pytest.raises(ValueError):
-        ds.img_resize() # No args
+        ds.image_resize() # No args
 
     with pytest.raises(ValueError):
-        ds.img_resize(NEW_SIZE, NEW_SIZE, NEW_SIZE) # Too many args
+        ds.image_resize(NEW_SIZE, NEW_SIZE, NEW_SIZE) # Too many args
 
     with pytest.raises(AssertionError):
-        ds.img_resize((4,4,4)) # Invalid size
+        ds.image_resize((4,4,4)) # Invalid size
 
 
 ########## Framework converters #########################

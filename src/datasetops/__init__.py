@@ -7,7 +7,7 @@ from .dataset import (
     one_hot,
     numpy,
     image,
-    img_resize,
+    image_resize,
     zipped,
     cartesian_product,
     concat,
