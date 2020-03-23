@@ -52,21 +52,33 @@ def _dummy_arg_receiving(fn):
     return wrapped
 
 
-def _itemname2ind(item_names: ItemNames, name: str) -> int:
-    if not item_names:
-        raise ValueError(
-            "Items cannot be identified by name when no names are given. Hint: Use `Dataset.named('name1', 'name2', ...)`"
-        )
-    return item_names[name]
+def _key_index(item_names: ItemNames, key: Key) -> int:
+    if type(key) == int:
+        return int(key)
+    else:
+        if not item_names:
+            raise ValueError(
+                "Items cannot be identified by name when no names are given. Hint: Use `Dataset.named('name1', 'name2', ...)`"
+            )
+        return item_names[str(key)]
 
 
 def _combine_conditions(
     item_names: ItemNames,
     shape: Shape,
-    bulk: DataPredicate = None,
-    itemwise: Sequence[Optional[DataPredicate]] = [],
+    predicates: Optional[
+        Union[DataPredicate, Sequence[Optional[DataPredicate]]]
+    ] = None,
     **kwpredicates: DataPredicate
 ) -> DataPredicate:
+
+    bulk: Optional[DataPredicate] = None
+    itemwise: Sequence[Optional[DataPredicate]] = []
+    if hasattr(predicates, "__getitem__"):
+        itemwise = predicates  # type: ignore
+    else:
+        bulk = predicates  # type: ignore
+
     assert len(itemwise) <= len(shape)
     assert all([k in item_names for k in kwpredicates.keys()])
 
@@ -82,10 +94,7 @@ def _combine_conditions(
             bulk(x)
             and all([pred(x[i]) for i, pred in enumerate(preds)])
             and all(
-                [
-                    pred(x[_itemname2ind(item_names, k)])
-                    for k, pred in kwpredicates.items()
-                ]
+                [pred(x[_key_index(item_names, k)]) for k, pred in kwpredicates.items()]
             )
         )
 
@@ -193,7 +202,7 @@ class Dataset(AbstractDataset):
         Returns:
             List[Tuple[Any,int]] -- List of tuples, each containing the unique value and its number of occurences
         """
-        inds: List[int] = [k if type(k) == int else _itemname2ind(self._item_names, k) for k in itemkeys]  # type: ignore
+        inds: List[int] = [_key_index(self._item_names, k) for k in itemkeys]
 
         selector = (
             (lambda item: item)
@@ -257,22 +266,24 @@ class Dataset(AbstractDataset):
     @_warn_no_args(skip=1)
     def filter(
         self,
-        bulk: DataPredicate = None,
-        itemwise: Sequence[Optional[DataPredicate]] = [],
+        predicates: Optional[
+            Union[DataPredicate, Sequence[Optional[DataPredicate]]]
+        ] = None,
         **kwpredicates: DataPredicate
     ):
         """Filter a dataset using a predicate function
         
         Keyword Arguments:
-            bulk {DataPredicate} -- A function taking a single dataset item and returning a bool (default: {None})
-            itemwise {Sequence[Optional[DataPredicate]]} -- A list of predicates, one for each element in an item (default: {[]})
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} 
+                -- either a single or a list of functions taking a single dataset item and returning a bool
+                   if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
             element-wise predicates can also be passed, if item_names have been named.
         
         Returns:
             [Dataset] -- A filtered Dataset
         """
         condition = _combine_conditions(
-            self._item_names, self.shape, bulk, itemwise, **kwpredicates
+            self._item_names, self.shape, predicates, **kwpredicates
         )
         new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
@@ -280,22 +291,24 @@ class Dataset(AbstractDataset):
     @_raise_no_args(skip=1)
     def split_filter(
         self,
-        bulk: DataPredicate = None,
-        itemwise: Sequence[Optional[DataPredicate]] = [],
+        predicates: Optional[
+            Union[DataPredicate, Sequence[Optional[DataPredicate]]]
+        ] = None,
         **kwpredicates: DataPredicate
     ):
         """Split a dataset using a predicate function
         
         Keyword Arguments:
-            bulk {DataPredicate} -- A function taking a single dataset item and returning a bool (default: {None})
-            itemwise {Sequence[Optional[DataPredicate]]} -- A list of predicates, one for each element in an item (default: {[]})
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} 
+                -- either a single or a list of functions taking a single dataset item and returning a bool
+                   if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
             element-wise predicates can also be passed, if item_names have been named.
         
         Returns:
             [Dataset] -- Two datasets, one that passed the predicate and one that didn't
         """
         condition = _combine_conditions(
-            self._item_names, self.shape, bulk, itemwise, **kwpredicates
+            self._item_names, self.shape, predicates, **kwpredicates
         )
         ack, nack = [], []
         for i in self._ids:
@@ -416,12 +429,7 @@ class Dataset(AbstractDataset):
             )
             return self
 
-        inds: List[int] = []
-        for i in keys:
-            if type(i) == str:
-                inds.append(_itemname2ind(self._item_names, str(i)))
-            else:
-                inds.append(int(i))
+        inds = [_key_index(self._item_names, k) for k in keys]
 
         for i in inds:
             if i > len(self.shape):
@@ -531,7 +539,7 @@ class Dataset(AbstractDataset):
 
         for k, f in kwfns.items():
             if f:
-                new_dataset = f(_itemname2ind(self._item_names, k), new_dataset)
+                new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
         return new_dataset
 
@@ -549,9 +557,7 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
-        idx: int = _itemname2ind(self._item_names, key) if type(
-            key
-        ) == str else key  # type:ignore
+        idx: int = _key_index(self._item_names, key)
         args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=label, args=args
@@ -578,9 +584,7 @@ class Dataset(AbstractDataset):
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
         enc_size = encoding_size or len(self.unique(key))
-        idx: int = _itemname2ind(self._item_names, key) if type(
-            key
-        ) == str else key  # type:ignore
+        idx: int = _key_index(self._item_names, key)
         args = [enc_size if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape,
