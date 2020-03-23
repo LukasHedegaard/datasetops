@@ -11,9 +11,7 @@ import datasetops as do
 train, val, test = (
     do.load_folder_class_data(path)
     .named("data", "label")
-    .image("data")
     .img_resize((240, 240))
-    .numpy("data")
     .one_hot("label")
     .shuffle(seed=42)
     .split([0.6, 0.2, 0.2])

@@ -933,37 +933,50 @@ def concat(*datasets: AbstractDataset):
 ########## Converters ####################
 
 
-def _compute_tf_type(item: Any):
+def _tf_compute_type(item: Any):
     import tensorflow as tf  # type:ignore
 
     if type(item) in [list, tuple]:
-        return tuple([_compute_tf_type(i) for i in item])
+        return tuple([_tf_compute_type(i) for i in item])
 
     if type(item) == dict:
-        return {str(k): _compute_tf_type(v) for k, v in item.items()}
+        return {str(k): _tf_compute_type(v) for k, v in item.items()}
 
     return tf.convert_to_tensor(item).dtype
 
 
-def _compute_tf_shape(item: Any):
+def _tf_compute_shape(item: Any):
     import tensorflow as tf  # type:ignore
 
     if type(item) in [list, tuple]:
-        return tuple([_compute_tf_shape(i) for i in item])
+        return tuple([_tf_compute_shape(i) for i in item])
 
     if type(item) == dict:
-        return {str(k): _compute_tf_shape(v) for k, v in item.items()}
+        return {str(k): _tf_compute_shape(v) for k, v in item.items()}
 
     return tf.convert_to_tensor(item).shape
+
+
+def _tf_item_conversion(item: Any):
+    if type(item) in [list, tuple]:
+        return tuple([_tf_item_conversion(i) for i in item])
+
+    if type(item) == dict:
+        return {str(k): _tf_item_conversion(v) for k, v in item.items()}
+
+    if type(item) in [Image.Image]:
+        return np.array(item)
+
+    return item
 
 
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
-    ds = dataset.numpy()
-    item = dataset[0]
+    ds = Dataset(downstream_getter=dataset, item_transform_fn=_tf_item_conversion)
+    item = ds[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,
-        output_types=_compute_tf_type(item),
-        output_shapes=_compute_tf_shape(item),
+        output_types=_tf_compute_type(item),
+        output_shapes=_tf_compute_shape(item),
     )
