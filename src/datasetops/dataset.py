@@ -124,6 +124,24 @@ def _optional_argument_indexed_transform(
     return ds_transform(tfs)
 
 
+def _keywise(item_names: Dict[str, int], l: Sequence, d: Dict):
+    keywise = {i: v for i, v in enumerate(l)}
+    keywise.update({_key_index(item_names, k): v for k, v in d.items()})
+    return keywise
+    # return dict(
+    #     {i: v for i, v in enumerate(l)},
+    #     **{_key_index(item_names, k): v for k, v in d.items()}
+    # )
+
+
+def _itemwise(item_names: Dict[str, int], l: Sequence, d: Dict):
+    keywise = _keywise(item_names, l, d)
+    itemwise = [
+        (keywise[i] if i in keywise else None) for i in range(max(keywise.keys()) + 1)
+    ]
+    return itemwise
+
+
 ########## Dataset ####################
 
 
@@ -526,28 +544,21 @@ class Dataset(AbstractDataset):
             [Dataset] -- Dataset whose items are transformed
         """
         bulk, itemwise = _split_bulk_itemwise(fns)
+
         if bool(bulk) + len(itemwise) + len(kwfns) > len(self.shape):
             raise ValueError(
                 "More transforms ({}) given than can be performed on item with {} elements".format(
                     bool(bulk) + len(itemwise) + len(kwfns), len(self.shape)
                 )
             )
-
         new_dataset: AbstractDataset = self
 
-        # a single function taking one argument was given
         if bulk:
             return Dataset(downstream_getter=self, item_transform_fn=bulk)
 
-        for i, f in enumerate(itemwise):
+        for k, f in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
             if f:
                 # if user passed a function with a single argument, wrap it
-                if len(signature(f).parameters) == 1:
-                    f = custom(f)
-                new_dataset = f(i, new_dataset)
-
-        for k, f in kwfns.items():
-            if f:
                 if len(signature(f).parameters) == 1:
                     f = custom(f)
                 new_dataset = f(_key_index(self._item_names, k), new_dataset)
@@ -683,9 +694,12 @@ class Dataset(AbstractDataset):
 
     ########## Methods relating to numpy data #########################
 
-    def reshape(self, *new_shapes: Optional[Shape]):
+    def reshape(self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]):
         return _optional_argument_indexed_transform(
-            self.shape, self.transform, transform_fn=reshape, args=new_shapes
+            self.shape,
+            self.transform,
+            transform_fn=reshape,
+            args=_itemwise(self._item_names, new_shapes, kwshapes),
         )
 
     # def scale(self, scaler):
@@ -696,9 +710,12 @@ class Dataset(AbstractDataset):
 
     ########## Methods below assume data is an image ##########
 
-    def image_resize(self, *new_sizes: Optional[Shape]):
+    def image_resize(self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]):
         return _optional_argument_indexed_transform(
-            self.shape, self.transform, transform_fn=image_resize, args=new_sizes
+            self.shape,
+            self.transform,
+            transform_fn=image_resize,
+            args=_itemwise(self._item_names, new_sizes, kwsizes),
         )
 
     # def img_transform(self, transform):

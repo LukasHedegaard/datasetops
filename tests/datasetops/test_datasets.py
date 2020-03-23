@@ -402,7 +402,7 @@ def test_label():
         ds_label.unique('label'), 
         ds_label_alt1.unique('label'), 
         ds_label_alt2.unique('label'), 
-        ds_label_alt2.unique('label'), 
+        ds_label_alt3.unique('label'), 
         expected
     ):
         assert(np.array_equal(l,l1))
@@ -506,8 +506,8 @@ def test_transform():
 
 
 def test_reshape():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
+    ds = load_dummy_numpy_data().named('data','label')
+    items = list(ds)
 
     s = ds.shape
     assert(ds.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE) )
@@ -515,18 +515,21 @@ def test_reshape():
 
     # reshape adding extra dim
     ds_r = ds.reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
-    items_r = [x for x in ds_r]
+    ds_r_alt = ds.reshape(data=DUMMY_NUMPY_DATA_SHAPE_2D)
+    items_r = list(ds_r)
+    items_r_alt = list(ds_r_alt)
 
     assert(ds_r.shape == ( DUMMY_NUMPY_DATA_SHAPE_2D, _DEFAULT_SHAPE) )
     assert(ds_r[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_2D)
 
-    for (old_data, _), (new_data, _) in zip(items, items_r):
-        assert(set(old_data) == set(new_data.flatten()))
-        assert(old_data.shape != new_data.shape)
+    for (old_data, l), (new_data, ln), (new_data_alt, lna) in zip(items, items_r, items_r_alt):
+        assert(set(old_data) == set(new_data.flatten()) == set(new_data_alt.flatten()))
+        assert(old_data.shape != new_data.shape == new_data_alt.shape)
+        assert(l == ln == lna)
 
     # use wildcard
     ds_wild = ds.reshape((-1,DUMMY_NUMPY_DATA_SHAPE_2D[1]))
-    items_wild = [x for x in ds_wild]
+    items_wild = list(ds_wild)
     for (old_data, _), (new_data, _) in zip(items_r, items_wild):
         assert(np.array_equal(old_data, new_data))
 
