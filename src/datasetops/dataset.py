@@ -350,22 +350,20 @@ class Dataset(AbstractDataset):
         new_ids = list(range(num))
         return Dataset(downstream_getter=self, ids=new_ids)
 
-    def repeat(self, repeats=1, mode="itemwise"):
+    def repeat(self, times=1, mode="itemwise"):
         """ Repeat the dataset elements
         
         Keyword Arguments:
-            repeats {int} -- Number of repeats for each element (default: {1})
+            times {int} -- Number of times an element is repeated (default: {1})
             mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole' (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
         
         Returns:
             [type] -- [description]
         """
         new_ids = {
-            "whole": lambda: [
-                i for _ in range(repeats) for i in list(range(len(self)))
-            ],
+            "whole": lambda: [i for _ in range(times) for i in list(range(len(self)))],
             "itemwise": lambda: [
-                i for i in list(range(len(self))) for _ in range(repeats)
+                i for i in list(range(len(self))) for _ in range(times)
             ],
         }[mode]()
 
