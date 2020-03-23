@@ -11,7 +11,7 @@ from datasetops.abstract import AbstractDataset
 from pathlib import Path
 
 
-########## Decorators ####################
+########## Local Helpers ####################
 
 _DEFAULT_SHAPE = tuple()
 
@@ -52,6 +52,65 @@ def _dummy_arg_receiving(fn):
     return wrapped
 
 
+def _itemname2ind(item_names: ItemNames, name: str) -> int:
+    if not item_names:
+        raise ValueError(
+            "Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`"
+        )
+    return item_names[name]
+
+
+def _combine_conditions(
+    item_names: ItemNames,
+    shape: Shape,
+    bulk: DataPredicate = None,
+    itemwise: Sequence[Optional[DataPredicate]] = [],
+    **kwpredicates: DataPredicate
+) -> DataPredicate:
+    assert len(itemwise) <= len(shape)
+    assert all([k in item_names for k in kwpredicates.keys()])
+
+    # clean up predicates
+    if not bulk:
+        bulk = lambda x: True
+    preds: List[DataPredicate] = [
+        ((lambda x: True) if p is None else p) for p in itemwise
+    ]
+
+    def condition(x: Any) -> bool:
+        return (
+            bulk(x)
+            and all([pred(x[i]) for i, pred in enumerate(preds)])
+            and all(
+                [
+                    pred(x[_itemname2ind(item_names, k)])
+                    for k, pred in kwpredicates.items()
+                ]
+            )
+        )
+
+    return condition
+
+
+def _label2name(label: Any) -> str:
+    return str(label)
+
+
+def _optional_argument_indexed_transform(
+    shape: Shape,
+    ds_transform: Callable,
+    transform_fn: DatasetTransformFnCreator,
+    args: Sequence[Any],
+):
+    if len(args) == 0:
+        raise ValueError("Unable to perform transform: No arguments arguments given")
+    if len(shape) < len(args):
+        raise ValueError("Unable to perform transform: Too many arguments given")
+
+    tfs = [transform_fn(a) if a else None for a in args]
+    return ds_transform(*tfs)
+
+
 ########## Dataset ####################
 
 
@@ -84,7 +143,7 @@ class Dataset(AbstractDataset):
         else:
             self.name = ""
             self._ids = []
-            self._item_names: Optional[Dict[str, int]] = None
+            self._item_names: ItemNames = {}
 
         if name:
             self.name = name
@@ -138,7 +197,7 @@ class Dataset(AbstractDataset):
         Returns:
             List[Tuple[Any,int]] -- List of tuples, each containing the unique value and its number of occurences
         """
-        inds: List[int] = [k if type(k) == int else self._itemname2ind(k) for k in itemkeys]  # type: ignore
+        inds: List[int] = [k if type(k) == int else _itemname2ind(self._item_names, k) for k in itemkeys]  # type: ignore
 
         selector = (
             (lambda item: item)
@@ -199,33 +258,6 @@ class Dataset(AbstractDataset):
             )  # Supersample.
         return Dataset(downstream_getter=self, ids=new_ids)
 
-    def _combine_conditions(
-        self,
-        bulk: DataPredicate = None,
-        itemwise: Sequence[Optional[DataPredicate]] = [],
-        **kwpredicates: DataPredicate
-    ) -> DataPredicate:
-        assert len(itemwise) <= len(self.shape)
-        assert all([k in self.item_names for k in kwpredicates.keys()])
-
-        # clean up predicates
-        if not bulk:
-            bulk = lambda x: True
-        preds: List[DataPredicate] = [
-            ((lambda x: True) if p is None else p) for p in itemwise
-        ]
-
-        def condition(x: Any) -> bool:
-            return (
-                bulk(x)
-                and all([pred(x[i]) for i, pred in enumerate(preds)])
-                and all(
-                    [pred(x[self._itemname2ind(k)]) for k, pred in kwpredicates.items()]
-                )
-            )
-
-        return condition
-
     @_warn_no_args(skip=1)
     def filter(
         self,
@@ -243,7 +275,9 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- A filtered Dataset
         """
-        condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
+        condition = _combine_conditions(
+            self._item_names, self.shape, bulk, itemwise, **kwpredicates
+        )
         new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
 
@@ -264,7 +298,9 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- Two datasets, one that passed the predicate and one that didn't
         """
-        condition = self._combine_conditions(bulk, itemwise, **kwpredicates)
+        condition = _combine_conditions(
+            self._item_names, self.shape, bulk, itemwise, **kwpredicates
+        )
         ack, nack = [], []
         for i in self._ids:
             if condition(self.__getitem__(i)):
@@ -387,7 +423,7 @@ class Dataset(AbstractDataset):
         inds: List[int] = []
         for i in keys:
             if type(i) == str:
-                inds.append(self._itemname2ind(str(i)))
+                inds.append(_itemname2ind(self._item_names, str(i)))
             else:
                 inds.append(int(i))
 
@@ -418,10 +454,6 @@ class Dataset(AbstractDataset):
             item_transform_fn=item_transform_fn,
             item_names=item_names,
         )
-
-    @staticmethod
-    def _label2name(label: Any) -> str:
-        return str(label)
 
     def set_item_names(self, first: Union[str, Sequence[str]], *rest: str):
         """Set the names associated with the elements of an item
@@ -458,13 +490,6 @@ class Dataset(AbstractDataset):
             return [x[0] for x in sorted(self._item_names.items(), key=lambda x: x[1])]
         else:
             return []
-
-    def _itemname2ind(self, name: str) -> int:
-        if not self._item_names:
-            raise ValueError(
-                "Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`"
-            )
-        return self._item_names[name]
 
     @_warn_no_args(skip=1)
     def transform(self, *fns: DatasetTransformFn, **kwfns: DatasetTransformFn):
@@ -510,7 +535,7 @@ class Dataset(AbstractDataset):
 
         for k, f in kwfns.items():
             if f:
-                new_dataset = f(self._itemname2ind(k), new_dataset)
+                new_dataset = f(_itemname2ind(self._item_names, k), new_dataset)
 
         return new_dataset
 
@@ -528,9 +553,13 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
-        idx: int = self._itemname2ind(key) if type(key) == str else key  # type:ignore
+        idx: int = _itemname2ind(self._item_names, key) if type(
+            key
+        ) == str else key  # type:ignore
         args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
-        return self._optional_argument_indexed_transform(transform_fn=label, args=args)
+        return _optional_argument_indexed_transform(
+            self.shape, self.transform, transform_fn=label, args=args
+        )
 
     def one_hot(
         self,
@@ -553,9 +582,13 @@ class Dataset(AbstractDataset):
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
         enc_size = encoding_size or len(self.unique(key))
-        idx: int = self._itemname2ind(key) if type(key) == str else key  # type:ignore
+        idx: int = _itemname2ind(self._item_names, key) if type(
+            key
+        ) == str else key  # type:ignore
         args = [enc_size if i == idx else None for i in range(idx + 1)]
-        return self._optional_argument_indexed_transform(
+        return _optional_argument_indexed_transform(
+            self.shape,
+            self.transform,
             transform_fn=functools.partial(one_hot, mapping_fn=mapping_fn, dtype=dtype),
             args=args,
         )
@@ -583,8 +616,11 @@ class Dataset(AbstractDataset):
                     positional_flags.append(False)
 
         if any(positional_flags):
-            return self._optional_argument_indexed_transform(
-                transform_fn=_dummy_arg_receiving(image), args=positional_flags
+            return _optional_argument_indexed_transform(
+                self.shape,
+                self.transform,
+                transform_fn=_dummy_arg_receiving(image),
+                args=positional_flags,
             )
         else:
             warnings.warn("Conversion to image skipped. No elements were compatible")
@@ -611,8 +647,11 @@ class Dataset(AbstractDataset):
                     positional_flags.append(False)
 
         if any(positional_flags):
-            return self._optional_argument_indexed_transform(
-                transform_fn=_dummy_arg_receiving(numpy), args=positional_flags
+            return _optional_argument_indexed_transform(
+                self.shape,
+                self.transform,
+                transform_fn=_dummy_arg_receiving(numpy),
+                args=positional_flags,
             )
         else:
             warnings.warn(
@@ -633,22 +672,9 @@ class Dataset(AbstractDataset):
 
     ########## Methods relating to numpy data #########################
 
-    def _optional_argument_indexed_transform(
-        self, transform_fn: DatasetTransformFnCreator, args: Sequence[Any]
-    ):
-        if len(args) == 0:
-            raise ValueError(
-                "Unable to perform transform: No arguments arguments given"
-            )
-        if len(self.shape) < len(args):
-            raise ValueError("Unable to perform transform: Too many arguments given")
-
-        tfs = [transform_fn(a) if a else None for a in args]
-        return self.transform(*tfs)  # type:ignore
-
     def reshape(self, *new_shapes: Optional[Shape]):
-        return self._optional_argument_indexed_transform(
-            transform_fn=reshape, args=new_shapes
+        return _optional_argument_indexed_transform(
+            self.shape, self.transform, transform_fn=reshape, args=new_shapes
         )
 
     # def scale(self, scaler):
@@ -660,8 +686,8 @@ class Dataset(AbstractDataset):
     ########## Methods below assume data is an image ##########
 
     def img_resize(self, *new_sizes: Optional[Shape]):
-        return self._optional_argument_indexed_transform(
-            transform_fn=img_resize, args=new_sizes
+        return _optional_argument_indexed_transform(
+            self.shape, self.transform, transform_fn=img_resize, args=new_sizes
         )
 
     # def img_transform(self, transform):
