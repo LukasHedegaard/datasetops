@@ -9,6 +9,7 @@ import functools
 from inspect import signature
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
+from typing import overload, TypeVar
 
 
 ########## Local Helpers ####################
@@ -63,6 +64,18 @@ def _key_index(item_names: ItemNames, key: Key) -> int:
         return item_names[str(key)]
 
 
+def _split_bulk_itemwise(
+    l: Union[Optional[Callable], Sequence[Optional[Callable]]]
+) -> Tuple[Optional[Callable], Sequence[Optional[Callable]]]:
+    bulk: Optional[Callable] = None
+    itemwise: Sequence[Optional[Callable]] = []
+    if hasattr(l, "__getitem__"):
+        itemwise = l  # type: ignore
+    else:
+        bulk = l  # type: ignore
+    return bulk, itemwise
+
+
 def _combine_conditions(
     item_names: ItemNames,
     shape: Shape,
@@ -72,12 +85,7 @@ def _combine_conditions(
     **kwpredicates: DataPredicate
 ) -> DataPredicate:
 
-    bulk: Optional[DataPredicate] = None
-    itemwise: Sequence[Optional[DataPredicate]] = []
-    if hasattr(predicates, "__getitem__"):
-        itemwise = predicates  # type: ignore
-    else:
-        bulk = predicates  # type: ignore
+    bulk, itemwise = _split_bulk_itemwise(predicates)
 
     assert len(itemwise) <= len(shape)
     assert all([k in item_names for k in kwpredicates.keys()])
@@ -113,7 +121,7 @@ def _optional_argument_indexed_transform(
         raise ValueError("Unable to perform transform: Too many arguments given")
 
     tfs = [transform_fn(a) if a else None for a in args]
-    return ds_transform(*tfs)
+    return ds_transform(tfs)
 
 
 ########## Dataset ####################
@@ -496,13 +504,19 @@ class Dataset(AbstractDataset):
             return []
 
     @_warn_no_args(skip=1)
-    def transform(self, *fns: DatasetTransformFn, **kwfns: DatasetTransformFn):
+    def transform(
+        self,
+        fns: Optional[
+            Union[ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
+        ] = None,
+        **kwfns: DatasetTransformFn
+    ):
         """Transform the items of a dataset according to some function (passed as argument)
 
         Arguments:
             If a single function taking one input given, e.g. transform(lambda x: x), it will be applied to the whole item.
-            If comma-separated functions are given, e.g. transform(image(), one_hot()) they will be applied to the elements of the item corresponding to the position.
-            If key is used, e.g. transform(data=custom(lambda x:-x)), the item associated with the key i transformed.
+            If a list of functions are given, e.g. transform([image(), one_hot()]) they will be applied to the elements of the item corresponding to the position.
+            If key is used, e.g. transform(data=lambda x:-x), the item associated with the key i transformed.
         
         Raises:
             ValueError: If more functions are passed than there are elements in an item.
@@ -511,34 +525,31 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- Dataset whose items are transformed
         """
-        if len(fns) + len(kwfns) > len(self.shape):  # type:ignore
+        bulk, itemwise = _split_bulk_itemwise(fns)
+        if bool(bulk) + len(itemwise) + len(kwfns) > len(self.shape):
             raise ValueError(
                 "More transforms ({}) given than can be performed on item with {} elements".format(
-                    len(fns) + len(kwfns), len(self.shape)
+                    bool(bulk) + len(itemwise) + len(kwfns), len(self.shape)
                 )
             )
 
         new_dataset: AbstractDataset = self
 
         # a single function taking one argument was given
-        if (
-            len(fns) == 1
-            and len(kwfns) == 0
-            and len(signature(fns[0]).parameters) == 1
-            and len(self.shape) > 1
-        ):
-            fn: ItemTransformFn = fns[0]  # type:ignore
-            return Dataset(downstream_getter=self, item_transform_fn=fn)
+        if bulk:
+            return Dataset(downstream_getter=self, item_transform_fn=bulk)
 
-        for i, f in enumerate(fns):  # type:ignore
+        for i, f in enumerate(itemwise):
             if f:
                 # if user passed a function with a single argument, wrap it
                 if len(signature(f).parameters) == 1:
-                    f = custom(f)  # type:ignore
+                    f = custom(f)
                 new_dataset = f(i, new_dataset)
 
         for k, f in kwfns.items():
             if f:
+                if len(signature(f).parameters) == 1:
+                    f = custom(f)
                 new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
         return new_dataset

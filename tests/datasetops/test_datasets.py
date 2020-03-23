@@ -394,7 +394,7 @@ def test_label():
     ds_label = ds.label(1)
     ds_label_alt1 = ds.label("label")
     ds_label_alt2 = ds.transform(label=label())
-    ds_label_alt3 = ds.transform(None, label())
+    ds_label_alt3 = ds.transform([None, label()])
 
     expected = [0, 1]
 
@@ -436,7 +436,7 @@ def test_one_hot():
     ds_oh = ds.one_hot(1, encoding_size=2)
     ds_oh_alt1 = ds.one_hot("label", encoding_size=2)
     ds_oh_alt2 = ds.transform(label=one_hot(encoding_size=2))
-    ds_oh_alt3 = ds.transform(None, one_hot(encoding_size=2))
+    ds_oh_alt3 = ds.transform([None, one_hot(encoding_size=2)])
 
     ds_oh_auto = ds.one_hot("label") # automatically compute encoding size
 
@@ -446,7 +446,7 @@ def test_one_hot():
         ds_oh.unique('label'), 
         ds_oh_alt1.unique('label'), 
         ds_oh_alt2.unique('label'), 
-        ds_oh_alt2.unique('label'), 
+        ds_oh_alt3.unique('label'), 
         ds_oh_auto.unique('label'),
         expected
     ):
@@ -480,23 +480,17 @@ def test_one_hot():
         ds.one_hot("wrong", encoding_size=2) # wrong key
 
 def test_transform():
-    ds = load_dummy_numpy_data()
-    items = [x for x in ds]
+    ds = load_dummy_numpy_data().named("data","label")
 
-    ds_tf = ds.transform(custom(lambda x: x/255.0))
-    items_tf = [x for x in ds_tf]
+    ds_itemwise = ds.transform([lambda x: x/255.0])
+    ds_keywise = ds.transform(data=lambda x: x/255.0)
+    ds_build = ds.transform(lambda x: (x[0]/255.0, x[1])) 
     
-    for (ldata,llbl), (rdata, rlbl) in zip(items, items_tf):
-        assert(np.array_equal(ldata/255.0, rdata))
-        assert(llbl == rlbl)
-
-    # passing the function directly also works
-    ds_tf_alt = ds.transform(lambda x: x/255.0) # type:ignore
-    items_tf_alt = [x for x in ds_tf]
-
-    for (ldata,llbl), (rdata, rlbl) in zip(items_tf_alt, items_tf):
-        assert(np.array_equal(ldata, rdata))
-        assert(llbl == rlbl)
+    for (d, l), (di, li), (dk, lk), (db, lb) in zip(list(ds), list(ds_itemwise), list(ds_keywise), list(ds_build)):
+        assert(np.array_equal(d/255.0, di))
+        assert(np.array_equal(di, dk))
+        assert(np.array_equal(di, db))
+        assert(l == li == lk == lb)
 
     # error scenarios
     with pytest.warns(UserWarning):
@@ -505,7 +499,7 @@ def test_transform():
     
     with pytest.raises(ValueError): 
         # too many transforms given
-        ds.transform( reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None )
+        ds.transform([reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None])
 
 
 ########## Tests relating to numpy data #########################
@@ -544,7 +538,7 @@ def test_reshape():
         assert(np.array_equal(old_data, new_data))
 
     # yet another syntax
-    ds_trans = ds.transform(reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    ds_trans = ds.transform([reshape(DUMMY_NUMPY_DATA_SHAPE_2D)])
     items_trans = [x for x in ds_trans]
     for (old_data, _), (new_data, _) in zip(items_r, items_trans):
         assert(np.array_equal(old_data, new_data))
@@ -662,7 +656,7 @@ def test_image_resize():
         assert(data.mode == 'L') # grayscale int
 
     # also if they are floats
-    ds_resized_float = ds.transform(custom(np.float32)).image_resize(NEW_SIZE)
+    ds_resized_float = ds.transform([custom(np.float32)]).image_resize(NEW_SIZE)
     for tpl in ds_resized_float:
         data = tpl[0]
         assert(data.size == NEW_SIZE)

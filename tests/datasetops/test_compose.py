@@ -9,7 +9,7 @@ from testing_utils import (  # type:ignore
 
 def test_zip():
     ds_pos = load_dummy_data(num_total=10).named("pos")
-    ds_neg = load_dummy_data(num_total=11).transform(lambda x: -x).named("neg")
+    ds_neg = load_dummy_data(num_total=11).transform([lambda x: -x]).named("neg")
     ds_np = load_dummy_numpy_data()
     ds_labelled = load_dummy_data(num_total=10, with_label=True)
 
@@ -55,9 +55,9 @@ def test_zip():
 
 
 def test_cartesian_product():
-    ds_pos = load_dummy_data().take(2).transform(lambda x: x + 1)
-    ds_10x = ds_pos.transform(lambda x: 10 * x)
-    ds_100x = ds_pos.transform(lambda x: 100 * x)
+    ds_pos = load_dummy_data().take(2).transform([lambda x: x + 1])
+    ds_10x = ds_pos.transform([lambda x: 10 * x])
+    ds_100x = ds_pos.transform([lambda x: 100 * x])
 
     # two
     ds_prod2 = cartesian_product(ds_pos, ds_10x)
@@ -103,10 +103,10 @@ def test_concat():
         .named("data", "label")
         .filter(label=allow_unique(2))
         .reorder(0)
-        .transform(lambda x: x + 1)
+        .transform([lambda x: x + 1])
     )
-    ds_neg = ds_pos.transform(lambda x: -x)
-    ds_100x = ds_pos.transform(lambda x: 100 * x)
+    ds_neg = ds_pos.transform([lambda x: -x])
+    ds_100x = ds_pos.transform([lambda x: 100 * x])
 
     # two
     ds_concat = concat(ds_pos, ds_neg)
