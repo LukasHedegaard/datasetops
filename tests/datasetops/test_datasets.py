@@ -1,5 +1,5 @@
 
-from datasetops.dataset import Dataset, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
+from datasetops.dataset import Dataset, image_resize, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
 import datasetops.loaders as loaders
 import pytest
 import numpy as np
@@ -480,8 +480,9 @@ def test_one_hot():
         ds.one_hot("wrong", encoding_size=2) # wrong key
 
 def test_transform():
-    ds = load_dummy_numpy_data().named("data","label")
+    ds = load_dummy_numpy_data().named("data","label") 
 
+    # simple
     ds_itemwise = ds.transform([lambda x: x/255.0])
     ds_keywise = ds.transform(data=lambda x: x/255.0)
     ds_build = ds.transform(lambda x: (x[0]/255.0, x[1])) 
@@ -491,6 +492,14 @@ def test_transform():
         assert(np.array_equal(di, dk))
         assert(np.array_equal(di, db))
         assert(l == li == lk == lb)
+
+    # complex
+    ds_complex = ds.transform(
+        data=[reshape(DUMMY_NUMPY_DATA_SHAPE_2D), image_resize((10,10))],
+        label=one_hot(encoding_size=2)
+    )
+
+    assert(ds_complex.shape == ((10,10),(2,)))
 
     # error scenarios
     with pytest.warns(UserWarning):
@@ -694,11 +703,12 @@ def test_image_resize():
 @pytest.mark.slow
 def test_to_tensorflow_simple():
     # prep data
-    ds = load_dummy_numpy_data().named("data", "label").one_hot("label")
+    ds = load_dummy_numpy_data().named("data", "label").one_hot("label").shuffle(42)
     tf_ds = ds.to_tensorflow().batch(2)
 
     # prep model
     import tensorflow as tf #type:ignore     
+    tf.random.set_seed(42)
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(ds.shape[0]),
@@ -713,7 +723,7 @@ def test_to_tensorflow_simple():
     )
 
     # model should be able to fit the data
-    model.fit(tf_ds, epochs=50)
+    model.fit(tf_ds, epochs=10)
     preds = model.predict(tf_ds)
     pred_labels = np.argmax(preds, axis=1)
 

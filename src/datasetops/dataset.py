@@ -556,12 +556,13 @@ class Dataset(AbstractDataset):
         if bulk:
             return Dataset(downstream_getter=self, item_transform_fn=bulk)
 
-        for k, f in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
-            if f:
-                # if user passed a function with a single argument, wrap it
-                if len(signature(f).parameters) == 1:
-                    f = custom(f)
-                new_dataset = f(_key_index(self._item_names, k), new_dataset)
+        for k, v in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
+            funcs = v if type(v) in [list, tuple] else [v]
+            for f in funcs:
+                if f:
+                    if len(signature(f).parameters) == 1:
+                        f = custom(f)  # type:ignore
+                    new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
         return new_dataset
 
