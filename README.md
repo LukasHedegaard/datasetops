@@ -10,7 +10,7 @@ import datasetops as do
 # prepare your data
 train, val, test = (
     do.load_folder_class_data(path)
-    .set_item_names("data", "label")
+    .named("data", "label")
     .image("data")
     .img_resize((240, 240))
     .numpy("data")
@@ -66,7 +66,7 @@ What follows here is a list of implemented and planned features.
 - [x] `counts` (compute the counts of each unique item in the dataset by key)
 - [x] `unique` (get a list of unique items in the dataset by key)
 - [x] `item_names` (get a list of names for the elements in an item)
-- [x] `set_item_names` (supply names for the item elements)
+- [x] `named` (supply names for the item elements)
 - [ ] `stats` (provide an overview of the dataset statistics)
 - [ ] `origin` (provide an description of how the dataset was made)
 

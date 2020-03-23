@@ -46,7 +46,7 @@ def test_sample():
 
 def test_filter():
     num_total=10
-    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     # expected items
     a = [ (x, 'a') for x in list(range(5))]
@@ -93,7 +93,7 @@ def test_filter():
 
 def test_split_filter():
     num_total=10
-    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     # expected items
     a = [ (x, 'a') for x in list(range(5))]
@@ -193,7 +193,7 @@ def test_take():
 
 def test_reorder():
     ds = load_dummy_numpy_data()
-    ds.set_item_names("mydata", "mylabel")
+    ds.named("mydata", "mylabel")
 
     ## error scenarios
     with pytest.warns(UserWarning):
@@ -241,14 +241,14 @@ def test_reorder():
 
     # error scenarios
     with pytest.warns(UserWarning):
-        ds.set_item_names('one','two').reorder(0,1,1) # key needs to be unique, but wouldn't be
+        ds.named('one','two').reorder(0,1,1) # key needs to be unique, but wouldn't be
 
 
 ########## Tests relating to stats #########################
 
 def test_counts():
     num_total=11
-    ds = load_dummy_data(num_total=num_total, with_label=True).set_item_names('data', 'label')
+    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     counts = ds.counts('label') # name based
     counts_alt = ds.counts(1) # index based
@@ -263,7 +263,7 @@ def test_counts():
 
 
 def test_unique():
-    ds = load_dummy_data(with_label=True).set_item_names('data', 'label')
+    ds = load_dummy_data(with_label=True).named('data', 'label')
 
     unique_labels = ds.unique('label')
     assert(unique_labels == ['a','b'])
@@ -315,12 +315,12 @@ def test_item_naming():
         ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
     # passed one by one as arguments
-    ds.set_item_names(*item_names)
+    ds.named(*item_names)
     assert(ds.item_names == item_names)
 
     # passed in a list, overide previous
     item_names2 = ['moddata', 'modlabel']
-    ds.set_item_names(item_names2) #type: ignore
+    ds.named(item_names2) #type: ignore
     assert(ds.item_names == item_names2)
 
     # test named transform syntax
@@ -336,7 +336,7 @@ def test_item_naming():
 
 
 def test_label():
-    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
 
     assert(ds.unique('label') == ['a','b'])
 
@@ -382,7 +382,7 @@ def test_label():
 
 
 def test_one_hot():
-    ds = load_dummy_data(with_label=True).reorder(0,1,1).set_item_names('data', 'label', 'label_duplicate')
+    ds = load_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
     assert(ds.unique('label') == ['a','b'])
 
     # alternative syntaxes
@@ -650,7 +650,7 @@ def test_image_resize():
 @pytest.mark.slow
 def test_to_tensorflow_simple():
     # prep data
-    ds = load_dummy_numpy_data().set_item_names("data", "label").one_hot("label")
+    ds = load_dummy_numpy_data().named("data", "label").one_hot("label")
     tf_ds = ds.to_tensorflow().batch(2)
 
     # prep model

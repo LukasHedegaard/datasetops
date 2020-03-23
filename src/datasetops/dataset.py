@@ -55,7 +55,7 @@ def _dummy_arg_receiving(fn):
 def _itemname2ind(item_names: ItemNames, name: str) -> int:
     if not item_names:
         raise ValueError(
-            "Items cannot be identified by name when no names are given. Hint: Use `Dataset.set_item_names('name1', 'name2', ...)`"
+            "Items cannot be identified by name when no names are given. Hint: Use `Dataset.named('name1', 'name2', ...)`"
         )
     return item_names[name]
 
@@ -90,10 +90,6 @@ def _combine_conditions(
         )
 
     return condition
-
-
-def _label2name(label: Any) -> str:
-    return str(label)
 
 
 def _optional_argument_indexed_transform(
@@ -455,7 +451,7 @@ class Dataset(AbstractDataset):
             item_names=item_names,
         )
 
-    def set_item_names(self, first: Union[str, Sequence[str]], *rest: str):
+    def named(self, first: Union[str, Sequence[str]], *rest: str):
         """Set the names associated with the elements of an item
         
         Arguments:

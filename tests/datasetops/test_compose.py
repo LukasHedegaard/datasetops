@@ -8,8 +8,8 @@ from testing_utils import (  # type:ignore
 
 
 def test_zip():
-    ds_pos = load_dummy_data(num_total=10).set_item_names("pos")
-    ds_neg = load_dummy_data(num_total=11).transform(lambda x: -x).set_item_names("neg")
+    ds_pos = load_dummy_data(num_total=10).named("pos")
+    ds_neg = load_dummy_data(num_total=11).transform(lambda x: -x).named("neg")
     ds_np = load_dummy_numpy_data()
     ds_labelled = load_dummy_data(num_total=10, with_label=True)
 
@@ -100,7 +100,7 @@ def test_cartesian_product():
 def test_concat():
     ds_pos = (
         load_dummy_data(with_label=True)
-        .set_item_names("data", "label")
+        .named("data", "label")
         .filter(label=allow_unique(2))
         .reorder(0)
         .transform(lambda x: x + 1)

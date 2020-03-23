@@ -8,12 +8,8 @@ def domain_adaptation_office31(
 ) -> Tuple[do.Dataset, do.Dataset, do.Dataset]:
 
     # load data
-    source = do.load_folder_class_data(source_data_path).set_item_names(
-        "s_data", "s_label"
-    )
-    target = do.load_folder_class_data(target_data_path).set_item_names(
-        "t_data", "t_label"
-    )
+    source = do.load_folder_class_data(source_data_path).named("s_data", "s_label")
+    target = do.load_folder_class_data(target_data_path).named("t_data", "t_label")
 
     num_source_per_class = 20 if "amazon" in str(source_data_path) else 8
     num_target_per_class = 3

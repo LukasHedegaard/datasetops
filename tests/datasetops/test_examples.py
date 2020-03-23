@@ -31,7 +31,7 @@ def test_readme_examples():
 
     train, val, test = (
         do.load_folder_class_data(path)
-        .set_item_names("data", "label")
+        .named("data", "label")
         .image("data")
         .img_resize((240, 240))
         .numpy("data")

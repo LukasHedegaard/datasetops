@@ -43,12 +43,8 @@ import numpy as np
 seed = 13
 
 # load data
-source = do.load_folder_class_data("Office31/amazon").set_item_names(
-    "s_data", "s_label"
-)
-target = do.load_folder_class_data("Office31/amazon").set_item_names(
-    "t_data", "t_label"
-)
+source = do.load_folder_class_data("Office31/amazon").named("s_data", "s_label")
+target = do.load_folder_class_data("Office31/amazon").named("t_data", "t_label")
 
 num_source_per_class = 20 if "amazon" in str(source_data_path) else 8
 num_target_per_class = 3
