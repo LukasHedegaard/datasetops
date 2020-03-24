@@ -87,8 +87,12 @@ def _combine_conditions(
 
     bulk, itemwise = _split_bulk_itemwise(predicates)
 
-    assert len(itemwise) <= len(shape)
-    assert all([k in item_names for k in kwpredicates.keys()])
+    if len(itemwise) > len(shape):
+        raise ValueError("Too many predicates given")
+
+    for k in kwpredicates.keys():
+        if not k in item_names:
+            raise KeyError("Key {} is not an item name".format(k))
 
     # clean up predicates
     if not bulk:

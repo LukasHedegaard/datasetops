@@ -83,10 +83,10 @@ def test_filter():
         ds_same = ds.filter() # no args
         assert(list(ds) == list(ds_same))
 
-    with pytest.raises(AssertionError):
-        ds.filter(itemwise=[None, None, None]) # too many args
+    with pytest.raises(ValueError):
+        ds.filter([None, None, None]) # too many args
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(KeyError):
         ds.filter(badkey=lambda x:True) # key doesn't exist
 
 
@@ -182,10 +182,10 @@ def test_split_filter():
     with pytest.raises(ValueError):
         ds_same = ds.split_filter() # no args
 
-    with pytest.raises(AssertionError):
-        ds.split_filter(itemwise=[None, None, None]) # too many args
+    with pytest.raises(ValueError):
+        ds.split_filter([None, None, None]) # too many args
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(KeyError):
         ds.split_filter(badkey=lambda x:True) # key doesn't exist
 
 
