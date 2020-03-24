@@ -462,7 +462,7 @@ def test_one_hot():
     # spiced up
     ds_oh_userdef = ds.one_hot('label', encoding_size=3, mapping_fn=lambda x: 1 if x == 'a' else 0, dtype='int')
 
-    for l, e in zip(ds_oh_userdef.unique('label'), [np.array([1,0,0]), np.array([0,1,0])]):
+    for l, e in zip(ds_oh_userdef.unique('label'), [np.array([0,1,0]), np.array([1,0,0])]):
         assert(np.array_equal(l,e)) #type:ignore
 
     # error scenarios

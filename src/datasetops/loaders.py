@@ -109,7 +109,7 @@ def load_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
                          e.g. ('nested_folder/class1/sample1.jpg', 'class1')
     """
     p = Path(path)
-    dataset_paths = [x for x in p.glob("[!._]*")]
+    dataset_paths = sorted([x for x in p.glob("[!._]*")])
     return [load_folder_class_data(dsp) for dsp in dataset_paths]
 
 
@@ -231,4 +231,4 @@ def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
             )
         )
 
-    return datasets
+    return sorted(datasets, key=lambda d: d.name)

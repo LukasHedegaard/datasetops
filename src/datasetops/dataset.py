@@ -919,10 +919,12 @@ def one_hot(
             mem[h] = maxcount
         return mem[h]
 
+    label_fn = mapping_fn or auto_label
+
     def encode(x):
-        nonlocal encoding_size, dtype
+        nonlocal encoding_size, dtype, label_fn
         o = np.zeros(encoding_size, dtype=dtype)
-        o[auto_label(x)] = True
+        o[label_fn(x)] = True
         return o
 
     return _dataset_element_transforming(fn=encode)
