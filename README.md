@@ -17,7 +17,7 @@ train, val, test = (
     .split([0.6, 0.2, 0.2])
 )
 
-# use or favorite framework
+# use your favorite framework
 train_tf = trian.to_tensorflow() 
 train_pt = trian.to_pytorch() #coming up!
 
