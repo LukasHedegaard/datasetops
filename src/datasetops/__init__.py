@@ -3,22 +3,21 @@ from .dataset import (
     allow_unique,
     custom,
     reshape,
-    label,
+    categorical,
     one_hot,
-    as_numpy,
-    as_image,
-    img_resize,
+    numpy,
+    image,
+    image_resize,
     zipped,
     cartesian_product,
     concat,
-    to_tf
+    to_tensorflow,
 )
 
-from .function_dataset import FunctionDataset
-
 from .loaders import (
+    Loader,
     load_folder_data,
     load_folder_class_data,
     load_folder_dataset_class_data,
-    load_mat_single_mult_data
+    load_mat_single_mult_data,
 )

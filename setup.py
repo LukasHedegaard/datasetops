@@ -11,23 +11,21 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/LukasHedegaard/datasetops",
-    python_requires='>=3.6',
+    python_requires=">=3.6",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 3 - Alpha",
         "Framework :: Pytest",
-        "Topic :: Scientific/Engineering :: Artificial Intelligence"
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    install_requires=[
-        "numpy", "pillow", "pandas", "scipy"
-    ],
+    packages=find_packages("src"),
+    package_dir={"": "src"},
+    install_requires=["numpy", "pillow", "pandas", "scipy"],
     extras_require={
         "tests": ["pytest", "pytest-cov", "flake8", "tensorflow"],
-        "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"] ,
-        "build": ["setuptools", "wheel", "twine"]
-    }
+        "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"],
+        "build": ["setuptools", "wheel", "twine"],
+    },
 )

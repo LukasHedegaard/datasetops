@@ -1,4 +1,4 @@
-![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops)
+![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Dataset Ops
 Friendly dataset operations for your data science needs
@@ -9,16 +9,16 @@ import datasetops as do
 
 # prepare your data
 train, val, test = (
-    do.load_folder_class_data('../data/nested_class_folder')
-    .set_item_names('data','label')                     
-    .as_image('data').img_resize((240,240)).as_numpy('data') 
-    .one_hot('label')                                  
-    .shuffle(seed=42)                                  
-    .split([0.6,0.2,0.2])     
-)  
+    do.load_folder_class_data(path)
+    .named("data", "label")
+    .img_resize((240, 240))
+    .one_hot("label")
+    .shuffle(seed=42)
+    .split([0.6, 0.2, 0.2])
+)
 
-# use or favorite framework
-train_tf = trian.to_tf() 
+# use your favorite framework
+train_tf = trian.to_tensorflow() 
 train_pt = trian.to_pytorch() #coming up!
 
 # or do your own thing
@@ -51,29 +51,29 @@ The library is still under heavy development and the API may be subject to chang
 What follows here is a list of implemented and planned features.
 
 ### Loaders
+- [x] `Loader` (utility class used to define a dataset)
 - [ ] `load` (load data from a path, automatically inferring type and structure)
 - [x] `load_folder_data` (load flat folder with data)
 - [x] `load_folder_class_data` (load nested folder with a folder for each class)
 - [x] `load_folder_dataset_class_data` (load nested folder with multiple datasets, each with a nested class folder structure )
 - [ ] `load_mat` (load contents of a .mat file as a single dataaset)
 - [x] `load_mat_single_mult_data` (load contents of a .mat file as multiple dataasets)
-- [x] `FunctionDataset` (let users define a dataset)
 
 ### Dataset information
 - [x] `shape` (get shape of a dataset item)
 - [x] `counts` (compute the counts of each unique item in the dataset by key)
 - [x] `unique` (get a list of unique items in the dataset by key)
 - [x] `item_names` (get a list of names for the elements in an item)
-- [x] `set_item_names` (supply names for the item elements)
+- [x] `named` (supply names for the item elements)
 - [ ] `stats` (provide an overview of the dataset statistics)
 - [ ] `origin` (provide an description of how the dataset was made)
 
 ### Sampling and splitting
 - [x] `shuffle` (shuffle the items   in a dataset randomly)
 - [x] `sample` (sample data at random a dataset)
-- [x] `split` (split a dataset randomly based on fractions)
 - [x] `filter` (filter the dataset using a predicate)
-- [x] `filter_split` (split a dataset into two based on a predicate)
+- [x] `split` (split a dataset randomly based on fractions)
+- [x] `split_filter` (split a dataset into two based on a predicate)
 - [x] `allow_unique` (handy predicate used for balanced classwise filtering/sampling)
 - [x] `take` (take the first items in dataset)
 - [x] `repeat` (repeat the items in a dataset, either itemwise or as a whole)
@@ -84,10 +84,10 @@ What follows here is a list of implemented and planned features.
 - [x] `custom` (function wrapper enabling user-defined function to be used as a transform)
 - [x] `label` (transforms an element into a integer encoded categorical label)
 - [x] `one_hot` (transforms an element into a one-hot encoded categorical label)
-- [x] `as_numpy` (transforms an element into a numpy.ndarray)
+- [x] `numpy` (transforms an element into a numpy.ndarray)
 - [x] `reshape` (reshapes numpy.ndarray elements)
-- [x] `as_image` (transforms a numpy array or path string into a PIL.Image.Image)
-- [x] `img_resize` (resizes PIL.Image.Image elements)
+- [x] `image` (transforms a numpy array or path string into a PIL.Image.Image)
+- [x] `image_resize` (resizes PIL.Image.Image elements)
 - [ ] `center` (modify each item according to dataset statistics)
 - [ ] `normalize` (modify each item according to dataset statistics)
 - [ ] `standardize` (modify each item according to dataset statistics)
@@ -99,7 +99,7 @@ What follows here is a list of implemented and planned features.
 - [x] `cartesian_product` (create a dataset whose items are all combinations of items (zipped) of the originating datasets)
 
 ### Converters
-- [x] `to_tf` (convert Dataset into tensorflow.data.Dataset)
+- [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)
 - [ ] `to_pytroch` (convert Dataset into torchvision.Dataset)
 
 
