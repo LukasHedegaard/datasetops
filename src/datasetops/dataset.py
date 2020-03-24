@@ -568,8 +568,8 @@ class Dataset(AbstractDataset):
 
     ########## Label transforming methods #########################
 
-    def label(self, key: Key, mapping_fn: Callable[[Any], int] = None):
-        """Transform elemenets into categorical labels (int)
+    def categorical(self, key: Key, mapping_fn: Callable[[Any], int] = None):
+        """Transform elemenets into categorical categoricals (int)
         
         Arguments:
             key {Key} -- Index of name for the elemeent to be transformed
@@ -583,7 +583,7 @@ class Dataset(AbstractDataset):
         idx: int = _key_index(self._item_names, key)
         args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
-            self.shape, self.transform, transform_fn=label, args=args
+            self.shape, self.transform, transform_fn=categorical, args=args
         )
 
     def one_hot(
@@ -863,8 +863,8 @@ def reshape(new_shape: Shape) -> DatasetTransformFn:
     )
 
 
-def label(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
-    """ Transform data into an integer label
+def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
+    """ Transform data into a categorical int label
     
     Arguments:
         mapping_fn {Callable[[Any], int]} -- A function transforming the input data to the integer label. If not specified, labels are automatically inferred from the data.

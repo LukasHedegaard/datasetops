@@ -87,7 +87,7 @@ What follows here is a list of implemented and planned features.
 - [x] `numpy` (transforms an element into a numpy.ndarray)
 - [x] `reshape` (reshapes numpy.ndarray elements)
 - [x] `image` (transforms a numpy array or path string into a PIL.Image.Image)
-- [x] `img_resize` (resizes PIL.Image.Image elements)
+- [x] `image_resize` (resizes PIL.Image.Image elements)
 - [ ] `center` (modify each item according to dataset statistics)
 - [ ] `normalize` (modify each item according to dataset statistics)
 - [ ] `standardize` (modify each item according to dataset statistics)

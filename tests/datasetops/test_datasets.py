@@ -1,10 +1,9 @@
 
-from datasetops.dataset import Dataset, image_resize, reshape, custom, allow_unique, one_hot, label, _DEFAULT_SHAPE
+from datasetops.dataset import Dataset, image_resize, reshape, custom, allow_unique, one_hot, categorical, _DEFAULT_SHAPE
 import datasetops.loaders as loaders
 import pytest
 import numpy as np
 from PIL import Image
-from typing import List
 from testing_utils import ( # type:ignore
     get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
     DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
@@ -382,19 +381,19 @@ def test_item_naming():
         ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
 
-def test_label():
+def test_categorical():
     ds = load_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
 
     assert(ds.unique('label') == ['a','b'])
 
-    ds_label = ds.label(1)
-    ds_label_alt = ds.label('label')
+    ds_label = ds.categorical(1)
+    ds_label_alt = ds.categorical('label')
 
     # alternative syntaxes
-    ds_label = ds.label(1)
-    ds_label_alt1 = ds.label("label")
-    ds_label_alt2 = ds.transform(label=label())
-    ds_label_alt3 = ds.transform([None, label()])
+    ds_label = ds.categorical(1)
+    ds_label_alt1 = ds.categorical("label")
+    ds_label_alt2 = ds.transform(label=categorical())
+    ds_label_alt3 = ds.transform([None, categorical()])
 
     expected = [0, 1]
 
@@ -412,20 +411,20 @@ def test_label():
 
     assert(list(ds_label) == [(d, 0 if l == 'a' else 1 ,l2) for d, l, l2 in ds])
 
-    ds_label_userdef = ds.label('label', lambda x: 1 if x == 'a' else 0)
+    ds_label_userdef = ds.categorical('label', lambda x: 1 if x == 'a' else 0)
 
     assert(ds_label_userdef.unique('label') == [1, 0])
     assert(list(ds_label_userdef) == [(d, 1 if l == 'a' else 0 ,l2) for d, l, l2 in ds])
 
     # error scenarios
     with pytest.raises(TypeError):
-        ds.label() # we need to know what to label
+        ds.categorical() # we need to know what to label
 
     with pytest.raises(ValueError):
-        ds.label(42) # wrong key
+        ds.categorical(42) # wrong key
 
     with pytest.raises(KeyError):
-        ds.label("wrong") # wrong key
+        ds.categorical("wrong") # wrong key
 
 
 def test_one_hot():
@@ -727,6 +726,6 @@ def test_to_tensorflow_simple():
     preds = model.predict(tf_ds)
     pred_labels = np.argmax(preds, axis=1)
 
-    expected_labels = np.array([v[0] for v in ds.reorder('label').label(0)])
+    expected_labels = np.array([v[0] for v in ds.reorder('label').categorical(0)])
     assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
 

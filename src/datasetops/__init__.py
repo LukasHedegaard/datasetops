@@ -3,7 +3,7 @@ from .dataset import (
     allow_unique,
     custom,
     reshape,
-    label,
+    categorical,
     one_hot,
     numpy,
     image,
