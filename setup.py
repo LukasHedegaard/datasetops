@@ -35,4 +35,5 @@ setup(
         "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"],
         "build": ["setuptools", "wheel", "twine"],
     },
+    dependency_links=["https://download.pytorch.org/whl/torch_stable.html"],
 )
