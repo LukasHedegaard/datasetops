@@ -700,7 +700,7 @@ def test_image_resize():
 ########## Framework converters #########################
 
 @pytest.mark.slow
-def test_to_tensorflow_simple():
+def test_to_tensorflow():
     # prep data
     ds = load_dummy_numpy_data().named("data", "label").one_hot("label").shuffle(42)
     tf_ds = ds.to_tensorflow().batch(2)
@@ -729,3 +729,23 @@ def test_to_tensorflow_simple():
     expected_labels = np.array([v[0] for v in ds.reorder('label').categorical(0)])
     assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
 
+
+@pytest.mark.slow
+def test_to_pytorch():
+    # prep data
+    ds = load_dummy_numpy_data().named("data", "label").one_hot("label")
+    pt_ds = ds.to_pytorch()
+
+    import torch
+    from torch.utils.data import DataLoader
+    loader = DataLoader(pt_ds, batch_size=2, shuffle=False)
+    
+    elem = next(iter(loader))
+
+    # data equals
+    assert(torch.all(torch.eq(elem[0][0], torch.Tensor(ds[0][0])))) #type:ignore
+    assert(torch.all(torch.eq(elem[0][1], torch.Tensor(ds[1][0])))) #type:ignore
+
+    # labels equal
+    assert(torch.all(torch.eq(elem[1][0], torch.Tensor(ds[0][1])))) #type:ignore
+    assert(torch.all(torch.eq(elem[1][1], torch.Tensor(ds[1][1])))) #type:ignore
