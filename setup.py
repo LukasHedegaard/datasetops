@@ -24,7 +24,7 @@ setup(
     package_dir={"": "src"},
     install_requires=["numpy", "pillow", "pandas", "scipy"],
     extras_require={
-        "tests": ["pytest", "pytest-cov", "flake8", "tensorflow"],
+        "tests": ["pytest", "pytest-cov", "flake8", "tensorflow", "pytorch"],
         "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"],
         "build": ["setuptools", "wheel", "twine"],
     },
