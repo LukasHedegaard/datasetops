@@ -515,7 +515,7 @@ class Dataset(AbstractDataset):
         return self
 
     @property
-    def item_names(self) -> List[str]:
+    def names(self) -> List[str]:
         """Get the names of the elements in an item
         
         Returns:

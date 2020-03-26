@@ -362,7 +362,7 @@ def test_shape():
 def test_item_naming():
     ds = load_dummy_numpy_data()
     items = [x for x in ds]
-    assert(ds.item_names == [])
+    assert(ds.names == [])
 
     item_names = ['mydata', 'mylabel']
 
@@ -372,12 +372,12 @@ def test_item_naming():
 
     # passed one by one as arguments
     ds.named(*item_names)
-    assert(ds.item_names == item_names)
+    assert(ds.names == item_names)
 
     # passed in a list, overide previous
     item_names2 = ['moddata', 'modlabel']
     ds.named(item_names2) #type: ignore
-    assert(ds.item_names == item_names2)
+    assert(ds.names == item_names2)
 
     # test named transform syntax
     ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))

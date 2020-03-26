@@ -18,7 +18,7 @@ def test_zip():
     assert len(zds) == min(len(ds_pos), len(ds_neg))
     assert zds.shape == (*ds_pos.shape, *ds_neg.shape)
     # item names survive because there were no clashes
-    assert zds.item_names == ["pos", "neg"]
+    assert zds.names == ["pos", "neg"]
 
     # syntax 2
     zds_alt = ds_pos.zip(ds_neg)
@@ -30,7 +30,7 @@ def test_zip():
     assert len(zds_self) == len(ds_pos)
     assert zds_self.shape == (*ds_pos.shape, *ds_pos.shape)
     # item names are discarded because there are clashes
-    assert zds_self.item_names == []
+    assert zds_self.names == []
 
     # mix labelled and unlabelled data
     zds_mix_labelling = ds_neg.zip(ds_labelled)
