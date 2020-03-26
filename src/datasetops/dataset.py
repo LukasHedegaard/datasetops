@@ -734,6 +734,9 @@ class Dataset(AbstractDataset):
     def to_tensorflow(self):
         return to_tensorflow(self)
 
+    def to_pytorch(self):
+        return to_pytorch(self)
+
 
 ########## Handy decorators ####################
 
@@ -1019,3 +1022,19 @@ def to_tensorflow(dataset: Dataset):
         output_types=_tf_compute_type(item),
         output_shapes=_tf_compute_shape(item),
     )
+
+
+def to_pytorch(dataset: Dataset):
+    from torch.utils.data import Dataset as TorchDataset
+
+    class PyTorchDataset(TorchDataset):
+        def __init__(self, dataset: Dataset):
+            self.dataset = dataset
+
+        def __len__(self,):
+            return len(self.dataset)
+
+        def __getitem__(self, idx):
+            return self.dataset[idx]
+
+    return PyTorchDataset(dataset)
