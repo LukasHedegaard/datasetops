@@ -19,7 +19,7 @@ train, val, test = (
 
 # use your favorite framework
 train_tf = trian.to_tensorflow() 
-train_pt = trian.to_pytorch() #coming up!
+train_pt = trian.to_pytorch() 
 
 # or do your own thing
 for img, label in train:
