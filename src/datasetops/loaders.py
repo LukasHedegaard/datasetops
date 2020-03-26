@@ -21,11 +21,24 @@ class Loader(Dataset):
 
         super().__init__(downstream_getter=Getter(), name=name)
 
-    def _append(self, identifier: Data):
+    def append(self, identifier: Data):
         self._ids.append(identifier)
 
-    def _extend(self, ids: Union[List[Data], np.ndarray]):
+    def extend(self, ids: Union[List[Data], np.ndarray]):
         self._ids.extend(list(ids))
+
+
+def load_pytorch(pytorch_dataset):
+    import torch
+
+    def get_data(i) -> Tuple:
+        nonlocal pytorch_dataset
+        item = pytorch_dataset[i]
+        return tuple([x.numpy() if hasattr(x, "numpy") else x for x in item])
+
+    ds = Loader(get_data)
+    ds.extend(list(range(len(pytorch_dataset))))
+    return ds
 
 
 def load_folder_data(path: AnyPath) -> Dataset:
@@ -50,7 +63,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
         return (str(p / i),)
 
     ds = Loader(get_data, "Data Getter for folder with structure 'root/data'")
-    ds._extend(ids)
+    ds.extend(ids)
 
     return ds
 
@@ -83,7 +96,7 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
-        ds._extend(ids)
+        ds.extend(ids)
 
     return ds
 
@@ -168,9 +181,9 @@ def _dataset_from_np_dict(
                 condition=reshaped_data[label_key].squeeze() == lbl,
                 arr=reshaped_data[label_key].squeeze(),
             )
-            ds._extend(lbl_inds)
+            ds.extend(lbl_inds)
     else:
-        ds._extend(list(range(common_shape)))
+        ds.extend(list(range(common_shape)))
 
     return ds
 

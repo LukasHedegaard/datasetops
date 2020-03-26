@@ -2,6 +2,8 @@ import datasetops.loaders as loaders
 import random
 from pathlib import Path
 from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+import numpy as np
+import pytest
 
 # tests ##########################
 
@@ -68,3 +70,40 @@ def test_mat_single_with_multi_data():
 
             assert data.shape == (256,)
             assert int(label) in range(10)
+
+
+@pytest.mark.slow
+def test_pytorch():
+    import torchvision
+    import torch
+    from torch.utils.data import Dataset as TorchDataset
+
+    dataset_path = str((Path(__file__).parent.parent / "recourses").absolute())
+
+    mnist = torchvision.datasets.MNIST(
+        dataset_path, train=True, transform=None, target_transform=None, download=True
+    )
+    mnist_item = mnist[0]
+    ds_mnist = loaders.load_pytorch(mnist)
+    ds_mnist_item = ds_mnist[0]
+    # nothing to convert, items equal
+    assert mnist_item == ds_mnist_item
+
+    class PyTorchDataset(TorchDataset):
+        def __len__(self,):
+            return 5
+
+        def __getitem__(self, idx):
+            return (torch.Tensor([idx, idx]), idx)  # type:ignore
+
+    torch_ds = PyTorchDataset()
+    ds_torch = loaders.load_pytorch(torch_ds)
+
+    # tensor type in torch dataset
+    assert torch.all(torch.eq(torch_ds[0][0], torch.Tensor([0, 0])))  # type:ignore
+
+    # numpy type in ours
+    assert np.array_equal(ds_torch[0][0], (np.array([0, 0])))  # type:ignore
+
+    # labels are the same
+    assert torch_ds[0][1] == ds_torch[0][1] == 0
