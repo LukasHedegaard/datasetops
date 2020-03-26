@@ -10,13 +10,13 @@ import warnings
 
 
 def _zipped_item_names(*datasets: AbstractDataset):
-    if set.intersection(*[set(d.item_names) for d in datasets]):  # type:ignore
+    if set.intersection(*[set(d.names) for d in datasets]):  # type:ignore
         return None
     else:
         return {
             n: i
             for i, n in enumerate(
-                [n for d in datasets for n in d.item_names]  # type:ignore
+                [n for d in datasets for n in d.names]  # type:ignore
             )
         }
 

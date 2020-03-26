@@ -2,23 +2,23 @@ import pytest
 from datasetops.compose import ZipDataset, InterleaveDataset, CartesianProductDataset
 from datasetops.dataset import cartesian_product, zipped, concat, allow_unique
 from testing_utils import (  # type:ignore
-    load_dummy_data,
-    load_dummy_numpy_data,
+    from_dummy_data,
+    from_dummy_numpy_data,
 )
 
 
 def test_zip():
-    ds_pos = load_dummy_data(num_total=10).named("pos")
-    ds_neg = load_dummy_data(num_total=11).transform([lambda x: -x]).named("neg")
-    ds_np = load_dummy_numpy_data()
-    ds_labelled = load_dummy_data(num_total=10, with_label=True)
+    ds_pos = from_dummy_data(num_total=10).named("pos")
+    ds_neg = from_dummy_data(num_total=11).transform([lambda x: -x]).named("neg")
+    ds_np = from_dummy_numpy_data()
+    ds_labelled = from_dummy_data(num_total=10, with_label=True)
 
     # syntax 1
     zds = zipped(ds_pos, ds_neg)
     assert len(zds) == min(len(ds_pos), len(ds_neg))
     assert zds.shape == (*ds_pos.shape, *ds_neg.shape)
     # item names survive because there were no clashes
-    assert zds.item_names == ["pos", "neg"]
+    assert zds.names == ["pos", "neg"]
 
     # syntax 2
     zds_alt = ds_pos.zip(ds_neg)
@@ -30,7 +30,7 @@ def test_zip():
     assert len(zds_self) == len(ds_pos)
     assert zds_self.shape == (*ds_pos.shape, *ds_pos.shape)
     # item names are discarded because there are clashes
-    assert zds_self.item_names == []
+    assert zds_self.names == []
 
     # mix labelled and unlabelled data
     zds_mix_labelling = ds_neg.zip(ds_labelled)
@@ -55,7 +55,7 @@ def test_zip():
 
 
 def test_cartesian_product():
-    ds_pos = load_dummy_data().take(2).transform([lambda x: x + 1])
+    ds_pos = from_dummy_data().take(2).transform([lambda x: x + 1])
     ds_10x = ds_pos.transform([lambda x: 10 * x])
     ds_100x = ds_pos.transform([lambda x: 100 * x])
 
@@ -99,7 +99,7 @@ def test_cartesian_product():
 
 def test_concat():
     ds_pos = (
-        load_dummy_data(with_label=True)
+        from_dummy_data(with_label=True)
         .named("data", "label")
         .filter(label=allow_unique(2))
         .reorder(0)
@@ -140,4 +140,4 @@ def test_concat():
         ds_pos.concat()
 
     with pytest.warns(UserWarning):
-        ds_pos.concat(load_dummy_numpy_data())  # different shapes result in warning
+        ds_pos.concat(from_dummy_numpy_data())  # different shapes result in warning

@@ -234,13 +234,14 @@ class Dataset(AbstractDataset):
         """
         inds: List[int] = [_key_index(self._item_names, k) for k in itemkeys]
 
-        selector = (
-            (lambda item: item)
-            if len(itemkeys) == 0
-            else (lambda item: item[inds[0]])
-            if len(inds) == 1
-            else (lambda item: tuple([val for i, val in enumerate(item) if i in inds]))
-        )
+        if len(itemkeys) == 0:
+            selector = lambda item: item
+        elif len(inds) == 1:
+            selector = lambda item: item[inds[0]]
+        else:
+            selector = lambda item: tuple(
+                [val for i, val in enumerate(item) if i in inds]
+            )
 
         unique_items, item_counts = {}, {}
         for item in iter(self):
@@ -514,7 +515,7 @@ class Dataset(AbstractDataset):
         return self
 
     @property
-    def item_names(self) -> List[str]:
+    def names(self) -> List[str]:
         """Get the names of the elements in an item
         
         Returns:
@@ -585,6 +586,7 @@ class Dataset(AbstractDataset):
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
         idx: int = _key_index(self._item_names, key)
+        mapping_fn = mapping_fn or categorical_template(self, key)
         args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=categorical, args=args
@@ -611,6 +613,7 @@ class Dataset(AbstractDataset):
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
         enc_size = encoding_size or len(self.unique(key))
+        mapping_fn = mapping_fn or categorical_template(self, key)
         idx: int = _key_index(self._item_names, key)
         args = [enc_size if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
@@ -892,6 +895,32 @@ def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=mapping_fn if callable(mapping_fn) else auto_label  # type: ignore
     )
+
+
+def categorical_template(ds: Dataset, key: Key) -> Callable[[Any], int]:
+    """Creates a template mapping function to be with one_hot.
+
+    
+    Arguments:
+        ds {Dataset} -- Dataset from which to create a template for one_hot coding
+        key {Key} -- Dataset key (name or item index) on the one_hot coding is made
+    
+    Returns:
+        {Callable[[Any],int]} -- mapping_fn for one_hot
+    """
+    unq = ds.unique(key)
+    if type(unq[0]) == np.ndarray:
+        mapper = lambda x: x.tobytes()
+        unq = [mapper(x) for x in unq]
+    else:
+        mapper = lambda x: x
+
+    d = {k: i for i, k in enumerate(sorted(unq))}
+
+    def fn(i):
+        return d[mapper(i)]
+
+    return fn
 
 
 def one_hot(

@@ -28,7 +28,7 @@ class Loader(Dataset):
         self._ids.extend(list(ids))
 
 
-def load_pytorch(pytorch_dataset):
+def from_pytorch(pytorch_dataset):
     import torch
 
     def get_data(i) -> Tuple:
@@ -41,7 +41,7 @@ def load_pytorch(pytorch_dataset):
     return ds
 
 
-def load_folder_data(path: AnyPath) -> Dataset:
+def from_folder_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
         folder
@@ -68,7 +68,7 @@ def load_folder_data(path: AnyPath) -> Dataset:
     return ds
 
 
-def load_folder_class_data(path: AnyPath) -> Dataset:
+def from_folder_class_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
         nested_folder
@@ -101,7 +101,7 @@ def load_folder_class_data(path: AnyPath) -> Dataset:
     return ds
 
 
-def load_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
+def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
         nested_folder
@@ -123,7 +123,7 @@ def load_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """
     p = Path(path)
     dataset_paths = sorted([x for x in p.glob("[!._]*")])
-    return [load_folder_class_data(dsp) for dsp in dataset_paths]
+    return [from_folder_class_data(dsp) for dsp in dataset_paths]
 
 
 def _dataset_from_np_dict(
@@ -188,7 +188,7 @@ def _dataset_from_np_dict(
     return ds
 
 
-def load_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
+def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     """Load data from .mat file consisting of multiple data
 
        E.g. a .mat file with keys ['X_src', 'Y_src', 'X_tgt', 'Y_tgt']

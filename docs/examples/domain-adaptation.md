@@ -43,8 +43,14 @@ import numpy as np
 seed = 13
 
 # load data
-source = do.load_folder_class_data("Office31/amazon").named("s_data", "s_label")
-target = do.load_folder_class_data("Office31/amazon").named("t_data", "t_label")
+source = (
+    do.from_folder_class_data("Office31/amazon")
+    .named("s_data", "s_label")
+)
+target = (
+    do.from_folder_class_data("Office31/amazon")
+    .named("t_data", "t_label")
+)
 
 num_source_per_class = 20 if "amazon" in str(source_data_path) else 8
 num_target_per_class = 3
@@ -88,6 +94,6 @@ train, val, test = [
 ]
 
 # Port to Tensorflow
-train_tf, val_tf, test_tf = [d.to_tf() for d in [train, val, test]]
+train_tf, val_tf, test_tf = [d.to_tensorflow() for d in [train, val, test]]
 
 ```
