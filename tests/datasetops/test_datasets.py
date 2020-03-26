@@ -328,7 +328,7 @@ def test_shape():
     assert(ds.shape == _DEFAULT_SHAPE)
 
     # shape given
-    ds._append(1)
+    ds.append(1)
     assert(ds.shape == (_DEFAULT_SHAPE, _DEFAULT_SHAPE))
 
     # numpy data

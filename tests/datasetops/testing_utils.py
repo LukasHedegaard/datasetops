@@ -30,8 +30,8 @@ def load_dummy_data(num_total=11, with_label=False) -> Loader:
         return i, "a" if i < len(a_ids) else "b"
 
     ds = Loader(get_labelled_data if with_label else get_data)
-    ds._extend(a_ids)
-    ds._extend(b_ids)
+    ds.extend(a_ids)
+    ds.extend(b_ids)
     return ds
 
 
@@ -55,6 +55,6 @@ def load_dummy_numpy_data() -> Loader:
         return data[idx], labels[idx]
 
     ds = Loader(get_data)
-    ds._extend(a_ids)
-    ds._extend(b_ids)
+    ds.extend(a_ids)
+    ds.extend(b_ids)
     return ds
