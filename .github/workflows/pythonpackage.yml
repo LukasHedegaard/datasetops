@@ -21,6 +21,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .[tests,docs]
+        pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
