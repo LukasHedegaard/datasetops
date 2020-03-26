@@ -14,7 +14,7 @@ import torchvision
 train, val, test = (
     do.load_folder_class_data('path/to/data/folder')
     .named("data", "label")
-    .img_resize((240, 240))
+    .image_resize((240, 240))
     .one_hot("label")
     .shuffle(seed=42)
     .split([0.6, 0.2, 0.2])
