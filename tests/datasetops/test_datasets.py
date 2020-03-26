@@ -1,5 +1,15 @@
 
-from datasetops.dataset import Dataset, image_resize, reshape, custom, allow_unique, one_hot, categorical, _DEFAULT_SHAPE
+from datasetops.dataset import (
+    Dataset, 
+    image_resize, 
+    reshape, 
+    custom, 
+    allow_unique, 
+    one_hot, 
+    categorical, 
+    categorical_template,
+    _DEFAULT_SHAPE
+)
 import datasetops.loaders as loaders
 import pytest
 import numpy as np
@@ -420,7 +430,7 @@ def test_categorical():
     with pytest.raises(TypeError):
         ds.categorical() # we need to know what to label
 
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         ds.categorical(42) # wrong key
 
     with pytest.raises(KeyError):
@@ -469,14 +479,31 @@ def test_one_hot():
     with pytest.raises(TypeError):
         ds.one_hot() # we need some arguments
 
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         ds.one_hot(42, encoding_size=2) # wrong key
 
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         list(ds.one_hot('label', encoding_size=1)) # encoding size too small -- found at runtime
 
     with pytest.raises(KeyError):
         ds.one_hot("wrong", encoding_size=2) # wrong key
+
+
+def test_categorical_template():
+    ds1 = load_dummy_data(with_label=True).named("data","label")
+    ds2 = ds1.shuffle(42)
+
+    # when using categorical encoding on multiple datasets that are used together, the encoding may turn out different
+    # this is because the indexes are built up and mapped as they are loaded (the order matters)
+    assert set(ds1.transform(label=categorical())) != set(ds2.transform(label=categorical()))
+
+    # we can use the categorical template to make matching encodings
+    mapping_fn = categorical_template(ds1, "label")
+    assert set(ds1.transform(label=categorical(mapping_fn))) == set(ds2.transform(label=categorical(mapping_fn)))
+
+    # this is done implicitely when using the class-member functions
+    assert set(ds1.categorical("label")) == set(ds2.categorical("label"))
+
 
 def test_transform():
     ds = load_dummy_numpy_data().named("data","label") 
@@ -727,7 +754,7 @@ def test_to_tensorflow():
     pred_labels = np.argmax(preds, axis=1)
 
     expected_labels = np.array([v[0] for v in ds.reorder('label').categorical(0)])
-    assert(sum(pred_labels == expected_labels) > len(ds)//2) #type:ignore
+    assert sum(pred_labels == expected_labels) > len(ds)//2  #type:ignore
 
 
 @pytest.mark.slow

@@ -5,6 +5,7 @@ from .dataset import (
     reshape,
     categorical,
     one_hot,
+    categorical_template,
     numpy,
     image,
     image_resize,
