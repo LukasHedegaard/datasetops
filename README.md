@@ -1,6 +1,14 @@
-![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+<div align="center">
+  <img src="docs/pics/logo.svg"><br>
+</div>
+
+-----------------
 
 # Dataset Ops: Fluent dataset operations, compatible with your favorite libraries
+
+
+![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 Dataset Ops provides a [fluent interface](https://martinfowler.com/bliki/FluentInterface.html) for _loading, filtering, transforming, splitting,_ and _combining_ datasets. 
 Designed specifically with data science and machine learning applications in mind, it integrates seamlessly with [Tensorflow](https://www.tensorflow.org) and [PyTorch](https://pytorch.org).
@@ -29,8 +37,14 @@ for img, label in train:
     ...
 ```
 
+## Installation 
+Baniry installers available at the [Python package index](https://pypi.org/project/datasetops/)
+```bash
+pip install datasetops
+```
 
-## Motivation 
+
+## Why? 
 Collecting and preprocessing datasets is tiresome and often takes upwards of 50% of the effort spent in the data science and machine learning lifecycle.
 While [Tensorflow](https://www.tensorflow.org/datasets) and [PyTorch](https://www.tensorflow.org/datasets) have some useful datasets utilisites available, they are designed specifically with the respective frameworks in mind.
 Unsuprisingly, this makes it hard to switch between frameworks, and port training-ready dataset definitions.
@@ -52,7 +66,7 @@ tensorflow_usps = do.load_pytorch(torch_usps).to_tensorflow()
 ```
 
 
-## Implementation Status
+## Development Status
 The library is still under heavy development and the API may be subject to change.
 
 What follows here is a list of implemented and planned features.
@@ -68,12 +82,16 @@ What follows here is a list of implemented and planned features.
 - [ ] `load_mat` (load contents of a .mat file as a single dataaset)
 - [x] `load_mat_single_mult_data` (load contents of a .mat file as multiple dataasets)
 
+### Converters
+- [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)
+- [x] `to_pytorch` (convert Dataset into torchvision.Dataset)
+
 ### Dataset information
 - [x] `shape` (get shape of a dataset item)
 - [x] `counts` (compute the counts of each unique item in the dataset by key)
 - [x] `unique` (get a list of unique items in the dataset by key)
-- [x] `item_names` (get a list of names for the elements in an item)
 - [x] `named` (supply names for the item elements)
+- [x] `names` (get a list of names for the elements in an item)
 - [ ] `stats` (provide an overview of the dataset statistics)
 - [ ] `origin` (provide an description of how the dataset was made)
 
@@ -90,25 +108,29 @@ What follows here is a list of implemented and planned features.
 ### Item manipulation
 - [x] `reorder` (reorder the elements of the dataset items (e.g. flip label and data order))
 - [x] `transform` (transform function which takes other functions and applies them to the dataset items.)
-- [x] `custom` (function wrapper enabling user-defined function to be used as a transform)
 - [x] `label` (transforms an element into a integer encoded categorical label)
 - [x] `one_hot` (transforms an element into a one-hot encoded categorical label)
 - [x] `numpy` (transforms an element into a numpy.ndarray)
 - [x] `reshape` (reshapes numpy.ndarray elements)
 - [x] `image` (transforms a numpy array or path string into a PIL.Image.Image)
 - [x] `image_resize` (resizes PIL.Image.Image elements)
+- [ ] `image_crop` (crops PIL.Image.Image elements)
+- [ ] `image_rotate` (rotates PIL.Image.Image elements)
+- [ ] `image_transform` (transforms PIL.Image.Image elements)
+- [ ] `image_brightness` (modify brightness of PIL.Image.Image elements)
+- [ ] `image_contrast` (modify contrast of PIL.Image.Image elements)
+- [ ] `image_filter` (apply an image filter to PIL.Image.Image elements)
+- [ ] `noise` (adds noise to the data)
 - [ ] `center` (modify each item according to dataset statistics)
 - [ ] `normalize` (modify each item according to dataset statistics)
 - [ ] `standardize` (modify each item according to dataset statistics)
 - [ ] `whiten` (modify each item according to dataset statistics)
+- [ ] `randomly` (apply data transformations with some probability)
 
 ### Dataset combinations 
 - [x] `concat` (concatenate two datasets, placing the items of one after the other)
 - [x] `zip` (zip datasets itemwise, extending the size of each item)
 - [x] `cartesian_product` (create a dataset whose items are all combinations of items (zipped) of the originating datasets)
 
-### Converters
-- [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)
-- [x] `to_pytorch` (convert Dataset into torchvision.Dataset)
 
 
