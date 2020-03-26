@@ -18,7 +18,7 @@ def get_test_dataset_path(dataset_path: str) -> str:
     return str((Path(__file__).parent.parent / "recourses" / dataset_path).absolute())
 
 
-def load_dummy_data(num_total=11, with_label=False) -> Loader:
+def from_dummy_data(num_total=11, with_label=False) -> Loader:
     a_ids = list(range(5))
     b_ids = list(range(5, num_total))
 
@@ -40,7 +40,7 @@ DUMMY_NUMPY_DATA_SHAPE_2D = (6, 3)
 DUMMY_NUMPY_DATA_SHAPE_3D = (2, 3, 3)
 
 
-def load_dummy_numpy_data() -> Loader:
+def from_dummy_numpy_data() -> Loader:
     a_ids = list(range(5))
     b_ids = list(range(5, 11))
     labels = [*[1 for _ in a_ids], *[2 for _ in b_ids]]

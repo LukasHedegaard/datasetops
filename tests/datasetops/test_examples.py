@@ -30,7 +30,7 @@ def test_readme_example_1():
     )
 
     train, val, test = (
-        do.load_folder_class_data(path)
+        do.from_folder_class_data(path)
         .named("data", "label")
         .image_resize((240, 240))
         .one_hot("label")
@@ -45,4 +45,4 @@ def test_readme_example_2():
 
     p = str((Path(__file__).parent.parent / "recourses").absolute())
     torch_usps = torchvision.datasets.USPS(p, download=True)
-    tensorflow_usps = do.load_pytorch(torch_usps).to_tensorflow()
+    tensorflow_usps = do.from_pytorch(torch_usps).to_tensorflow()

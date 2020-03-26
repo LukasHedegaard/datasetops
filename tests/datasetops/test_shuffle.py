@@ -6,7 +6,7 @@ def _get_data(i):
     return i
 
 
-def load_dummy_data() -> Loader:
+def from_dummy_data() -> Loader:
 
     a_ids = list(range(5))
     b_ids = list(range(5, 11))
@@ -18,7 +18,7 @@ def load_dummy_data() -> Loader:
 
 
 def test_noSeed_valid():
-    ds = load_dummy_data()
+    ds = from_dummy_data()
 
     ds.shuffle()
 
@@ -45,7 +45,7 @@ def test_shuffleStringIds_valid():
 
 def test_containsSameElements():
 
-    ds = load_dummy_data()
+    ds = from_dummy_data()
 
     expected_items = [i for i in ds]
     ds_shuffled = ds.shuffle()
@@ -58,7 +58,7 @@ def test_elementsShuffled():
 
     seed = 42
 
-    ds = load_dummy_data()
+    ds = from_dummy_data()
 
     expected_items = [i for i in ds]
     ds_shuffled = ds.shuffle(seed)

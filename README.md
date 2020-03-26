@@ -20,7 +20,7 @@ import torchvision
 
 # prepare your data
 train, val, test = (
-    do.load_folder_class_data('path/to/data/folder')
+    do.from_folder_class_data('path/to/data/folder')
     .named("data", "label")
     .image_resize((240, 240))
     .one_hot("label")
@@ -62,7 +62,7 @@ import do
 import torchvision
 
 torch_usps = torchvision.datasets.USPS('../dataset/path', download=True)
-tensorflow_usps = do.load_pytorch(torch_usps).to_tensorflow()
+tensorflow_usps = do.from_pytorch(torch_usps).to_tensorflow()
 ```
 
 
@@ -73,14 +73,14 @@ What follows here is a list of implemented and planned features.
 
 ### Loaders
 - [x] `Loader` (utility class used to define a dataset)
-- [x] `load_pytorch` (load from a `torch.utils.data.Dataset`)
-- [ ] `load_tensorflow` (load from a `tf.data.Dataset`)
+- [x] `from_pytorch` (load from a `torch.utils.data.Dataset`)
+- [ ] `from_tensorflow` (load from a `tf.data.Dataset`)
 - [ ] `load` (load data from a path, automatically inferring type and structure)
-- [x] `load_folder_data` (load flat folder with data)
-- [x] `load_folder_class_data` (load nested folder with a folder for each class)
-- [x] `load_folder_dataset_class_data` (load nested folder with multiple datasets, each with a nested class folder structure )
-- [ ] `load_mat` (load contents of a .mat file as a single dataaset)
-- [x] `load_mat_single_mult_data` (load contents of a .mat file as multiple dataasets)
+- [x] `from_folder_data` (load flat folder with data)
+- [x] `from_folder_class_data` (load nested folder with a folder for each class)
+- [x] `from_folder_dataset_class_data` (load nested folder with multiple datasets, each with a nested class folder structure )
+- [ ] `from_mat` (load contents of a .mat file as a single dataaset)
+- [x] `from_mat_single_mult_data` (load contents of a .mat file as multiple dataasets)
 
 ### Converters
 - [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)

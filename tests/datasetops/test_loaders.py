@@ -15,7 +15,7 @@ def test_folder_data():
         str(Path(path) / "frame_000{}.jpg".format(i)) for i in range(1, 7)
     ]
 
-    ds = loaders.load_folder_data(path)
+    ds = loaders.from_folder_data(path)
     found_items = [i[0] for i in ds]
 
     assert set(expected_items) == set(found_items)
@@ -26,7 +26,7 @@ def test_folder_class_data():
 
     expected_items = [str(p) for p in Path(path).glob("*/*.jpg")]
 
-    ds = loaders.load_folder_class_data(path)
+    ds = loaders.from_folder_class_data(path)
     found_items = [i[0] for i in ds]
 
     assert set(expected_items) == set(found_items)
@@ -40,7 +40,7 @@ def test_folder_dataset_class_data():
         set([str(p) for p in Path(s).glob("*/*.jpg")]) for s in sets
     ]
 
-    datasets = loaders.load_folder_dataset_class_data(path)
+    datasets = loaders.from_folder_dataset_class_data(path)
     sets_of_found_items = [set([i[0] for i in ds]) for ds in datasets]
 
     for expected_items_set in sets_of_expected_items:
@@ -52,7 +52,7 @@ def test_folder_dataset_class_data():
 def test_mat_single_with_multi_data():
     path = get_test_dataset_path(DATASET_PATHS.MAT_SINGLE_WITH_MULTI_DATA)
 
-    datasets = loaders.load_mat_single_mult_data(path)
+    datasets = loaders.from_mat_single_mult_data(path)
 
     for ds in datasets:
         # check dataset sizes and names
@@ -84,7 +84,7 @@ def test_pytorch():
         dataset_path, train=True, transform=None, target_transform=None, download=True
     )
     mnist_item = mnist[0]
-    ds_mnist = loaders.load_pytorch(mnist)
+    ds_mnist = loaders.from_pytorch(mnist)
     ds_mnist_item = ds_mnist[0]
     # nothing to convert, items equal
     assert mnist_item == ds_mnist_item
@@ -97,7 +97,7 @@ def test_pytorch():
             return (torch.Tensor([idx, idx]), idx)  # type:ignore
 
     torch_ds = PyTorchDataset()
-    ds_torch = loaders.load_pytorch(torch_ds)
+    ds_torch = loaders.from_pytorch(torch_ds)
 
     # tensor type in torch dataset
     assert torch.all(torch.eq(torch_ds[0][0], torch.Tensor([0, 0])))  # type:ignore

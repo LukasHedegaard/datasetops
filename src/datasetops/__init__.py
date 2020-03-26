@@ -18,9 +18,9 @@ from .dataset import (
 
 from .loaders import (
     Loader,
-    load_pytorch,
-    load_folder_data,
-    load_folder_class_data,
-    load_folder_dataset_class_data,
-    load_mat_single_mult_data,
+    from_pytorch,
+    from_folder_data,
+    from_folder_class_data,
+    from_folder_dataset_class_data,
+    from_mat_single_mult_data,
 )

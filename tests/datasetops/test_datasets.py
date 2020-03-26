@@ -15,14 +15,14 @@ import pytest
 import numpy as np
 from PIL import Image
 from testing_utils import ( # type:ignore
-    get_test_dataset_path, load_dummy_data, load_dummy_numpy_data,
+    get_test_dataset_path, from_dummy_data, from_dummy_numpy_data,
     DATASET_PATHS, DUMMY_NUMPY_DATA_SHAPE_1D, DUMMY_NUMPY_DATA_SHAPE_2D, DUMMY_NUMPY_DATA_SHAPE_3D
 )
 
 
 def test_shuffle():
     seed = 42
-    ds = load_dummy_data()
+    ds = from_dummy_data()
     expected_items = [i for i in ds]
     ds_shuffled = ds.shuffle(seed)
     found_items = [i for i in ds_shuffled]
@@ -36,7 +36,7 @@ def test_shuffle():
 
 def test_sample():
     seed = 42
-    ds = load_dummy_data()
+    ds = from_dummy_data()
     ds_sampled = ds.sample(5, seed)
     found_items = [i for i in ds_sampled]
 
@@ -55,7 +55,7 @@ def test_sample():
 
 def test_filter():
     num_total=10
-    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
+    ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     # expected items
     a = [ (x, 'a') for x in list(range(5))]
@@ -102,7 +102,7 @@ def test_filter():
 
 # def test_filter_old():
 #     num_total=10
-#     ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
+#     ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
 #     # expected items
 #     a = [ (x, 'a') for x in list(range(5))]
@@ -149,7 +149,7 @@ def test_filter():
 
 def test_split_filter():
     num_total=10
-    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
+    ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     # expected items
     a = [ (x, 'a') for x in list(range(5))]
@@ -201,7 +201,7 @@ def test_split_filter():
 
 def test_split():
     seed = 42
-    ds = load_dummy_data()
+    ds = from_dummy_data()
     ds1, ds2, ds3 = ds.split([0.6, 0.3, 0.1], seed=seed)
 
     # new sets are distinct
@@ -222,7 +222,7 @@ def test_split():
 
 
 def test_repeat():
-    ds = load_dummy_data()
+    ds = from_dummy_data()
 
     # itemwise
     ds_item = ds.repeat(3)
@@ -238,7 +238,7 @@ def test_repeat():
 
 
 def test_take():
-    ds = load_dummy_data().transform(lambda x: 10*x)
+    ds = from_dummy_data().transform(lambda x: 10*x)
 
     ds_5 = ds.take(5)
     assert(list(ds)[:5] == list(ds_5))
@@ -248,7 +248,7 @@ def test_take():
 
 
 def test_reorder():
-    ds = load_dummy_numpy_data()
+    ds = from_dummy_numpy_data()
     ds.named("mydata", "mylabel")
 
     ## error scenarios
@@ -304,7 +304,7 @@ def test_reorder():
 
 def test_counts():
     num_total=11
-    ds = load_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
+    ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
 
     counts = ds.counts('label') # name based
     counts_alt = ds.counts(1) # index based
@@ -319,7 +319,7 @@ def test_counts():
 
 
 def test_unique():
-    ds = load_dummy_data(with_label=True).named('data', 'label')
+    ds = from_dummy_data(with_label=True).named('data', 'label')
 
     unique_labels = ds.unique('label')
     assert(unique_labels == ['a','b'])
@@ -342,7 +342,7 @@ def test_shape():
     assert(ds.shape == (_DEFAULT_SHAPE, _DEFAULT_SHAPE))
 
     # numpy data
-    ds_np = load_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    ds_np = from_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
     assert( ds_np.shape == (DUMMY_NUMPY_DATA_SHAPE_2D,_DEFAULT_SHAPE) )
 
     # changed to new size
@@ -360,7 +360,7 @@ def test_shape():
 
 
 def test_item_naming():
-    ds = load_dummy_numpy_data()
+    ds = from_dummy_numpy_data()
     items = [x for x in ds]
     assert(ds.names == [])
 
@@ -392,7 +392,7 @@ def test_item_naming():
 
 
 def test_categorical():
-    ds = load_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
+    ds = from_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
 
     assert(ds.unique('label') == ['a','b'])
 
@@ -438,7 +438,7 @@ def test_categorical():
 
 
 def test_one_hot():
-    ds = load_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
+    ds = from_dummy_data(with_label=True).reorder(0,1,1).named('data', 'label', 'label_duplicate')
     assert(ds.unique('label') == ['a','b'])
 
     # alternative syntaxes
@@ -490,7 +490,7 @@ def test_one_hot():
 
 
 def test_categorical_template():
-    ds1 = load_dummy_data(with_label=True).named("data","label")
+    ds1 = from_dummy_data(with_label=True).named("data","label")
     ds2 = ds1.shuffle(42)
 
     # when using categorical encoding on multiple datasets that are used together, the encoding may turn out different
@@ -506,7 +506,7 @@ def test_categorical_template():
 
 
 def test_transform():
-    ds = load_dummy_numpy_data().named("data","label") 
+    ds = from_dummy_numpy_data().named("data","label") 
 
     # simple
     ds_itemwise = ds.transform([lambda x: x/255.0])
@@ -541,7 +541,7 @@ def test_transform():
 
 
 def test_reshape():
-    ds = load_dummy_numpy_data().named('data','label')
+    ds = from_dummy_numpy_data().named('data','label')
     items = list(ds)
 
     s = ds.shape
@@ -588,7 +588,7 @@ def test_reshape():
         assert(np.array_equal(old_data, new_data))
 
     # TODO test reshape on string data
-    ds_str = loaders.load_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
+    ds_str = loaders.from_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
 
     with pytest.raises(ValueError):
         # string has no shape 
@@ -615,7 +615,7 @@ def test_reshape():
 ########## Tests relating to image data #########################
 
 def test_numpy_image_numpy_conversion():
-    ds_1d = load_dummy_numpy_data()
+    ds_1d = from_dummy_numpy_data()
     items_1d = [x for x in ds_1d]
 
     # Warns because no elements where converted
@@ -668,7 +668,7 @@ def test_numpy_image_numpy_conversion():
 
 def test_string_image_conversion():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)
-    ds_str = loaders.load_folder_data(path)
+    ds_str = loaders.from_folder_data(path)
 
     ds_img = ds_str.image()
     items_img = [x for x in ds_img]
@@ -679,7 +679,7 @@ def test_string_image_conversion():
 
 
 def test_image_resize():
-    ds = load_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
+    ds = from_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_2D)
     for tpl in ds:
         data = tpl[0]
         assert(data.shape == DUMMY_NUMPY_DATA_SHAPE_2D)
@@ -701,7 +701,7 @@ def test_image_resize():
         assert(data.mode == 'F') # grayscale float
 
     # works directly on strings
-    ds_str = loaders.load_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
+    ds_str = loaders.from_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
     ds_resized_from_str = ds_str.image_resize(NEW_SIZE)
     for tpl in ds_resized_from_str:
         data = tpl[0]
@@ -729,7 +729,7 @@ def test_image_resize():
 @pytest.mark.slow
 def test_to_tensorflow():
     # prep data
-    ds = load_dummy_numpy_data().named("data", "label").one_hot("label").shuffle(42)
+    ds = from_dummy_numpy_data().named("data", "label").one_hot("label").shuffle(42)
     tf_ds = ds.to_tensorflow().batch(2)
 
     # prep model
@@ -760,7 +760,7 @@ def test_to_tensorflow():
 @pytest.mark.slow
 def test_to_pytorch():
     # prep data
-    ds = load_dummy_numpy_data().named("data", "label").one_hot("label")
+    ds = from_dummy_numpy_data().named("data", "label").one_hot("label")
     pt_ds = ds.to_pytorch()
 
     import torch
