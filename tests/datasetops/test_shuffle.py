@@ -12,8 +12,8 @@ def load_dummy_data() -> Loader:
     b_ids = list(range(5, 11))
 
     ds = Loader(_get_data)
-    ds._extend(a_ids)
-    ds._extend(b_ids)
+    ds.extend(a_ids)
+    ds.extend(b_ids)
     return ds
 
 
@@ -35,7 +35,7 @@ def test_shuffleStringIds_valid():
         return i
 
     ds = Loader(_get_data)
-    ds._extend(["1", "2"])
+    ds.extend(["1", "2"])
 
     ds_shuffled = ds.shuffle()
 
