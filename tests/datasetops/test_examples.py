@@ -24,7 +24,7 @@ def test_domain_adaptation():
         next(iter(d))
 
 
-def test_readme_examples():
+def test_readme_example_1():
     path = (
         Path(get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_CLASS_DATA)) / "amazon"
     )
@@ -37,3 +37,12 @@ def test_readme_examples():
         .shuffle(seed=42)
         .split([0.6, 0.2, 0.2])
     )
+
+
+@pytest.mark.slow
+def test_readme_example_2():
+    import torchvision
+
+    p = str((Path(__file__).parent.parent / "recourses").absolute())
+    torch_usps = torchvision.datasets.USPS(p, download=True)
+    tensorflow_usps = do.load_pytorch(torch_usps).to_tensorflow()

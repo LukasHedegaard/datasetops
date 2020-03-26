@@ -1,15 +1,18 @@
 ![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-# Dataset Ops
-Friendly dataset operations for your data science needs
+# Dataset Ops: Fluent dataset operations, compatible with your favorite libraries
+
+Dataset Ops provides a [fluent interface](https://martinfowler.com/bliki/FluentInterface.html) for _loading, filtering, transforming, splitting,_ and _combining_ datasets. 
+Designed specifically with data science and machine learning applications in mind, it integrates seamlessly with [Tensorflow](https://www.tensorflow.org) and [PyTorch](https://pytorch.org).
 
 ## TL;DR
 ```python
 import datasetops as do
+import torchvision
 
 # prepare your data
 train, val, test = (
-    do.load_folder_class_data(path)
+    do.load_folder_class_data('path/to/data/folder')
     .named("data", "label")
     .img_resize((240, 240))
     .one_hot("label")
@@ -17,7 +20,7 @@ train, val, test = (
     .split([0.6, 0.2, 0.2])
 )
 
-# use your favorite framework
+# use with your favorite framework
 train_tf = trian.to_tensorflow() 
 train_pt = trian.to_pytorch() 
 
@@ -28,21 +31,25 @@ for img, label in train:
 
 
 ## Motivation 
-Collecting and preprocessing datasets is a tiresome and often underestimated part of the data science and machine learning lifecycle.
-While [Tensorflow](https://www.tensorflow.org/datasets) and [PyTorch](https://www.tensorflow.org/datasets) do have some useful datasets utilisites available, they are designed specifically with the respective frameworks in mind.
+Collecting and preprocessing datasets is tiresome and often takes upwards of 50% of the effort spent in the data science and machine learning lifecycle.
+While [Tensorflow](https://www.tensorflow.org/datasets) and [PyTorch](https://www.tensorflow.org/datasets) have some useful datasets utilisites available, they are designed specifically with the respective frameworks in mind.
 Unsuprisingly, this makes it hard to switch between frameworks, and port training-ready dataset definitions.
 
 Moreover, they do not aid you in standard scenarios where you want to:
-- subsample your dataset, e.g with a fixed number of samples per class
-- rescale, center, standardize, normalise you data
-- combine multiple datasets, e.g. for parallel input in a multi-stream network
-- create non-standard data splits
+- Sample your dataset, e.g with a fixed number of samples per class
+- Rescale, center, standardize, normalise you data
+- Combine multiple datasets, e.g. for parallel input in a multi-stream network
+- Create non-standard data splits
 
-All of this is usually done by hand. Again and again and again... 
+_Dataset Ops_ aims to make these processing steps easier, faster, and more intuitive to perform, while retaining full compatibility with the leading libraries. This also means you can grab a dataset from [torchvision datasets](https://pytorch.org/docs/stable/torchvision/datasets.html#mnist) and use it directly with tensorflow:
 
+```python
+import do
+import torchvision
 
-## Idea
-In a nutshell, datasets for data science and machine learning are just a collection of samples that are often accompanied by a label.We should be able to read all these formats into a common representation, where most common operations can be performed.Subsequently, we should be able to transform these into the standard formats used in Tensorflow and PyTorch.
+torch_usps = torchvision.datasets.USPS('../dataset/path', download=True)
+tensorflow_usps = do.load_pytorch(torch_usps).to_tensorflow()
+```
 
 
 ## Implementation Status
@@ -52,6 +59,8 @@ What follows here is a list of implemented and planned features.
 
 ### Loaders
 - [x] `Loader` (utility class used to define a dataset)
+- [x] `load_pytorch` (load from a `torch.utils.data.Dataset`)
+- [ ] `load_tensorflow` (load from a `tf.data.Dataset`)
 - [ ] `load` (load data from a path, automatically inferring type and structure)
 - [x] `load_folder_data` (load flat folder with data)
 - [x] `load_folder_class_data` (load nested folder with a folder for each class)
@@ -100,6 +109,6 @@ What follows here is a list of implemented and planned features.
 
 ### Converters
 - [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)
-- [ ] `to_pytroch` (convert Dataset into torchvision.Dataset)
+- [x] `to_pytorch` (convert Dataset into torchvision.Dataset)
 
 
