@@ -29,11 +29,10 @@ setup(
             "pytest-cov",
             "flake8",
             "tensorflow",
-            "torch==1.4.0+cpu",
-            "torchvision==0.5.0+cpu",
+            "torch==1.4.0",
+            "torchvision==0.5.0",
         ],
         "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"],
         "build": ["setuptools", "wheel", "twine"],
     },
-    dependency_links=["https://download.pytorch.org/whl/torch_stable.html"],
 )
