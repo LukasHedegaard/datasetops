@@ -6,14 +6,12 @@
 
 # Dataset Ops: Fluent dataset operations, compatible with your favorite libraries
 
-
 ![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
 
 Dataset Ops provides a [fluent interface](https://martinfowler.com/bliki/FluentInterface.html) for _loading, filtering, transforming, splitting,_ and _combining_ datasets. 
 Designed specifically with data science and machine learning applications in mind, it integrates seamlessly with [Tensorflow](https://www.tensorflow.org) and [PyTorch](https://pytorch.org).
 
-## TL;DR
+## Appetizer
 ```python
 import datasetops as do
 import torchvision
@@ -29,8 +27,8 @@ train, val, test = (
 )
 
 # use with your favorite framework
-train_tf = trian.to_tensorflow() 
-train_pt = trian.to_pytorch() 
+train_tf = train.to_tensorflow() 
+train_pt = train.to_pytorch() 
 
 # or do your own thing
 for img, label in train:
