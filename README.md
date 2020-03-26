@@ -14,7 +14,6 @@ Designed specifically with data science and machine learning applications in min
 ## Appetizer
 ```python
 import datasetops as do
-import torchvision
 
 # prepare your data
 train, val, test = (
@@ -44,16 +43,15 @@ pip install datasetops
 
 ## Why? 
 Collecting and preprocessing datasets is tiresome and often takes upwards of 50% of the effort spent in the data science and machine learning lifecycle.
-While [Tensorflow](https://www.tensorflow.org/datasets) and [PyTorch](https://www.tensorflow.org/datasets) have some useful datasets utilisites available, they are designed specifically with the respective frameworks in mind.
-Unsuprisingly, this makes it hard to switch between frameworks, and port training-ready dataset definitions.
-
+While [Tensorflow](https://www.tensorflow.org/datasets) and [PyTorch](https://www.tensorflow.org/datasets) have some useful datasets utilities available, they are designed specifically with the respective frameworks in mind.
+Unsuprisingly, this makes it hard to switch between them, and training-ready dataset definitions are bound to one or the other.
 Moreover, they do not aid you in standard scenarios where you want to:
-- Sample your dataset, e.g with a fixed number of samples per class
-- Rescale, center, standardize, normalise you data
-- Combine multiple datasets, e.g. for parallel input in a multi-stream network
+- Sample your dataset non-random ways (e.g with a fixed number of samples per class)
+- Center, standardize, normalise you data
+- Combine multiple datasets, e.g. for parallel input to a multi-stream network
 - Create non-standard data splits
 
-_Dataset Ops_ aims to make these processing steps easier, faster, and more intuitive to perform, while retaining full compatibility with the leading libraries. This also means you can grab a dataset from [torchvision datasets](https://pytorch.org/docs/stable/torchvision/datasets.html#mnist) and use it directly with tensorflow:
+_Dataset Ops_ aims to make these processing steps easier, faster, and more intuitive to perform, while retaining full compatibility to and from the leading libraries. This also means you can grab a dataset from [torchvision datasets](https://pytorch.org/docs/stable/torchvision/datasets.html#mnist) and use it directly with tensorflow:
 
 ```python
 import do
@@ -73,12 +71,12 @@ What follows here is a list of implemented and planned features.
 - [x] `Loader` (utility class used to define a dataset)
 - [x] `from_pytorch` (load from a `torch.utils.data.Dataset`)
 - [ ] `from_tensorflow` (load from a `tf.data.Dataset`)
-- [ ] `load` (load data from a path, automatically inferring type and structure)
 - [x] `from_folder_data` (load flat folder with data)
 - [x] `from_folder_class_data` (load nested folder with a folder for each class)
 - [x] `from_folder_dataset_class_data` (load nested folder with multiple datasets, each with a nested class folder structure )
 - [ ] `from_mat` (load contents of a .mat file as a single dataaset)
 - [x] `from_mat_single_mult_data` (load contents of a .mat file as multiple dataasets)
+- [ ] `load` (load data from a path, automatically inferring type and structure)
 
 ### Converters
 - [x] `to_tensorflow` (convert Dataset into tensorflow.data.Dataset)
@@ -106,8 +104,8 @@ What follows here is a list of implemented and planned features.
 ### Item manipulation
 - [x] `reorder` (reorder the elements of the dataset items (e.g. flip label and data order))
 - [x] `transform` (transform function which takes other functions and applies them to the dataset items.)
-- [x] `label` (transforms an element into a integer encoded categorical label)
-- [x] `one_hot` (transforms an element into a one-hot encoded categorical label)
+- [x] `categorical` (transforms an element into a categorical integer encoded label)
+- [x] `one_hot` (transforms an element into a one-hot encoded label)
 - [x] `numpy` (transforms an element into a numpy.ndarray)
 - [x] `reshape` (reshapes numpy.ndarray elements)
 - [x] `image` (transforms a numpy array or path string into a PIL.Image.Image)
