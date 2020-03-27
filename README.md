@@ -2,8 +2,6 @@
   <img src="docs/pics/logo.svg"><br>
 </div>
 
------------------
-
 # Dataset Ops: Fluent dataset operations, compatible with your favorite libraries
 
 ![Python package](https://github.com/LukasHedegaard/datasetops/workflows/Python%20package/badge.svg) [![Documentation Status](https://readthedocs.org/projects/datasetops/badge/?version=latest)](https://datasetops.readthedocs.io/en/latest/?badge=latest) [![codecov](https://codecov.io/gh/LukasHedegaard/datasetops/branch/master/graph/badge.svg)](https://codecov.io/gh/LukasHedegaard/datasetops) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
