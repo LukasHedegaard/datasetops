@@ -33,7 +33,7 @@ for img, label in train:
 ```
 
 ## Installation 
-Baniry installers available at the [Python package index](https://pypi.org/project/datasetops/)
+Binary installers available at the [Python package index](https://pypi.org/project/datasetops/)
 ```bash
 pip install datasetops
 ```
