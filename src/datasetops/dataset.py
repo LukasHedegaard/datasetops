@@ -22,7 +22,8 @@ def _warn_no_args(skip=0):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
             if len(args) + len(kwargs) <= skip:
-                warnings.warn("Too few args passed to {}".format(fn.__code__.co_name))
+                warnings.warn("Too few args passed to {}".format(
+                    fn.__code__.co_name))
             return fn(*args, **kwargs)
 
         return wrapped
@@ -96,7 +97,10 @@ def _combine_conditions(
 
     # clean up predicates
     if not bulk:
-        bulk = lambda x: True
+
+        def bulk(x):
+            return True
+
     preds: List[DataPredicate] = [
         ((lambda x: True) if p is None else p) for p in itemwise
     ]
@@ -106,7 +110,8 @@ def _combine_conditions(
             bulk(x)
             and all([pred(x[i]) for i, pred in enumerate(preds)])
             and all(
-                [pred(x[_key_index(item_names, k)]) for k, pred in kwpredicates.items()]
+                [pred(x[_key_index(item_names, k)])
+                 for k, pred in kwpredicates.items()]
             )
         )
 
@@ -120,9 +125,11 @@ def _optional_argument_indexed_transform(
     args: Sequence[Any],
 ):
     if len(args) == 0:
-        raise ValueError("Unable to perform transform: No arguments arguments given")
+        raise ValueError(
+            "Unable to perform transform: No arguments arguments given")
     if len(shape) < len(args):
-        raise ValueError("Unable to perform transform: Too many arguments given")
+        raise ValueError(
+            "Unable to perform transform: Too many arguments given")
 
     tfs = [transform_fn(a) if a else None for a in args]
     return ds_transform(tfs)
@@ -150,8 +157,8 @@ def _itemwise(item_names: Dict[str, int], l: Sequence, d: Dict):
 
 
 class Dataset(AbstractDataset):
-    """ Contains information on how to access the raw data, and performs sampling and splitting related operations.
-    """
+    """Contains information on how to access the raw data, and performs
+    sampling and splitting related operations."""
 
     def __init__(
         self,
@@ -161,19 +168,20 @@ class Dataset(AbstractDataset):
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
     ):
-        """Initialise
-        
+        """Initialise.
+
         Keyword Arguments:
             downstream_getter {ItemGetter} -- Any object which implements the __getitem__ function (default: {None})
             name {str} -- A name for the dataset
             ids {Ids} -- List of ids used in the downstream_getter (default: {None})
-            item_transform_fn: {Calleable} -- a function
+            item_transform_fn: {Callable} -- a function
         """
         self._downstream_getter = downstream_getter
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
-            self._ids = list(range(len(self._downstream_getter._ids)))  # type: ignore
+            # type: ignore
+            self._ids = list(range(len(self._downstream_getter._ids)))
             self._item_names = getattr(downstream_getter, "_item_names", None)
         else:
             self.name = ""
@@ -197,8 +205,8 @@ class Dataset(AbstractDataset):
 
     @property
     def shape(self) -> Sequence[int]:
-        """Get the shape of a dataset item
-        
+        """Get the shape of a dataset item.
+
         Returns:
             Sequence[int] -- Item shapes
         """
@@ -223,9 +231,10 @@ class Dataset(AbstractDataset):
     @functools.lru_cache(4)
     @_warn_no_args(skip=1)
     def counts(self, *itemkeys: Key) -> List[Tuple[Any, int]]:
-        """ Compute the counts of each unique item in the dataset
-            Warning: this operation may be expensive for large datasets
-        
+        """Compute the counts of each unique item in the dataset.
+
+        Warning: this operation may be expensive for large datasets
+
         Arguments:
             itemkeys {Union[str, int]} -- The item keys (str) or indexes (int) to be checked for uniqueness. If no key is given, all item-parts must match for them to be considered equal
 
@@ -235,13 +244,19 @@ class Dataset(AbstractDataset):
         inds: List[int] = [_key_index(self._item_names, k) for k in itemkeys]
 
         if len(itemkeys) == 0:
-            selector = lambda item: item
+
+            def selector(item):
+                return item
+
         elif len(inds) == 1:
-            selector = lambda item: item[inds[0]]
+
+            def selector(item):
+                return item[inds[0]]
+
         else:
-            selector = lambda item: tuple(
-                [val for i, val in enumerate(item) if i in inds]
-            )
+
+            def selector(item):
+                return tuple([val for i, val in enumerate(item) if i in inds])
 
         unique_items, item_counts = {}, {}
         for item in iter(self):
@@ -257,9 +272,10 @@ class Dataset(AbstractDataset):
 
     @_warn_no_args(skip=1)
     def unique(self, *itemkeys: Key) -> List[Any]:
-        """ Compute a list of unique values in the dataset
-            Warning: this operation may be expensive for large datasets
-        
+        """Compute a list of unique values in the dataset.
+
+        Warning: this operation may be expensive for large datasets
+
         Arguments:
             itemkeys {str} -- The item keys to be checked for uniqueness
 
@@ -269,16 +285,14 @@ class Dataset(AbstractDataset):
         return [x[0] for x in self.counts(*itemkeys)]
 
     def sample(self, num: int, seed: int = None):
-        """Sample data randomly from the dataset
-        
+        """Sample data randomly from the dataset.
+
         Arguments:
-            num {int} -- Number of samples. 
-                         If the number of samples is larger than the dataset size,
-                         some samples may be samples multiple times
-        
+            num {int} -- Number of samples. If the number of samples is larger than the dataset size, some samples may be samples multiple times
+
         Keyword Arguments:
             seed {int} -- Random seed (default: {None})
-        
+
         Returns:
             [Dataset] -- Sampled dataset
         """
@@ -302,21 +316,20 @@ class Dataset(AbstractDataset):
         ] = None,
         **kwpredicates: DataPredicate
     ):
-        """Filter a dataset using a predicate function
-        
+        """Filter a dataset using a predicate function.
+
         Keyword Arguments:
-            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} 
-                -- either a single or a list of functions taking a single dataset item and returning a bool
-                   if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
-            element-wise predicates can also be passed, if item_names have been named.
-        
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} -- either a single or a list of functions taking a single dataset item and returning a bool if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise element-wise predicates can also be passed, if item_names have been named.
+            kwpredicates {DataPredicate} -- TODO
+
         Returns:
             [Dataset] -- A filtered Dataset
         """
         condition = _combine_conditions(
             self._item_names, self.shape, predicates, **kwpredicates
         )
-        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
+        new_ids = list(filter(lambda i: condition(
+            self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
 
     @_raise_no_args(skip=1)
@@ -327,14 +340,12 @@ class Dataset(AbstractDataset):
         ] = None,
         **kwpredicates: DataPredicate
     ):
-        """Split a dataset using a predicate function
-        
+        """Split a dataset using a predicate function.
+
         Keyword Arguments:
-            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} 
-                -- either a single or a list of functions taking a single dataset item and returning a bool
-                   if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} -- either a single or a list of functions taking a single dataset item and returning a bool. if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
             element-wise predicates can also be passed, if item_names have been named.
-        
+
         Returns:
             [Dataset] -- Two datasets, one that passed the predicate and one that didn't
         """
@@ -349,15 +360,16 @@ class Dataset(AbstractDataset):
                 nack.append(i)
 
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids) for new_ids in [ack, nack]]
+            [Dataset(downstream_getter=self, ids=new_ids)
+             for new_ids in [ack, nack]]
         )
 
     def shuffle(self, seed: int = None):
-        """Shuffle the items in a dataset
-        
+        """Shuffle the items in a dataset.
+
         Keyword Arguments:
             seed {[int]} -- Random seed (default: {None})
-        
+
         Returns:
             [Dataset] -- Dataset with shuffled items
         """
@@ -367,16 +379,18 @@ class Dataset(AbstractDataset):
         return Dataset(downstream_getter=self, ids=new_ids)
 
     def split(self, fractions: List[float], seed: int = None):
-        """ Split dataset into multiple datasets, determined by the fractions given.
-            A wildcard (-1) may be given at a single position, to fill in the rest.
-            If fractions don't add up, the last fraction in the list receives the remainding data.
-        
+        """Split dataset into multiple datasets, determined by the fractions
+        given.
+
+        A wildcard (-1) may be given at a single position, to fill in the rest.
+        If fractions don't add up, the last fraction in the list receives the remainding data.
+
         Arguments:
             fractions {List[float]} -- a list or tuple of floats i the interval ]0,1[. One of the items may be a -1 wildcard.
-        
+
         Keyword Arguments:
             seed {int} -- Random seed (default: {None})
-        
+
         Returns:
             List[Dataset] -- Datasets with the number of samples corresponding to the fractions given
         """
@@ -408,31 +422,33 @@ class Dataset(AbstractDataset):
 
         # create datasets corresponding to each split
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids,) for new_ids in split_ids]
+            [Dataset(downstream_getter=self, ids=new_ids,)
+             for new_ids in split_ids]
         )
 
     def take(self, num: int):
-        """ Take the first elements of a datatset
-        
+        """Take the first elements of a dataset.
+
         Arguments:
             num {int} -- number of elements to take
-        
+
         Returns:
             Dataset -- A dataset with only the first `num` elements
         """
         if num > len(self):
-            raise ValueError("Can't take more elements than are available in dataset")
+            raise ValueError(
+                "Can't take more elements than are available in dataset")
 
         new_ids = list(range(num))
         return Dataset(downstream_getter=self, ids=new_ids)
 
     def repeat(self, times=1, mode="itemwise"):
-        """ Repeat the dataset elements
-        
+        """Repeat the dataset elements.
+
         Keyword Arguments:
             times {int} -- Number of times an element is repeated (default: {1})
             mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole' (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
-        
+
         Returns:
             [type] -- [description]
         """
@@ -446,11 +462,11 @@ class Dataset(AbstractDataset):
         return Dataset(downstream_getter=self, ids=new_ids)
 
     def reorder(self, *keys: Key):
-        """ Reorder items in the dataset (similar to numpy.transpose)
+        """Reorder items in the dataset (similar to numpy.transpose).
 
         Arguments:
             new_inds {Union[int,str]} -- positioned item index or key (if item names were previously set) of item
-            
+
         Returns:
             [Dataset] -- Dataset with items whose elements have been reordered
         """
@@ -465,7 +481,7 @@ class Dataset(AbstractDataset):
         for i in inds:
             if i > len(self.shape):
                 raise ValueError(
-                    "reoder index {} is out of range (maximum allowed index is {})".format(
+                    "reorder index {} is out of range (maximum allowed index is {})".format(
                         i, len(self.shape)
                     )
                 )
@@ -491,11 +507,11 @@ class Dataset(AbstractDataset):
         )
 
     def named(self, first: Union[str, Sequence[str]], *rest: str):
-        """Set the names associated with the elements of an item
-        
+        """Set the names associated with the elements of an item.
+
         Arguments:
             first {Union[str, Sequence[str]]} -- The new item name(s)
-        
+
         Returns:
             [Dataset] -- A Dataset whose item elements can be accessed by name
         """
@@ -516,8 +532,8 @@ class Dataset(AbstractDataset):
 
     @property
     def names(self) -> List[str]:
-        """Get the names of the elements in an item
-        
+        """Get the names of the elements in an item.
+
         Returns:
             List[str] -- A list of element names
         """
@@ -530,21 +546,23 @@ class Dataset(AbstractDataset):
     def transform(
         self,
         fns: Optional[
-            Union[ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
+            Union[ItemTransformFn,
+                  Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
         ] = None,
         **kwfns: DatasetTransformFn
     ):
-        """Transform the items of a dataset according to some function (passed as argument)
+        """Transform the items of a dataset according to some function (passed
+        as argument).
 
         Arguments:
             If a single function taking one input given, e.g. transform(lambda x: x), it will be applied to the whole item.
             If a list of functions are given, e.g. transform([image(), one_hot()]) they will be applied to the elements of the item corresponding to the position.
             If key is used, e.g. transform(data=lambda x:-x), the item associated with the key i transformed.
-        
+
         Raises:
             ValueError: If more functions are passed than there are elements in an item.
             KeyError: If a key doesn't match
-        
+
         Returns:
             [Dataset] -- Dataset whose items are transformed
         """
@@ -567,27 +585,29 @@ class Dataset(AbstractDataset):
                 if f:
                     if len(signature(f).parameters) == 1:
                         f = custom(f)  # type:ignore
-                    new_dataset = f(_key_index(self._item_names, k), new_dataset)
+                    new_dataset = f(_key_index(
+                        self._item_names, k), new_dataset)
 
         return new_dataset
 
     ########## Label transforming methods #########################
 
     def categorical(self, key: Key, mapping_fn: Callable[[Any], int] = None):
-        """Transform elemenets into categorical categoricals (int)
-        
+        """Transform elements into categorical categoricals (int).
+
         Arguments:
-            key {Key} -- Index of name for the elemeent to be transformed
-        
+            key {Key} -- Index of name for the element to be transformed
+
         Keyword Arguments:
             mapping_fn {Callable[[Any], int]} -- User defined mapping function (default: {None})
-        
+
         Returns:
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
         idx: int = _key_index(self._item_names, key)
         mapping_fn = mapping_fn or categorical_template(self, key)
-        args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
+        args = [mapping_fn or True if i ==
+                idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=categorical, args=args
         )
@@ -599,16 +619,16 @@ class Dataset(AbstractDataset):
         mapping_fn: Callable[[Any], int] = None,
         dtype="bool",
     ):
-        """Transform elements into a categorical one-hot encoding
-        
+        """Transform elements into a categorical one-hot encoding.
+
         Arguments:
-            key {Key} -- Index of name for the elemeent to be transformed
-        
+            key {Key} -- Index of name for the element to be transformed
+
         Keyword Arguments:
             encoding_size {int} -- The number of positions in the one-hot vector. If size it not provided, it we be automatically inferred (with a O(N) runtime cost) (default: {None})
             mapping_fn {Callable[[Any], int]} -- User defined mapping function (default: {None})
             dtype {str} -- Numpy datatype for the one-hot encoded data (default: {'bool'})
-        
+
         Returns:
             [Dataset] -- Dataset with items that have been transformed to categorical labels
         """
@@ -619,7 +639,8 @@ class Dataset(AbstractDataset):
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
-            transform_fn=functools.partial(one_hot, mapping_fn=mapping_fn, dtype=dtype),
+            transform_fn=functools.partial(
+                one_hot, mapping_fn=mapping_fn, dtype=dtype),
             args=args,
         )
 
@@ -627,11 +648,12 @@ class Dataset(AbstractDataset):
 
     # TODO: reconsider API
     def image(self, *positional_flags: Any):
-        """Transforms item elements that are either numpy arrays or path strings into a PIL.Image.Image
-        
+        """Transforms item elements that are either numpy arrays or path
+        strings into a PIL.Image.Image.
+
         Arguments:
             positional flags, e.g. (True, False) denoting which element should be converted. If no flags are supplied, all data that can be converted will be converted.
-        
+
         Returns:
             [Dataset] -- Dataset with PIL.Image.Image elements
         """
@@ -653,16 +675,17 @@ class Dataset(AbstractDataset):
                 args=positional_flags,
             )
         else:
-            warnings.warn("Conversion to image skipped. No elements were compatible")
+            warnings.warn(
+                "Conversion to image skipped. No elements were compatible")
             return self
 
     # TODO: reconsider API
     def numpy(self, *positional_flags: Any):
-        """Transforms elements into numpy.ndarray
-        
+        """Transforms elements into numpy.ndarray.
+
         Arguments:
             positional flags, e.g. (True, False) denoting which element should be converted. If no flags are supplied, all data that can be converted will be converted.
-        
+
         Returns:
             [Dataset] -- Dataset with np.ndarray elements
         """
@@ -745,7 +768,7 @@ class Dataset(AbstractDataset):
 
 
 def _dataset_element_transforming(fn: Callable, check: Callable = None):
-    """ Applies the function to dataset item elements """
+    """Applies the function to dataset item elements."""
 
     # @functools.wraps(fn)
     def wrapped(idx: int, ds: AbstractDataset) -> AbstractDataset:
@@ -822,11 +845,11 @@ def _check_numpy_compatibility(elem):
 
 
 def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
-    """Predicate used for filtering/sampling a dataset classwise
-    
+    """Predicate used for filtering/sampling a dataset classwise.
+
     Keyword Arguments:
         max_num_duplicates {int} -- max number of samples to take that share the same value (default: {1})
-    
+
     Returns:
         Callable[[Any], bool] -- Predicate function
     """
@@ -852,14 +875,14 @@ def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
 def custom(
     elem_transform_fn: Callable[[Any], Any], elem_check_fn: Callable[[Any], None] = None
 ) -> DatasetTransformFn:
-    """ Create a user defined transform
-    
+    """Create a user defined transform.
+
     Arguments:
-        fn {Callable[[Any], Any]} -- A user defined function, which takes the element as only argumnet
-    
+        fn {Callable[[Any], Any]} -- A user defined function, which takes the element as only argument
+
     Keyword Arguments:
         check_fn {Callable[[Any]]} -- A function that raises an Exception if the elem is incompatible (default: {None})
-    
+
     Returns:
         DatasetTransformFn -- [description]
     """
@@ -874,11 +897,11 @@ def reshape(new_shape: Shape) -> DatasetTransformFn:
 
 
 def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
-    """ Transform data into a categorical int label
-    
+    """Transform data into a categorical int label.
+
     Arguments:
         mapping_fn {Callable[[Any], int]} -- A function transforming the input data to the integer label. If not specified, labels are automatically inferred from the data.
-    
+
     Returns:
         DatasetTransformFn -- A function to be passed to the Dataset.transform()
     """
@@ -900,20 +923,24 @@ def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
 def categorical_template(ds: Dataset, key: Key) -> Callable[[Any], int]:
     """Creates a template mapping function to be with one_hot.
 
-    
     Arguments:
         ds {Dataset} -- Dataset from which to create a template for one_hot coding
         key {Key} -- Dataset key (name or item index) on the one_hot coding is made
-    
+
     Returns:
         {Callable[[Any],int]} -- mapping_fn for one_hot
     """
     unq = ds.unique(key)
     if type(unq[0]) == np.ndarray:
-        mapper = lambda x: x.tobytes()
+
+        def mapper(x):
+            return x.tobytes()
+
         unq = [mapper(x) for x in unq]
     else:
-        mapper = lambda x: x
+
+        def mapper(x):
+            return x
 
     d = {k: i for i, k in enumerate(sorted(unq))}
 
@@ -926,12 +953,12 @@ def categorical_template(ds: Dataset, key: Key) -> Callable[[Any], int]:
 def one_hot(
     encoding_size: int, mapping_fn: Callable[[Any], int] = None, dtype="bool"
 ) -> DatasetTransformFn:
-    """ Transform data into a one-hot encoded label
-    
+    """Transform data into a one-hot encoded label.
+
     Arguments:
         encoding_size {int} -- The size of the encoding
         mapping_fn {Callable[[Any], int]} -- A function transforming the input data to an integer label. If not specified, labels are automatically inferred from the data.
-    
+
     Returns:
         DatasetTransformFn -- A function to be passed to the Dataset.transform()
     """
@@ -1044,7 +1071,8 @@ def _tf_item_conversion(item: Any):
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
-    ds = Dataset(downstream_getter=dataset, item_transform_fn=_tf_item_conversion)
+    ds = Dataset(downstream_getter=dataset,
+                 item_transform_fn=_tf_item_conversion)
     item = ds[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,

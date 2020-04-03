@@ -10,8 +10,7 @@ class ItemGetter(ABC):
 
 
 class AbstractDataset(ItemGetter):
-    """Abstract base class defining a generic dataset interface.
-    """
+    """Abstract base class defining a generic dataset interface."""
 
     def __init__(self):
         pass  # pragma: no cover
@@ -20,14 +19,13 @@ class AbstractDataset(ItemGetter):
 
     @abstractmethod
     def __len__(self) -> int:
-        """Return the total number of elements in the dataset
-        """
+        """Return the total number of elements in the dataset."""
         pass  # pragma: no cover
 
     @abstractmethod
     def __getitem__(self, idx: int) -> Tuple:
-        """Returns the element at the specified index
-        
+        """Returns the element at the specified index.
+
         Parameters
         ----------
         idx : int
