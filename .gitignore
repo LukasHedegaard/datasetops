@@ -138,4 +138,5 @@ dmypy.json
 .pyre/
 .DS_Store
 
-tests/recourses
+tests/recourses/*
+!tests/recourses/caching
