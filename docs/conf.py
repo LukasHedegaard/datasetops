@@ -63,7 +63,7 @@ html_theme_options = {
 html_static_path = ["_static"]
 
 
-# -- API documenation ------------------------------------------------------
+# -- API documentation ------------------------------------------------------
 extensions.append("autoapi.extension")
 autoapi_type = "python"
 autoapi_dirs = ["../src/"]
