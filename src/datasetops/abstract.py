@@ -28,7 +28,8 @@ class AbstractDataset(ItemGetter):
 
         Parameters
         ----------
-        idx : intndex from which to read the sample.
+        idx : int
+            the index from which to read the sample.
         """
         pass  # pragma: no cover
 
