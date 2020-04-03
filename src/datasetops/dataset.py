@@ -520,9 +520,9 @@ class Dataset(AbstractDataset):
         if type(first) == str:
             names.append(first)  # type: ignore
         else:
-            assert type(first) is list
+            assert hasattr(first, "__len__")
             assert type(first[0]) is str
-            names = first  # type: ignore
+            names = list(first)  # type: ignore
 
         names.extend(rest)
 
