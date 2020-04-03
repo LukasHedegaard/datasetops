@@ -26,10 +26,10 @@ def _zipped_item_names(*datasets: AbstractDataset):
 
 class ZipDataset(AbstractDataset):
     def __init__(self, *downstream_datasets: AbstractDataset):
-        """ Compose datasets by zipping and flattening their items. 
-            The resulting dataset will have a length equal to the shortest of provided datasets
-            NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
-        
+        """ Compose datasets by zipping and flattening their items.
+        The resulting dataset will have a length equal to the shortest of provided datasets
+        NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
+
         Arguments:
             downstream_datasets {[AbstractDataset]} -- Comma-separated datasets
         """
@@ -49,12 +49,14 @@ class ZipDataset(AbstractDataset):
 
 class CartesianProductDataset(AbstractDataset):
     def __init__(self, *downstream_datasets: AbstractDataset):
-        """ Compose datasets with a cartesian product. 
-            This will produce a dataset containing all combinations of data. 
-            Example: For two sets [1,2], ['a','b'] it produces [(1,'a'), (2,'a'), (1,'b'), (2,'b'),]. 
-            The resulting dataset will have a length equal to the product of the length of the downstream datasets.
-            NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
-        
+        """Compose datasets with a cartesian product.
+
+        This will produce a dataset containing all combinations of data.
+        Example: For two sets [1,2], ['a','b'] it produces [(1,'a'), (2,'a'), (1,'b'), (2,'b'),].
+        The resulting dataset will have a length equal to the product of the length of the downstream datasets.
+
+        NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
+
         Arguments:
             downstream_datasets {[AbstractDataset]} -- Comma-separated datasets
         """
@@ -96,9 +98,9 @@ class CartesianProductDataset(AbstractDataset):
 
 class ConcatDataset(AbstractDataset):
     def __init__(self, *downstream_datasets: AbstractDataset):
-        """ Compose datasets by concatenating them, placing one after the other. 
-            The resulting dataset will have a length equal to the sum of datasets.
-        
+        """Compose datasets by concatenating them, placing one after the other.
+        The resulting dataset will have a length equal to the sum of datasets.
+
         Arguments:
             downstream_datasets {[AbstractDataset]} -- Comma-separated datasets
         """
