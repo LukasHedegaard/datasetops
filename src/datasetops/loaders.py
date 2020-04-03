@@ -30,7 +30,14 @@ class Loader(Dataset):
 
 
 def from_pytorch(pytorch_dataset):
-    import torch
+    """Create dataset from a Pytorch dataset
+    
+    Arguments:
+        tf_dataset {torch.utils.data.Dataset} -- A Pytorch dataset to load from
+    
+    Returns:
+        [Dataset] -- A datasetops.Dataset
+    """
 
     def get_data(i) -> Tuple:
         nonlocal pytorch_dataset
@@ -42,18 +49,68 @@ def from_pytorch(pytorch_dataset):
     return ds
 
 
+def from_tensorflow(tf_dataset):
+    """Create dataset from a Tensorflow dataset
+    
+    Arguments:
+        tf_dataset {tf.data.Dataset} -- A Tensorflow dataset to load from
+    
+    Raises:
+        AssertionError: Raises error if Tensorflow is not executing eagerly
+    
+    Returns:
+        [Dataset] -- A datasetops.Dataset
+    """
+    import tensorflow as tf
+
+    if not tf.executing_eagerly():
+        raise AssertionError(
+            "Tensorflow must be executing eagerly for `from_tensorflow` to work"
+        )
+
+    # We could create a mem which is filled up gradually, when samples are needed. However, then we would the to get the number of samples as a parameter
+    # The latency using this solution seems to be acceptable
+    tf_ds = list(tf_dataset)
+
+    if type(tf_dataset.element_spec) == dict:
+        keys = list(tf_dataset.element_spec.keys())
+    elif hasattr(tf_dataset.element_spec, "__len__"):
+        keys = list(range(len(tf_dataset.element_spec)))
+    else:
+        keys = [0]
+
+    def get_data(i) -> Tuple:
+        nonlocal tf_ds, keys
+        tf_item = tf_ds[i]
+        if not type(tf_item) in [list, tuple, dict]:
+            tf_item = [tf_item]
+        item = tuple(
+            [
+                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
+                for k in keys
+            ]
+        )
+        return item
+
+    ds = Loader(get_data)
+    ds.extend(list(range(len(tf_ds))))
+    if type(keys[0]) == str:
+        ds = ds.named([str(k) for k in keys])
+    return ds
+
+
 def from_folder_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
-        folder
-        |- sample1.jpg
-        |- sample2.jpg
+    folder
+    |- sample1.jpg
+    |- sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to folder
-    
+
     Returns:
-        Dataset -- A dataset of data paths, 
+        Dataset -- A dataset of data paths,
                    e.g. ('nested_folder/class1/sample1.jpg')
     """
     p = Path(path)
@@ -72,18 +129,18 @@ def from_folder_data(path: AnyPath) -> Dataset:
 def from_folder_class_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
-        nested_folder
-        |- class1
-            |- sample1.jpg
-            |- sample2.jpg
-        |- class2
-            |- sample3.jpg
+    nested_folder
+    |- class1
+        |- sample1.jpg
+        |- sample2.jpg
+    |- class2
+        |- sample3.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
-    
+
     Returns:
-        Dataset -- A labelled dataset of data paths and corresponding class labels, 
+        Dataset -- A labelled dataset of data paths and corresponding class labels,
                    e.g. ('nested_folder/class1/sample1.jpg', 'class1')
     """
     p = Path(path)
@@ -137,21 +194,21 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
 def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
-        nested_folder
-        |- dataset1
-            |- class1
-                |- sample1.jpg
-                |- sample2.jpg
-            |- class2
-                |- sample3.jpg
-        |- dataset2
-            |- ...
+    nested_folder
+    |- dataset1
+        |- class1
+            |- sample1.jpg
+            |- sample2.jpg
+        |- class2
+            |- sample3.jpg
+    |- dataset2
+        |- ...
 
     Arguments:
         path {AnyPath} -- path to nested folder
-    
+
     Returns:
-        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels, 
+        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels,
                          e.g. ('nested_folder/class1/sample1.jpg', 'class1')
     """
     p = Path(path)
@@ -247,13 +304,13 @@ def _dataset_from_np_dict(
 
 
 def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
-    """Load data from .mat file consisting of multiple data
+    """Load data from .mat file consisting of multiple data.
 
-       E.g. a .mat file with keys ['X_src', 'Y_src', 'X_tgt', 'Y_tgt']
+    E.g. a .mat file with keys ['X_src', 'Y_src', 'X_tgt', 'Y_tgt']
 
     Arguments:
         path {AnyPath} -- path to .mat file
-    
+
     Returns:
         List[Dataset] -- A list of datasets, where a dataset was created for each suffix
                          e.g. a dataset with data from the keys ('X_src', 'Y_src') and from ('X_tgt', 'Y_tgt')
