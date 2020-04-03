@@ -10,6 +10,8 @@ class DatasetPaths(NamedTuple):
     FOLDER_DATASET_CLASS_DATA: str = "folder_dataset_class_data"
     MAT_SINGLE_WITH_MULTI_DATA: str = "mat_single_with_multi_data"
     KITTI_DATASET: str = "caching/kitti_dataset"
+    FOLDER_GROUP_DATA: str = KITTI_DATASET + '/training'
+    FOLDER_DATASET_GROUP_DATA: str = KITTI_DATASET
 
 
 DATASET_PATHS = DatasetPaths()
