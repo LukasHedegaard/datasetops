@@ -33,6 +33,13 @@ class AbstractDataset(ItemGetter):
         """
         pass  # pragma: no cover
 
+    @abstractmethod
+    def _get_origin(self) -> Tuple:
+        """Returns parent Dataset or list of parent Datasets and description
+        of how it was made
+        """
+        pass  # pragma: no cover
+
     def __iter__(self):
         for i in range(self.__len__()):
             yield self.__getitem__(i)

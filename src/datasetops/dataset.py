@@ -163,10 +163,12 @@ class Dataset(AbstractDataset):
     def __init__(
         self,
         downstream_getter: Union[ItemGetter, "Dataset"],
+        operation: str,
         name: str = None,
         ids: Ids = None,
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
+        operation_parameters: Dict = None
     ):
         """Initialise.
 
@@ -183,10 +185,12 @@ class Dataset(AbstractDataset):
             # type: ignore
             self._ids = list(range(len(self._downstream_getter._ids)))
             self._item_names = getattr(downstream_getter, "_item_names", None)
+            self.cachable = self._downstream_getter.cachable
         else:
             self.name = ""
             self._ids = []
             self._item_names: ItemNames = {}
+            self.cachable = True
 
         if name:
             self.name = name
@@ -197,11 +201,53 @@ class Dataset(AbstractDataset):
 
         self._item_transform_fn = item_transform_fn
 
+        if operation == "transform":
+            self.origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation,
+                    "parameters": {
+                        "function": self._item_transform_fn
+                    }
+                }
+            }
+        elif operation == "copy":
+            self.origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation
+                }
+            }
+        elif operation in ["sample", "shuffle", "split"]:
+            self.cachable = operation_parameters["seed"] is not None
+            self.origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation,
+                    "parameters": operation_parameters
+                }
+            }
+        elif operation in ["filter", "split_filter", "take", "reorder"]:
+            self.origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation,
+                    "parameters": operation_parameters
+                }
+            }
+        elif operation == "load":
+            pass
+        else:
+            raise ValueError("Unknown operation '" + operation + "'")
+
     def __len__(self):
         return len(self._ids)
 
     def __getitem__(self, i: int) -> Tuple:
         return self._item_transform_fn(self._downstream_getter[self._ids[i]])
+
+    def _get_origin(self) -> Union[List[Dict], Dict]:
+        return self.origin
 
     @property
     def shape(self) -> Sequence[int]:
@@ -306,7 +352,13 @@ class Dataset(AbstractDataset):
             new_ids = random.sample(range(l), l) + random.sample(
                 range(l), num - l
             )  # Supersample.
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self, ids=new_ids,
+            operation="sample", operation_parameters={
+                "num": num,
+                "seed": seed
+            }
+        )
 
     @_warn_no_args(skip=1)
     def filter(
@@ -330,7 +382,13 @@ class Dataset(AbstractDataset):
         )
         new_ids = list(filter(lambda i: condition(
             self.__getitem__(i)), self._ids))
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self, ids=new_ids,
+            operation="filter", operation_parameters={
+                "predicates": predicates,
+                "kwpredicates": kwpredicates
+            }
+        )
 
     @_raise_no_args(skip=1)
     def split_filter(
@@ -360,8 +418,17 @@ class Dataset(AbstractDataset):
                 nack.append(i)
 
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids)
-             for new_ids in [ack, nack]]
+            [
+                Dataset(
+                    downstream_getter=self, ids=new_ids,
+                    operation="split_filter",
+                    operation_parameters={
+                        "predicates": predicates,
+                        "kwpredicates": kwpredicates
+                    }
+                )
+                for new_ids in [ack, nack]
+             ]
         )
 
     def shuffle(self, seed: int = None):
@@ -376,7 +443,12 @@ class Dataset(AbstractDataset):
         random.seed(seed)
         new_ids = list(range(len(self)))
         random.shuffle(new_ids)
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self, ids=new_ids,
+            operation="shuffle", operation_parameters={
+                "seed": seed
+            }
+        )
 
     def split(self, fractions: List[float], seed: int = None):
         """Split dataset into multiple datasets, determined by the fractions
@@ -420,10 +492,20 @@ class Dataset(AbstractDataset):
             else:
                 split_ids[i].extend(new_ids[last_ind:])
 
+        print(len(split_ids))
+
         # create datasets corresponding to each split
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids,)
-             for new_ids in split_ids]
+            [
+                Dataset(
+                    downstream_getter=self, ids=new_ids,
+                    operation="split", operation_parameters={
+                        "fractions": fractions,
+                        "seed": seed,
+                    }
+                )
+                for new_ids in split_ids
+            ]
         )
 
     def take(self, num: int):
@@ -440,7 +522,12 @@ class Dataset(AbstractDataset):
                 "Can't take more elements than are available in dataset")
 
         new_ids = list(range(num))
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self, ids=new_ids,
+            operation="take", operation_parameters={
+                "num": num,
+            }
+        )
 
     def repeat(self, times=1, mode="itemwise"):
         """Repeat the dataset elements.
@@ -459,7 +546,13 @@ class Dataset(AbstractDataset):
             ],
         }[mode]()
 
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self, ids=new_ids,
+            operation="repeat", operation_parameters={
+                "times": times,
+                "mode": mode,
+            }
+        )
 
     def reorder(self, *keys: Key):
         """Reorder items in the dataset (similar to numpy.transpose).
@@ -504,6 +597,9 @@ class Dataset(AbstractDataset):
             downstream_getter=self,
             item_transform_fn=item_transform_fn,
             item_names=item_names,
+            operation="reorder", operation_parameters={
+                "keys": keys,
+            }
         )
 
     def named(self, first: Union[str, Sequence[str]], *rest: str):
@@ -577,7 +673,10 @@ class Dataset(AbstractDataset):
         new_dataset: AbstractDataset = self
 
         if bulk:
-            return Dataset(downstream_getter=self, item_transform_fn=bulk)
+            return Dataset(
+                downstream_getter=self, item_transform_fn=bulk,
+                operation="transform"
+            )
 
         for k, v in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
             funcs = v if type(v) in [list, tuple] else [v]
@@ -784,7 +883,10 @@ def _dataset_element_transforming(fn: Callable, check: Callable = None):
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-        return Dataset(downstream_getter=ds, item_transform_fn=item_transform_fn,)
+        return Dataset(
+            downstream_getter=ds, item_transform_fn=item_transform_fn,
+            operation="transform"
+        )
 
     return wrapped
 
@@ -1013,19 +1115,28 @@ def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
 @_warn_no_args(skip=1)
 def zipped(*datasets: AbstractDataset):
     comp = compose.ZipDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(
+        downstream_getter=comp, ids=comp._ids,
+        operation="copy"
+    )
 
 
 @_warn_no_args(skip=1)
 def cartesian_product(*datasets: AbstractDataset):
     comp = compose.CartesianProductDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(
+        downstream_getter=comp, ids=comp._ids,
+        operation="copy"
+    )
 
 
 @_warn_no_args(skip=1)
 def concat(*datasets: AbstractDataset):
     comp = compose.ConcatDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(
+        downstream_getter=comp, ids=comp._ids,
+        operation="copy"
+    )
 
 
 ########## Converters ####################
@@ -1071,8 +1182,11 @@ def _tf_item_conversion(item: Any):
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
-    ds = Dataset(downstream_getter=dataset,
-                 item_transform_fn=_tf_item_conversion)
+    ds = Dataset(
+        downstream_getter=dataset,
+        item_transform_fn=_tf_item_conversion,
+        operation="transform"
+    )
     item = ds[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,

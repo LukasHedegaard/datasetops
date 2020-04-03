@@ -1,3 +1,4 @@
+from typing import Union
 from datasetops.abstract import AbstractDataset
 from datasetops.types import *
 import numpy as np
@@ -40,11 +41,30 @@ class ZipDataset(AbstractDataset):
         self.name = "zipped{}".format([ds.name for ds in self._downstream_datasets])
         self._item_names = _zipped_item_names(*downstream_datasets)
 
+        self.cachable = True
+
+        for ds in self._downstream_datasets:
+            if not ds.cachable:
+                self.cachable = False
+
     def __len__(self) -> int:
         return min([len(ds) for ds in self._downstream_datasets])
 
     def __getitem__(self, idx: int) -> Tuple:
         return tuple([elem for ds in self._downstream_datasets for elem in ds[idx]])
+    
+    def _get_origin(self) -> Union[List[Dict], Dict]:
+        result = list(map(
+            lambda ds: {
+                "dataset": ds,
+                "operation": {
+                    "name": "zip",
+                }
+            }
+            , self._downstream_datasets
+        ))
+
+        return result
 
 
 class CartesianProductDataset(AbstractDataset):
@@ -69,6 +89,12 @@ class CartesianProductDataset(AbstractDataset):
             [ds.name for ds in self._downstream_datasets]
         )
         self._item_names = _zipped_item_names(*downstream_datasets)
+        
+        self.cachable = True
+
+        for ds in self._downstream_datasets:
+            if not ds.cachable:
+                self.cachable = False
 
     def __len__(self) -> int:
         return int(
@@ -94,6 +120,17 @@ class CartesianProductDataset(AbstractDataset):
                 for elem in ds[inds[i]]
             ]
         )
+    
+    def _get_origin(self) -> Union[List[Dict], Dict]:
+        result = list(map(
+            lambda ds: {
+                "dataset": ds,
+                "operation": {
+                    "name": "cartesian_product",
+                }
+            }
+            , self._downstream_datasets
+        ))
 
 
 class ConcatDataset(AbstractDataset):
@@ -125,6 +162,12 @@ class ConcatDataset(AbstractDataset):
             lambda acc, ds: acc + [len(ds) + acc[-1]], self._downstream_datasets, [0]
         )
 
+        self.cachable = True
+
+        for ds in self._downstream_datasets:
+            if not ds.cachable:
+                self.cachable = False
+
     def __len__(self) -> int:
         return sum([len(ds) for ds in self._downstream_datasets])
 
@@ -134,6 +177,17 @@ class ConcatDataset(AbstractDataset):
         )
         index_in_dataset = idx - self._acc_idx_range[dataset_index]
         return self._downstream_datasets[dataset_index][index_in_dataset]
+
+    def _get_origin(self) -> Union[List[Dict], Dict]:
+        result = list(map(
+            lambda ds: {
+                "dataset": ds,
+                "operation": {
+                    "name": "concat",
+                }
+            }
+            , self._downstream_datasets
+        ))
 
 
 class InterleaveDataset(AbstractDataset):

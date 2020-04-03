@@ -11,16 +11,19 @@ import warnings
 
 class Loader(Dataset):
     def __init__(
-        self, getdata: Callable[[Any], Any], name: str = None,
+        self, getdata: Callable[[Any], Any],
+        identifier: Optional[str], name: str = None,
     ):
         if not callable(getdata):
             raise TypeError("get_data should be callable")
+
+        self.identifier = identifier
 
         class Getter(ItemGetter):
             def __getitem__(self, i: int):
                 return getdata(i)
 
-        super().__init__(downstream_getter=Getter(), name=name)
+        super().__init__(downstream_getter=Getter(), name=name, operation="load")
 
     def append(self, identifier: Data):
         self._ids.append(identifier)
@@ -28,12 +31,20 @@ class Loader(Dataset):
     def extend(self, ids: Union[List[Data], np.ndarray]):
         self._ids.extend(list(ids))
 
+    def _get_origin(self) -> Union[List[Dict], Dict]:
+        result = {
+            'root': self.identifier
+        }
 
-def from_pytorch(pytorch_dataset):
+        return result
+
+
+def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
     """Create dataset from a Pytorch dataset
     
     Arguments:
         tf_dataset {torch.utils.data.Dataset} -- A Pytorch dataset to load from
+        identifier {Optional[str]} -- unique identifier
     
     Returns:
         [Dataset] -- A datasetops.Dataset
@@ -44,16 +55,17 @@ def from_pytorch(pytorch_dataset):
         item = pytorch_dataset[i]
         return tuple([x.numpy() if hasattr(x, "numpy") else x for x in item])
 
-    ds = Loader(get_data)
+    ds = Loader(get_data, identifier)
     ds.extend(list(range(len(pytorch_dataset))))
     return ds
 
 
-def from_tensorflow(tf_dataset):
+def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
     """Create dataset from a Tensorflow dataset
     
     Arguments:
         tf_dataset {tf.data.Dataset} -- A Tensorflow dataset to load from
+        identifier {Optional[str]} -- unique identifier
     
     Raises:
         AssertionError: Raises error if Tensorflow is not executing eagerly
@@ -92,7 +104,7 @@ def from_tensorflow(tf_dataset):
         )
         return item
 
-    ds = Loader(get_data)
+    ds = Loader(get_data, identifier)
     ds.extend(list(range(len(tf_ds))))
     if type(keys[0]) == str:
         ds = ds.named([str(k) for k in keys])
@@ -120,7 +132,7 @@ def from_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i),)
 
-    ds = Loader(get_data, "Data Getter for folder with structure 'root/data'")
+    ds = Loader(get_data, str(path), "Data Getter for folder with structure 'root/data'")
     ds.extend(ids)
 
     return ds
@@ -150,7 +162,7 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(get_data, "Data Getter for folder with structure 'root/classes/data'")
+    ds = Loader(get_data, str(path), "Data Getter for folder with structure 'root/classes/data'")
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -246,6 +258,7 @@ def _dataset_from_np_dict(
     data_keys: List[str],
     label_key: str = None,
     name: str = None,
+    identifier: str = None
 ) -> Dataset:
     all_keys = [*data_keys, label_key]
     shapes_list = [data[k].shape for k in data_keys]
@@ -285,7 +298,7 @@ def _dataset_from_np_dict(
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = Loader(get_data, name=name)
+    ds = Loader(get_data, identifier, name=name)
 
     # populate data getter
     if label_key:
@@ -337,6 +350,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     LABEL_INDICATORS = ["y", "lbl", "lbls", "label", "labels"]
 
     # create a dataset for each suffix
+    
     datasets: List[Dataset] = []
     for suffix, keys in keys_by_suffix.items():
         label_keys = list(
@@ -355,7 +369,8 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
 
         datasets.append(
             _dataset_from_np_dict(
-                data=mat, data_keys=data_keys, label_key=label_key, name=suffix
+                data=mat, data_keys=data_keys, label_key=label_key, name=suffix,
+                identifier=str(Path(path) / suffix)
             )
         )
 
