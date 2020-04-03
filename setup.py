@@ -31,6 +31,7 @@ setup(
             "tensorflow",
             "torch",
             "torchvision",
+            "tensorflow_datasets",
         ],
         "docs": ["Sphinx", "recommonmark", "sphinx_rtd_theme", "sphinx-autoapi"],
         "build": ["setuptools", "wheel", "twine"],

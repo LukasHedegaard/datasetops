@@ -68,7 +68,7 @@ What follows here is a list of implemented and planned features.
 ### Loaders
 - [x] `Loader` (utility class used to define a dataset)
 - [x] `from_pytorch` (load from a `torch.utils.data.Dataset`)
-- [ ] `from_tensorflow` (load from a `tf.data.Dataset`)
+- [x] `from_tensorflow` (load from a `tf.data.Dataset`)
 - [x] `from_folder_data` (load flat folder with data)
 - [x] `from_folder_class_data` (load nested folder with a folder for each class)
 - [x] `from_folder_dataset_class_data` (load nested folder with multiple datasets, each with a nested class folder structure )

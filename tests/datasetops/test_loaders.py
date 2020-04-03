@@ -107,3 +107,39 @@ def test_pytorch():
 
     # labels are the same
     assert torch_ds[0][1] == ds_torch[0][1] == 0
+
+
+@pytest.mark.slow
+def test_tfds():
+    import tensorflow as tf
+    import tensorflow_datasets as tfds
+
+    # basic tf.data.Dataset
+
+    tf_123 = tf.data.Dataset.from_tensor_slices([1, 2, 3])
+    ds_123 = loaders.from_tensorflow(tf_123)
+
+    for t, d in zip(list(tf_123), list(ds_123)):
+        assert t.numpy() == d[0]
+
+    # from TFDS
+    tf_mnist = tfds.load("mnist", split="test")
+
+    ds_mnist = loaders.from_tensorflow(tf_mnist)
+
+    mnist_item = next(iter(tf_mnist))
+    ds_mnist_item = ds_mnist[0]
+
+    assert np.array_equal(mnist_item["image"].numpy(), ds_mnist_item[0])
+    assert np.array_equal(mnist_item["label"].numpy(), ds_mnist_item[1])
+
+    # also works for 'as_supervised'
+    tf_mnist = tfds.load("mnist", split="test", as_supervised=True)
+
+    ds_mnist = loaders.from_tensorflow(tf_mnist)
+
+    mnist_item = next(iter(tf_mnist))
+    ds_mnist_item = ds_mnist[0]
+
+    assert np.array_equal(mnist_item[0].numpy(), ds_mnist_item[0])
+    assert np.array_equal(mnist_item[1].numpy(), ds_mnist_item[1])
