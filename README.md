@@ -118,7 +118,8 @@ What follows here is a list of implemented and planned features.
 - [ ] `center` (modify each item according to dataset statistics)
 - [ ] `normalize` (modify each item according to dataset statistics)
 - [ ] `standardize` (modify each item according to dataset statistics)
-- [ ] `whiten` (modify each item according to dataset statistics)
+- [ ] `minmax` (scale data to reside within a range)
+- [ ] `maxabs` (scale each feature by its maximum absolute value.)
 - [ ] `randomly` (apply data transformations with some probability)
 
 ### Dataset combinations 
