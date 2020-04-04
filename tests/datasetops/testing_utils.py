@@ -18,7 +18,9 @@ DATASET_PATHS = DatasetPaths()
 
 
 def get_test_dataset_path(dataset_path: str) -> str:
-    return str((Path(__file__).parent.parent / "recourses" / dataset_path).absolute())
+    return str(
+        (Path(__file__).parent.parent / "resourses" / dataset_path).absolute()
+    )
 
 
 def from_dummy_data(num_total=11, with_label=False) -> Loader:
