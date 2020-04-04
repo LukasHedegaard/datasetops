@@ -62,8 +62,7 @@ def test_common_nodes_equality():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     test1, test2 = test \
         .image(False, True, False) \
@@ -97,8 +96,7 @@ def test_operation_origins():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     test = test.image(False, True, False)
     assert(test._get_origin()["operation"]["name"] == "transform")
@@ -205,8 +203,7 @@ def test_serialization_same():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     test = test.image(False, True, False)
     assert_serialized_is_same(test)
@@ -279,8 +276,7 @@ def test_serialization_not_same():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     test1 = test.image(False, True, False)
     assert_serialized_is_not_same(test1, test)
