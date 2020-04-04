@@ -273,14 +273,19 @@ class Dataset(AbstractDataset):
             length = 0
             values = []
             read_file = None
+            names = []
 
             def data_extractor():
 
                 nonlocal length
                 nonlocal values
                 nonlocal read_file
+                nonlocal names
 
                 length = dill.load(read_file)
+                yield True
+
+                names = dill.load(read_file)
                 yield True
 
                 for i in range(length):
@@ -314,11 +319,15 @@ class Dataset(AbstractDataset):
                 }
             )
 
+            if (len(names) > 0):
+                result = result.named(names)
+
             return result
         else:
 
             def data_generator():
                 yield len(self)
+                yield self.names
 
                 for data in self:
                     yield data

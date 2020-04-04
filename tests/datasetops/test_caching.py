@@ -78,6 +78,8 @@ def test_cache():
             cached = dataset.cached(cache_path)
             cached_all_data = []
 
+            assert(cached.names == dataset.names)
+
             for data in cached:
                 cached_all_data.append(data)
 
@@ -86,6 +88,8 @@ def test_cache():
 
             cached2 = dataset.cached(cache_path)
             cached2_all_data = []
+
+            assert(cached2.names == dataset.names)
 
             for data in cached2:
                 cached2_all_data.append(data)
@@ -322,3 +326,5 @@ def test_cache():
              test5_1, test5_2, test5,
              test4, test3, test2, test1, test], cache_path, False
         )
+
+        Cache.clear(cache_path)
