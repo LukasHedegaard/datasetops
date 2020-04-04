@@ -43,6 +43,10 @@ def test_readme_example_1():
 def test_readme_example_2():
     import torchvision
 
+    import ssl
+
+    ssl._create_default_https_context = ssl._create_unverified_context
+
     p = str((Path(__file__).parent.parent / "recourses").absolute())
     torch_usps = torchvision.datasets.USPS(p, download=True)
     tensorflow_usps = do.from_pytorch(torch_usps).to_tensorflow()
