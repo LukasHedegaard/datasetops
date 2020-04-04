@@ -717,7 +717,7 @@ class Dataset(AbstractDataset):
 
         names.extend(rest)
 
-        assert len(names) <= len(self.shape)
+        assert (len(names) <= len(self.shape)) or len(self) == 0
         self._item_names = {n: i for i, n in enumerate(names)}
         return self
 
