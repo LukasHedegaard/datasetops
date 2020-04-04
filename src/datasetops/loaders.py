@@ -36,7 +36,7 @@ class Loader(Dataset):
 
     def _get_origin(self) -> Union[List[Dict], Dict]:
         result = {
-            'root': self.identifier
+            "root": self.identifier
         }
 
         return result
