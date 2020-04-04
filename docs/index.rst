@@ -1,55 +1,88 @@
-.. datasetops documentation master file, created by
-   sphinx-quickstart on Thu Feb 27 11:02:20 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Dataset Ops documentation
-=======================================
+=========================
 Friendly dataset operations for your data science needs.
 Dataset Ops provides declarative loading, sampling, splitting and transformation operations for datasets, alongside export options for easy integration with Tensorflow and PyTorch.
 
 .. image:: pics/pipeline.svg
-   :width: 500
+   :width: 1000
    :alt: Dataset Ops pipeline
+
+
+First Steps
+-----------
+Are you looking for ways to install the framework 
+or do you looking for inspiration to get started?
+
+* **Installing**:
+   :doc:`Installing <installing>`
+
+* **Getting Started**:
+   :doc:`Getting started <getting_started>`
 
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
    :caption: Getting Started:
 
    installing
    getting_started
 
+Loaders and Transforms
+----------------------
+
+Get an overview of the available loaders and transforms that can be used with your dataset.
+
+* **Loaders**:
+   :doc:`Standard loaders <loaders_standard>`
+
+* **Transforms**:
+   :doc:`General <transforms_common>` |
+   :doc:`Image <transforms_images>` |
+   :doc:`Time-series <transforms_timeseries>`
+
+It is also possible to implement your own loaders and transforms.
+
+* **User-Defined**:
+   :doc:`Loaders <transforms_timeseries>`
+
+
 .. toctree::
    :maxdepth: 2
-   :caption: Loaders
-
-
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Transforms
+   :hidden:
+   :caption: Loaders and Transforms
    
-   transforms_general.rst
-   transforms_images.rst
-   transforms_timeseries.rst
+   loaders_standard
+   transforms_common
+   transforms_images
+   transforms_timeseries
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
    :caption: How-to guides:
 
-   howto_new_loader.rst
-   howto_new_transform.rst
+   howto_new_loader
+   howto_new_transform
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
+   :caption: Performance
+
+   optimizations
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
    :caption: Contributing:
 
-   continuous_integration.rst
-   documentation_structure.rst
+   continuous_integration
+   documentation_structure
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
    :caption: API Reference:
 
    autoapi/index
