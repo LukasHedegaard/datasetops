@@ -493,8 +493,6 @@ class Dataset(AbstractDataset):
             else:
                 split_ids[i].extend(new_ids[last_ind:])
 
-        print(len(split_ids))
-
         # create datasets corresponding to each split
         return tuple(
             [
