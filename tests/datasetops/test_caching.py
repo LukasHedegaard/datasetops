@@ -1,7 +1,8 @@
 from datasetops.dataset import zipped
 from datasetops import loaders
 import numpy as np
-from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+from testing_utils import get_test_dataset_path, \
+    from_dummy_numpy_data, DATASET_PATHS  # type:ignore
 
 
 def test_cachable():
@@ -16,24 +17,27 @@ def test_cachable():
         with open(path, "rb") as file:
             return np.array(file.read())
 
-    assert(test.cachable == True)
+    assert(test.cachable)
 
     test = test.image(False, True, False)
-    assert(test.cachable == True)
+    assert(test.cachable)
 
     test = test.transform((read_text, None, None))
-    assert(test.cachable == True)
+    assert(test.cachable)
 
     test = test.transform((None, None, read_bin))
-    assert(test.cachable == True)
+    assert(test.cachable)
 
     test = test.image_resize(None, (10, 10), None)
-    assert(test.cachable == True)
+    assert(test.cachable)
 
     test1, test2 = test.split([0.3, -1])
-    assert(test1.cachable == False)
-    assert(test2.cachable == False)
-    
+    assert(not test1.cachable)
+    assert(not test2.cachable)
+
     test3, test4 = test.split([0.3, -1], 2605)
-    assert(test3.cachable == True)
-    assert(test4.cachable == True)
+    assert(test3.cachable)
+    assert(test4.cachable)
+
+    unidentified = from_dummy_numpy_data()
+    assert(not unidentified.cachable)

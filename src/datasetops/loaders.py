@@ -12,7 +12,7 @@ import warnings
 class Loader(Dataset):
     def __init__(
         self, getdata: Callable[[Any], Any],
-        identifier: Optional[str], name: str = None,
+        identifier: Optional[str] = None, name: str = None,
     ):
         if not callable(getdata):
             raise TypeError("get_data should be callable")
@@ -24,6 +24,9 @@ class Loader(Dataset):
                 return getdata(i)
 
         super().__init__(downstream_getter=Getter(), name=name, operation="load")
+
+        if self.identifier is None:
+            self.cachable = False
 
     def append(self, identifier: Data):
         self._ids.append(identifier)
