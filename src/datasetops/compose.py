@@ -60,8 +60,7 @@ class ZipDataset(AbstractDataset):
                 "operation": {
                     "name": "zip",
                 }
-            }
-            , self._downstream_datasets
+            }, self._downstream_datasets
         ))
 
         return result
@@ -89,7 +88,7 @@ class CartesianProductDataset(AbstractDataset):
             [ds.name for ds in self._downstream_datasets]
         )
         self._item_names = _zipped_item_names(*downstream_datasets)
-        
+
         self.cachable = True
 
         for ds in self._downstream_datasets:
@@ -128,9 +127,10 @@ class CartesianProductDataset(AbstractDataset):
                 "operation": {
                     "name": "cartesian_product",
                 }
-            }
-            , self._downstream_datasets
+            }, self._downstream_datasets
         ))
+
+        return result
 
 
 class ConcatDataset(AbstractDataset):
@@ -185,9 +185,10 @@ class ConcatDataset(AbstractDataset):
                 "operation": {
                     "name": "concat",
                 }
-            }
-            , self._downstream_datasets
+            }, self._downstream_datasets
         ))
+
+        return result
 
 
 class InterleaveDataset(AbstractDataset):
