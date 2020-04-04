@@ -1176,7 +1176,7 @@ def _tf_item_conversion(item: Any):
     if type(item) == dict:
         return {str(k): _tf_item_conversion(v) for k, v in item.items()}
 
-    if type(item) in [Image.Image]:
+    if issubclass(type(item), Image.Image):
         return np.array(item)
 
     return item
