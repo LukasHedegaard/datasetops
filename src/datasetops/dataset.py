@@ -196,7 +196,7 @@ class Dataset(AbstractDataset):
             self.name = name
         if item_names:
             self._item_names = item_names
-        if ids:
+        if ids is not None:
             self._ids: Ids = ids
 
         self._item_transform_fn = item_transform_fn
