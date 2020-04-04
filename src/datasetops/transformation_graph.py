@@ -1,4 +1,6 @@
 from typing import Dict
+import copy
+import dill
 
 
 class TransformationGraph():
@@ -83,3 +85,38 @@ class TransformationGraph():
                     node = node["edge"]["parent"]
 
         print_graph(self.graph)
+
+    def serialize(self) -> str:
+        def minimize(node):
+
+            current_node = node
+
+            def minimized_value(edge):
+
+                value = {}
+
+                for key, val in edge.items():
+                    if key not in ["dataset"]:
+                        value[key] = val
+
+                return value
+
+            while current_node is not None:
+                if type(current_node["edge"]) == list:
+                    for i, edge in enumerate(current_node["edge"]):
+                        current_node["edge"][i] = minimized_value(edge)
+                        minimize(edge["parent"])
+                    return
+                else:
+                    current_node["edge"] = minimized_value(current_node["edge"])
+                    current_node = current_node["edge"]["parent"]
+
+        result = copy.deepcopy(self.graph)
+        minimize(result)
+
+        result = dill.dumps(result)
+
+        return result
+
+    def is_same_as_serialized(self, serialized):
+        return self.serialize() == serialized

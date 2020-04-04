@@ -1,3 +1,4 @@
+from datasetops.dataset import Dataset
 from datasetops import loaders
 import numpy as np
 from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
@@ -187,3 +188,193 @@ def test_operation_origins():
     assert(len(test7[0]) == 6)
     assert(len(test7) == 18)
     assert(test7._get_origin()["operation"]["name"] == "copy")
+
+
+def test_serialization_same():
+
+    def assert_serialized_is_same(dataset: Dataset):
+        graph = dataset.get_transformation_graph()
+        assert(graph.is_same_as_serialized(graph.serialize()))
+
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
+    test, train = loaders.from_folder_dataset_group_data(path)
+    assert_serialized_is_same(test)
+    assert_serialized_is_same(train)
+
+    def read_text(path):
+        with open(path, "r") as file:
+            return file.read()
+
+    def read_bin(path):
+        with open(path, "rb") as file:
+            return np.array(file.read())
+
+    test = test.image(False, True, False)
+    assert_serialized_is_same(test)
+
+    test = test.image(False, True, False)
+    assert_serialized_is_same(test)
+
+    test = test.transform((read_text, None, None))
+    assert_serialized_is_same(test)
+
+    test = test.transform((None, None, read_bin))
+    assert_serialized_is_same(test)
+
+    test = test.image_resize(None, (10, 10), None)
+    assert_serialized_is_same(test)
+
+    test1, test2 = test.split([0.3, -1], 2605)
+    assert_serialized_is_same(test1)
+    assert_serialized_is_same(test2)
+
+    test3, test4 = test1.split_filter(lambda x: False)
+    assert_serialized_is_same(test3)
+    assert_serialized_is_same(test4)
+
+    test5 = test2.filter(lambda x: False)
+    assert_serialized_is_same(test5)
+
+    test6 = test2.filter(lambda x: True)
+    assert_serialized_is_same(test6)
+
+    test6 = test6.sample(2, 2605)
+    assert_serialized_is_same(test6)
+
+    test6 = test6.shuffle(2605)
+    assert_serialized_is_same(test6)
+
+    test6 = test6.take(1)
+    assert_serialized_is_same(test6)
+
+    test6 = test6.repeat(3)
+    assert_serialized_is_same(test6)
+
+    test7 = test6.reorder("image_2", "calib", "velodyne_reduced")
+    assert_serialized_is_same(test7)
+
+    test7 = test7.cartesian_product(test7)
+    assert_serialized_is_same(test7)
+
+    test7 = test7.concat(test7)
+    assert_serialized_is_same(test7)
+
+
+def test_serialization_not_same():
+
+    def assert_serialized_is_not_same(target, *datasets: Dataset):
+        graph = target.get_transformation_graph()
+
+        for dataset in datasets:
+            assert(not graph.is_same_as_serialized(
+                dataset.get_transformation_graph().serialize()
+            ))
+
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
+    test, train = loaders.from_folder_dataset_group_data(path)
+    assert_serialized_is_not_same(test, train)
+    assert_serialized_is_not_same(train, test)
+
+    def read_text(path):
+        with open(path, "r") as file:
+            return file.read()
+
+    def read_bin(path):
+        with open(path, "rb") as file:
+            return np.array(file.read())
+
+    test1 = test.image(False, True, False)
+    assert_serialized_is_not_same(test1, test)
+
+    test2 = test1.image(False, True, False)
+    assert_serialized_is_not_same(test2, test1, test)
+
+    test3 = test2.transform((read_text, None, None))
+    assert_serialized_is_not_same(test3, test2, test1, test)
+
+    test4 = test3.transform((None, None, read_bin))
+    assert_serialized_is_not_same(test4, test3, test2, test1, test)
+
+    test5 = test4.image_resize(None, (10, 10), None)
+    assert_serialized_is_not_same(test5, test4, test3, test2, test1, test)
+
+    test5_1, test5_2 = test5.split([0.3, -1], 2605)
+    assert_serialized_is_not_same(
+        test5_1, test5_2, test5, test4, test3, test2, test1, test
+    )
+    assert_serialized_is_not_same(
+        test5_2, test5_1, test5, test4, test3, test2, test1, test
+    )
+
+    test5_3, test5_4 = test5_1.split_filter(lambda x: False)
+    assert_serialized_is_not_same(
+        test5_3, test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+    assert_serialized_is_not_same(
+        test5_4, test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test6 = test5_2.filter(lambda x: False)
+    assert_serialized_is_not_same(
+        test6, test5_4, test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test7 = test5_2.filter(lambda x: True)
+    assert_serialized_is_not_same(
+        test7, test6, test5_4, test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test8 = test7.sample(2, 2605)
+    assert_serialized_is_not_same(
+        test8, test7, test6, test5_4, test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test9 = test8.shuffle(2605)
+    assert_serialized_is_not_same(
+        test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test10 = test9.take(1)
+    assert_serialized_is_not_same(
+        test10, test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test11 = test10.repeat(3)
+    assert_serialized_is_not_same(
+        test11, test10, test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test12 = test11.reorder("image_2", "calib", "velodyne_reduced")
+    assert_serialized_is_not_same(
+        test12,
+        test11, test10, test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test13 = test12.cartesian_product(test12)
+    assert_serialized_is_not_same(
+        test13, test12,
+        test11, test10, test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
+
+    test14 = test13.concat(test13)
+    assert_serialized_is_not_same(
+        test14, test13, test12,
+        test11, test10, test9, test8, test7, test6, test5_4,
+        test5_1, test5_2, test5,
+        test4, test3, test2, test1, test
+    )
