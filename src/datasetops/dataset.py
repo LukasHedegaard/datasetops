@@ -9,7 +9,7 @@ import functools
 from inspect import signature
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
-from typing import overload, TypeVar
+from typing import Tuple, overload, TypeVar
 
 
 ########## Local Helpers ####################
@@ -397,7 +397,7 @@ class Dataset(AbstractDataset):
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
         **kwpredicates: DataPredicate
-    ):
+    ) -> Tuple["Dataset"]:
         """Split a dataset using a predicate function.
 
         Keyword Arguments:
@@ -451,7 +451,7 @@ class Dataset(AbstractDataset):
             }
         )
 
-    def split(self, fractions: List[float], seed: int = None):
+    def split(self, fractions: List[float], seed: int = None) -> Tuple["Dataset"]:
         """Split dataset into multiple datasets, determined by the fractions
         given.
 
