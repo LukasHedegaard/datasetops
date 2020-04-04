@@ -1,4 +1,5 @@
 from pathlib import Path
+from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from scipy.io import loadmat
 from datasetops.dataset import Dataset
@@ -158,6 +159,38 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
     return ds
 
 
+def from_folder_group_data(path: AnyPath) -> Dataset:
+    """Load data from a folder with the data structure:
+
+        nested_folder
+        |- group1
+            |- sample1.jpg
+            |- sample2.jpg
+        |- group2
+            |- sample1.txt
+            |- sample2.txt
+
+    Arguments:
+        path {AnyPath} -- path to nested folder
+    
+    Returns:
+        Dataset -- A dataset of paths to objects of each groups zipped togeter with corresponding names, 
+                   e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
+    """
+    p = Path(path)
+    groups = [x for x in p.glob("[!._]*")]
+
+    datasets = []
+
+    for group in groups:
+        ds = from_folder_data(group) \
+            .named(re.split(r"/|\\", str(group))[-1])
+
+        datasets.append(ds)
+
+    return zipped(*datasets)
+
+
 def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
@@ -181,6 +214,31 @@ def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     p = Path(path)
     dataset_paths = sorted([x for x in p.glob("[!._]*")])
     return [from_folder_class_data(dsp) for dsp in dataset_paths]
+
+
+def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
+    """Load data from a folder with the data structure:
+
+        nested_folder
+        |- dataset1
+            |- class1
+                |- sample1.jpg
+                |- sample2.jpg
+            |- class2
+                |- sample3.jpg
+        |- dataset2
+            |- ...
+
+    Arguments:
+        path {AnyPath} -- path to nested folder
+    
+    Returns:
+        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels, 
+                         e.g. ('nested_folder/class1/sample1.jpg', 'class1')
+    """
+    p = Path(path)
+    dataset_paths = sorted([x for x in p.glob("[!._]*")])
+    return [from_folder_group_data(dsp) for dsp in dataset_paths]
 
 
 def _dataset_from_np_dict(

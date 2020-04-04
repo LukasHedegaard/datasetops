@@ -138,4 +138,7 @@ dmypy.json
 .pyre/
 .DS_Store
 
-tests/recourses
+tests/recourses/*
+!tests/recourses/caching
+!tests/recourses/folder_dataset_class_data
+!tests/recourses/mat_single_with_multi_data

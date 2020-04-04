@@ -21,6 +21,8 @@ from .loaders import (
     from_pytorch,
     from_folder_data,
     from_folder_class_data,
+    from_folder_group_data,
     from_folder_dataset_class_data,
+    from_folder_dataset_group_data,
     from_mat_single_mult_data,
 )

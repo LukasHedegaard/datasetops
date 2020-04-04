@@ -32,6 +32,23 @@ def test_folder_class_data():
     assert set(expected_items) == set(found_items)
 
 
+def test_folder_group_data():
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_GROUP_DATA)
+
+    expected_items = [str(p) for p in (Path(path)).glob("*/*.*")]
+    ds = loaders.from_folder_group_data(path)
+
+    assert(set(ds.names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+
+    found_items = [] 
+
+    for i in ds:
+        for q in i:
+            found_items.append(q)
+
+    assert set(expected_items) == set(found_items)
+
+
 def test_folder_dataset_class_data():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_CLASS_DATA)
     sets = Path(path).glob("[!._]*")
@@ -42,6 +59,36 @@ def test_folder_dataset_class_data():
 
     datasets = loaders.from_folder_dataset_class_data(path)
     sets_of_found_items = [set([i[0] for i in ds]) for ds in datasets]
+
+    for expected_items_set in sets_of_expected_items:
+        assert any(
+            [expected_items_set == found_items for found_items in sets_of_found_items]
+        )
+
+
+def test_folder_dataset_group_data():
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
+    sets = Path(path).glob("[!._]*")
+
+    sets_of_expected_items = [
+        set([str(p) for p in Path(s).glob("*/*.*")]) for s in sets
+    ]
+
+    datasets = loaders.from_folder_dataset_group_data(path)
+
+    assert(set(datasets[0].names) == set(["calib", "image_2", "velodyne_reduced"]))
+    assert(set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+
+    def get_data_flat(ds):
+        found_items = [] 
+
+        for i in ds:
+            for q in i:
+                found_items.append(q)
+
+        return set(found_items)
+
+    sets_of_found_items = [get_data_flat(ds) for ds in datasets]
 
     for expected_items_set in sets_of_expected_items:
         assert any(
