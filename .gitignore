@@ -139,6 +139,8 @@ dmypy.json
 .DS_Store
 
 tests/resourses/*
+tests/resourses/caching/cache_root/*
 !tests/resourses/caching
 !tests/resourses/folder_dataset_class_data
 !tests/resourses/mat_single_with_multi_data
+.datasetops_cache

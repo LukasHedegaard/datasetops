@@ -1,6 +1,7 @@
 from typing import Dict
 import copy
 import dill
+import base64
 
 
 class TransformationGraph():
@@ -108,13 +109,15 @@ class TransformationGraph():
                         minimize(edge["parent"])
                     return
                 else:
-                    current_node["edge"] = minimized_value(current_node["edge"])
+                    current_node["edge"] = minimized_value(
+                        current_node["edge"]
+                    )
                     current_node = current_node["edge"]["parent"]
 
         result = copy.deepcopy(self.graph)
         minimize(result)
 
-        result = dill.dumps(result)
+        result = base64.b64encode(dill.dumps(result)).decode()
 
         return result
 

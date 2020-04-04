@@ -1,5 +1,6 @@
 import random
 from datasetops.abstract import ItemGetter, AbstractDataset
+from datasetops.cache import Cache
 from datasetops.types import *
 import datasetops.compose as compose
 import numpy as np
@@ -9,8 +10,8 @@ import functools
 from inspect import signature
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
-from typing import Tuple, overload, TypeVar
-
+from typing import Optional, Tuple, overload, TypeVar
+import dill
 
 ########## Local Helpers ####################
 
@@ -238,6 +239,10 @@ class Dataset(AbstractDataset):
                     "parameters": operation_parameters
                 }
             }
+        elif operation == "cache":
+            self.origin = {
+                "root": operation_parameters["identifier"],
+            }
         elif operation == "load":
             pass
         else:
@@ -251,6 +256,93 @@ class Dataset(AbstractDataset):
 
     def _get_origin(self) -> Union[List[Dict], Dict]:
         return self.origin
+
+    def cached(self, path: str = None):
+
+        if not self.cachable:
+            raise Exception("Dataset must be cachable")
+
+        if path is None:
+            path = Cache.DEFAULT_PATH
+
+        cache = Cache(path)
+        identifier = self.get_transformation_graph().serialize()
+
+        if cache.is_cached(identifier):
+
+            length = 0
+            values = []
+            read_file = None
+
+            def data_extractor():
+
+                nonlocal length
+                nonlocal values
+                nonlocal read_file
+
+                length = dill.load(read_file)
+                yield True
+
+                for i in range(length):
+                    element = dill.load(read_file)
+                    values.append(element)
+                    yield True
+
+                yield False
+
+            generator = data_extractor()
+
+            def reader(file):
+                nonlocal read_file
+                read_file = file
+                return next(generator)
+
+            cache.load(identifier, reader)
+
+            class Getter(ItemGetter):
+                def __getitem__(self, i: int):
+                    return values[i]
+
+            ids = range(length)
+
+            result = Dataset(
+                downstream_getter=Getter(),
+                operation="cache",
+                ids=ids,
+                operation_parameters={
+                    "identifier": identifier
+                }
+            )
+
+            return result
+        else:
+
+            def data_generator():
+                yield len(self)
+
+                for data in self:
+                    yield data
+
+            generator = data_generator()
+
+            def saver(file):
+                try:
+                    val = next(generator)
+                    dill.dump(val, file)
+                    return True
+                except StopIteration:
+                    return False
+
+            cache.save(identifier, saver)
+
+            return Dataset(
+                downstream_getter=self,
+                ids=list(range(len(self))),
+                operation="cache",
+                operation_parameters={
+                    "identifier": identifier
+                }
+            )
 
     @property
     def shape(self) -> Sequence[int]:
