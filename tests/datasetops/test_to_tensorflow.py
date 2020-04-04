@@ -12,8 +12,7 @@ def test_image_to_tensorflow():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     test1, test2 = test \
         .image(False, True, False) \

@@ -14,8 +14,7 @@ def test_cachable():
             return file.read()
 
     def read_bin(path):
-        with open(path, "rb") as file:
-            return np.array(file.read())
+        return np.fromfile(path, dtype=np.float32, count=-1)
 
     assert(test.cachable)
 
