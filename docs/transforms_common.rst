@@ -38,7 +38,7 @@ For example the MNIST dataset may be split into the samples corresponding to zer
     >>> def func(s):
     >>>     return s.class == 0
     >>>
-    >>> zeros, others = do.load_mnist().split_filter(TODO)
+    >>> zeros, others = do.load_mnist().split_filter(func)
     >>> all([s.class == 0 for s in zeros])
     True
 

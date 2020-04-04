@@ -65,6 +65,8 @@ exclude_patterns = [
 #
 html_theme = "sphinx_rtd_theme"
 html_logo = "pics/logo.svg"
+html_favicon = "pics/html_icon.png"
+
 html_theme_options = {
     "logo_only": True
 }
