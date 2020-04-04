@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-
-from typing import Tuple
+from typing import Tuple, Union, List, Dict
+from datasetops.transformation_graph import TransformationGraph
 
 
 class ItemGetter(ABC):
@@ -34,11 +34,16 @@ class AbstractDataset(ItemGetter):
         pass  # pragma: no cover
 
     @abstractmethod
-    def _get_origin(self) -> Tuple:
+    def _get_origin(self) -> Union[List[Dict], Dict]:
         """Returns parent Dataset or list of parent Datasets and description
         of how it was made
         """
         pass  # pragma: no cover
+
+    def get_transformation_graph(self) -> TransformationGraph:
+        """Returns TransformationGraph of current dataset
+        """
+        return TransformationGraph(self)
 
     def __iter__(self):
         for i in range(self.__len__()):
