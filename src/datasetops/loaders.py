@@ -203,6 +203,8 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
 
         datasets.append(ds)
 
+    datasets.sort(key=lambda val: val.names[0])
+
     return zipped(*datasets)
 
 
