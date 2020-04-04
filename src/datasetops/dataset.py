@@ -424,10 +424,11 @@ class Dataset(AbstractDataset):
                     operation="split_filter",
                     operation_parameters={
                         "predicates": predicates,
-                        "kwpredicates": kwpredicates
+                        "kwpredicates": kwpredicates,
+                        "index": idx,
                     }
                 )
-                for new_ids in [ack, nack]
+                for idx, new_ids in enumerate([ack, nack])
              ]
         )
 
@@ -502,9 +503,10 @@ class Dataset(AbstractDataset):
                     operation="split", operation_parameters={
                         "fractions": fractions,
                         "seed": seed,
+                        "index": idx,
                     }
                 )
-                for new_ids in split_ids
+                for idx, new_ids in enumerate(split_ids)
             ]
         )
 
