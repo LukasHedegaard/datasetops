@@ -381,7 +381,7 @@ class Dataset(AbstractDataset):
             self._item_names, self.shape, predicates, **kwpredicates
         )
         new_ids = list(filter(lambda i: condition(
-            self.__getitem__(i)), self._ids))
+            self.__getitem__(i)), range(len(self._ids))))
         return Dataset(
             downstream_getter=self, ids=new_ids,
             operation="filter", operation_parameters={
@@ -411,7 +411,7 @@ class Dataset(AbstractDataset):
             self._item_names, self.shape, predicates, **kwpredicates
         )
         ack, nack = [], []
-        for i in self._ids:
+        for i in range(len(self._ids)):
             if condition(self.__getitem__(i)):
                 ack.append(i)
             else:
