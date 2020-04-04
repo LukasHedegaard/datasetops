@@ -227,7 +227,10 @@ class Dataset(AbstractDataset):
                     "parameters": operation_parameters
                 }
             }
-        elif operation in ["filter", "split_filter", "take", "reorder"]:
+        elif operation in [
+            "filter", "split_filter",
+            "take", "reorder", "repeat"
+        ]:
             self.origin = {
                 "dataset": self._downstream_getter,
                 "operation": {
