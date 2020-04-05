@@ -61,34 +61,27 @@ class Scaler:
                 self._std_scalers[i].partial_fit(reshaped)
                 self._minmax_scalers[i].partial_fit(reshaped)
 
-    def center(self, item: Sequence[Any]):
+    def center(self, item: Sequence[Any]) -> ScalerFn:
         pass
 
-    def standardize(self, item: Sequence[Any]):
-        return tuple(
-            [
-                self._backward[i](
-                    self._std_scalers[i].transform(self._forward[i](elem))
-                )
-                if (len(self._scaling_info) > i and self._scaling_info[i])
-                else elem
-                for i, elem in enumerate(item)
-            ]
-        )
+    def standardize(self) -> ScalerFn:
+        scalers = deepcopy(self._std_scalers)
+        return self._make_transform(scalers)
 
     def minmax(self, feature_range=(0, 1)) -> ScalerFn:
         scalers = deepcopy(self._minmax_scalers)
         for s in scalers:
             if s and s.feature_range != feature_range:
-                # update feature scaling
+                # update feature scaling (hacking the scikit-preprocessing implementation)
                 s.feature_range = feature_range
                 s.scale_ = (
                     s.feature_range[1] - s.feature_range[0]
                 ) / _handle_zeros_in_scale(s.data_range_)
                 s.min_ = feature_range[0] - s.data_min_ * s.scale_
+
         return self._make_transform(scalers)
 
-    def maxabs(self):
+    def maxabs(self) -> ScalerFn:
         pass
 
     def _make_transform(self, scalers) -> ScalerFn:
