@@ -61,8 +61,12 @@ class Scaler:
                 self._std_scalers[i].partial_fit(reshaped)
                 self._minmax_scalers[i].partial_fit(reshaped)
 
-    def center(self, item: Sequence[Any]) -> ScalerFn:
-        pass
+    def center(self) -> ScalerFn:
+        scalers = deepcopy(self._std_scalers)
+        for s in scalers:
+            if s:
+                s.with_std = False
+        return self._make_transform(scalers)
 
     def standardize(self) -> ScalerFn:
         scalers = deepcopy(self._std_scalers)
@@ -78,7 +82,6 @@ class Scaler:
                     s.feature_range[1] - s.feature_range[0]
                 ) / _handle_zeros_in_scale(s.data_range_)
                 s.min_ = feature_range[0] - s.data_min_ * s.scale_
-
         return self._make_transform(scalers)
 
     def maxabs(self) -> ScalerFn:
