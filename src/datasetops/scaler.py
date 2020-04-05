@@ -1,4 +1,4 @@
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
 from sklearn.preprocessing._data import _handle_zeros_in_scale
 import numpy as np
 from datasetops.types import *
@@ -85,7 +85,13 @@ class Scaler:
         return self._make_transform(scalers)
 
     def maxabs(self) -> ScalerFn:
-        pass
+        scalers = [MaxAbsScaler() if s else None for s in self._scaling_info]
+        for s, mms in zip(scalers, self._minmax_scalers):
+            if s:
+                s.scale_ = np.max(
+                    np.array([np.abs(mms.data_min_), mms.data_max_]), axis=0
+                )
+        return self._make_transform(scalers)
 
     def _make_transform(self, scalers) -> ScalerFn:
         def fn(item: Sequence[Any]) -> Sequence[Any]:
