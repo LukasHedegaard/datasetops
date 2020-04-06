@@ -100,53 +100,6 @@ def test_filter():
         ds.filter(badkey=lambda x:True) # key doesn't exist
 
 
-# def test_filter_old():
-#     num_total=10
-#     ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
-
-#     # expected items
-#     a = [ (x, 'a') for x in list(range(5))]
-#     b = [ (x, 'b') for x in list(range(5,num_total))]
-#     even_a = [x for x in a if x[0]%2==0]
-#     odd_a  = [x for x in a if x[0]%2==1]
-#     even_b = [x for x in b if x[0]%2==0]
-#     odd_b  = [x for x in b if x[0]%2==1]
-
-#     # itemwise
-#     ds_even = ds.filter(itemwise=[lambda x: x%2==0])
-#     assert(list(ds_even) == even_a + even_b) 
-
-#     ds_even_a = ds.filter(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
-#     assert(list(ds_even_a) == even_a) 
-
-#     # by key
-#     ds_b = ds.filter(label=lambda x:x=='b')
-#     assert(list(ds_b) == b)
-
-#     # bulk
-#     ds_odd_b = ds.filter(lambda x: x[0]%2==1 and x[1]=='b')
-#     assert(list(ds_odd_b) == odd_b)
-
-#     # mix
-#     ds_even_b_no_4 = ds.filter(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
-#     assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
-
-#     # sample_classwise
-#     ds_classwise = ds.filter(label=allow_unique(2))
-#     assert(list(ds_classwise) == list(a[:2] + b[:2]))
-
-#     # error scenarios
-#     with pytest.warns(UserWarning):
-#         ds_same = ds.filter() # no args
-#         assert(list(ds) == list(ds_same))
-
-#     with pytest.raises(AssertionError):
-#         ds.filter(itemwise=[None, None, None]) # too many args
-
-#     with pytest.raises(AssertionError):
-#         ds.filter(badkey=lambda x:True) # key doesn't exist
-
-
 def test_split_filter():
     num_total=10
     ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
