@@ -62,3 +62,12 @@ def from_dummy_numpy_data() -> Loader:
     ds.extend(a_ids)
     ds.extend(b_ids)
     return ds
+
+
+def read_text(path):
+    with open(path, "r") as file:
+        return file.read()
+
+
+def read_bin(path):
+    return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore

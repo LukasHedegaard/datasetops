@@ -6,6 +6,8 @@ import numpy as np
 from testing_utils import (  # type:ignore
     get_test_dataset_path,
     from_dummy_numpy_data,
+    read_text,
+    read_bin,
     DATASET_PATHS,
 )
 import dill  # TODO: we should remove this (include it internally)
@@ -14,13 +16,6 @@ import dill  # TODO: we should remove this (include it internally)
 def test_cachable():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
     test, _ = loaders.from_folder_dataset_group_data(path)
-
-    def read_text(path):
-        with open(path, "r") as file:
-            return file.read()
-
-    def read_bin(path):
-        return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
 
     assert test.cachable
 
@@ -51,13 +46,6 @@ def test_cachable():
 def test_cache():
 
     test_cache_path = get_test_dataset_path(DATASET_PATHS.CACHE_ROOT_PATH)
-
-    def read_text(path):
-        with open(path, "r") as file:
-            return file.read()
-
-    def read_bin(path):
-        return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
 
     def assert_cache(
         datasets: List[Dataset], cache_path: str = None, clear: bool = True
