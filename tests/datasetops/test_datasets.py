@@ -711,6 +711,36 @@ def test_to_tensorflow():
 
 
 @pytest.mark.slow
+def test_image_to_tensorflow():
+    path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
+    test, train = loaders.from_folder_dataset_group_data(path)
+
+    def read_text(path):
+        with open(path, "r") as file:
+            return file.read()
+
+    def read_bin(path):
+        return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
+
+    test1, test2 = (
+        test.image(False, True, False)
+        .transform((read_text, None, None))
+        .transform((None, None, read_bin))
+        .split([0.3, -1], 2605)
+    )
+
+    tfds = test1.to_tensorflow()
+    tfds2 = test1.image_resize(None, (10, 10), None).to_tensorflow()
+
+    for data in tfds:
+        pass
+
+    for data in tfds2:
+        pass
+
+    assert True
+
+@pytest.mark.slow
 def test_to_pytorch():
     # prep data
     ds = from_dummy_numpy_data().named("data", "label").one_hot("label")
