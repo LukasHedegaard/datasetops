@@ -14,11 +14,12 @@ def test_image_to_tensorflow():
     def read_bin(path):
         return np.fromfile(path, dtype=np.float32, count=-1)
 
-    test1, test2 = test \
-        .image(False, True, False) \
-        .transform((read_text, None, None)) \
-        .transform((None, None, read_bin)) \
+    test1, test2 = (
+        test.image(False, True, False)
+        .transform((read_text, None, None))
+        .transform((None, None, read_bin))
         .split([0.3, -1], 2605)
+    )
 
     tfds = test1.to_tensorflow()
     tfds2 = test1.image_resize(None, (10, 10), None).to_tensorflow()
@@ -29,4 +30,4 @@ def test_image_to_tensorflow():
     for data in tfds2:
         pass
 
-    assert(True)
+    assert True

@@ -4,7 +4,7 @@ from typing import Callable, IO
 import os
 
 
-class Cache():
+class Cache:
     DEFAULT_PATH: str = ".datasetops_cache"
 
     @staticmethod
@@ -18,12 +18,9 @@ class Cache():
             return
 
         files = os.listdir(path)
-        files = list(filter(
-            lambda name: (
-                "database.json" in name
-                or "cache_" in name
-            ), files
-        ))
+        files = list(
+            filter(lambda name: ("database.json" in name or "cache_" in name), files)
+        )
 
         for file in files:
             os.remove(Path(path) / file)
@@ -51,10 +48,7 @@ class Cache():
             with open(self.database_path, "r") as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError):
-            return {
-                "entries": [],
-                "last_id": 0
-            }
+            return {"entries": [], "last_id": 0}
 
     def __save_database(self):
         with open(self.database_path, "w") as file:
@@ -97,8 +91,7 @@ class Cache():
             raise Exception("No cache for identifier=" + identifier)
 
         entry = next(
-            x for x in self.database["entries"]
-            if x["identifier"] == identifier
+            x for x in self.database["entries"] if x["identifier"] == identifier
         )
 
         cache_id = entry["cache_id"]

@@ -11,8 +11,10 @@ import warnings
 
 class Loader(Dataset):
     def __init__(
-        self, getdata: Callable[[Any], Any],
-        identifier: Optional[str] = None, name: str = None,
+        self,
+        getdata: Callable[[Any], Any],
+        identifier: Optional[str] = None,
+        name: str = None,
     ):
         if not callable(getdata):
             raise TypeError("get_data should be callable")
@@ -35,9 +37,7 @@ class Loader(Dataset):
         self._ids.extend(list(ids))
 
     def _get_origin(self) -> Union[List[Dict], Dict]:
-        result = {
-            "root": self.identifier
-        }
+        result = {"root": self.identifier}
 
         return result
 
@@ -135,7 +135,9 @@ def from_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i),)
 
-    ds = Loader(get_data, str(path), "Data Getter for folder with structure 'root/data'")
+    ds = Loader(
+        get_data, str(path), "Data Getter for folder with structure 'root/data'"
+    )
     ds.extend(ids)
 
     return ds
@@ -165,7 +167,9 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(get_data, str(path), "Data Getter for folder with structure 'root/classes/data'")
+    ds = Loader(
+        get_data, str(path), "Data Getter for folder with structure 'root/classes/data'"
+    )
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -198,8 +202,7 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
     datasets = []
 
     for group in groups:
-        ds = from_folder_data(group) \
-            .named(re.split(r"/|\\", str(group))[-1])
+        ds = from_folder_data(group).named(group.name)
 
         datasets.append(ds)
 
@@ -213,11 +216,11 @@ def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
 
     nested_folder
     |- dataset1
-        |- class1
+        |- type1
             |- sample1.jpg
             |- sample2.jpg
-        |- class2
-            |- sample3.jpg
+        |- type2
+            |- sample1.jpg
     |- dataset2
         |- ...
 
@@ -238,11 +241,12 @@ def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
 
         nested_folder
         |- dataset1
-            |- class1
+            |- group1
                 |- sample1.jpg
                 |- sample2.jpg
-            |- class2
-                |- sample3.jpg
+            |- group2
+                |- sample1.txt
+                |- sample2.txt
         |- dataset2
             |- ...
 
@@ -250,8 +254,8 @@ def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
         path {AnyPath} -- path to nested folder
     
     Returns:
-        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels, 
-                         e.g. ('nested_folder/class1/sample1.jpg', 'class1')
+        List[Dataset] -- A list of datasets, each with data composed from different types, 
+                         e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
     """
     p = Path(path)
     dataset_paths = sorted([x for x in p.glob("[!._]*")])
@@ -263,7 +267,7 @@ def _dataset_from_np_dict(
     data_keys: List[str],
     label_key: str = None,
     name: str = None,
-    identifier: str = None
+    identifier: str = None,
 ) -> Dataset:
     all_keys = [*data_keys, label_key]
     shapes_list = [data[k].shape for k in data_keys]
@@ -355,7 +359,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     LABEL_INDICATORS = ["y", "lbl", "lbls", "label", "labels"]
 
     # create a dataset for each suffix
-    
+
     datasets: List[Dataset] = []
     for suffix, keys in keys_by_suffix.items():
         label_keys = list(
@@ -374,8 +378,11 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
 
         datasets.append(
             _dataset_from_np_dict(
-                data=mat, data_keys=data_keys, label_key=label_key, name=suffix,
-                identifier=str(Path(path) / suffix)
+                data=mat,
+                data_keys=data_keys,
+                label_key=label_key,
+                name=suffix,
+                identifier=str(Path(path) / suffix),
             )
         )
 
