@@ -9,8 +9,8 @@ class DatasetPaths(NamedTuple):
     FOLDER_CLASS_DATA: str = "folder_dataset_class_data/amazon"
     FOLDER_DATASET_CLASS_DATA: str = "folder_dataset_class_data"
     MAT_SINGLE_WITH_MULTI_DATA: str = "mat_single_with_multi_data"
-    KITTI_DATASET: str = "caching/kitti_dataset"  # TODO: remove caching (parent) folder?
-    CACHE_ROOT_PATH: str = "caching/cache_root"  # TODO: move?
+    KITTI_DATASET: str = "caching/kitti_dataset"
+    CACHE_ROOT_PATH: str = "caching/cache_root"
     FOLDER_GROUP_DATA: str = KITTI_DATASET + "/training"
     FOLDER_DATASET_GROUP_DATA: str = KITTI_DATASET
 
