@@ -39,6 +39,8 @@ class Cache:
 
         if not os.path.exists(self.path):
             os.mkdir(self.path)
+            with open(Path(self.path) / ".gitignore", "w") as file:
+                file.write("# Created by datasetops automatically. \n*\n")
 
         self.database_path = self.path + "/database.json"
         self.database = self.__load_database()
