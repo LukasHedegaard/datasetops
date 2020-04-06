@@ -2,7 +2,6 @@ from datasetops.dataset import Dataset
 from typing import List
 from datasetops.cache import Cache
 from datasetops import loaders
-import numpy as np
 from testing_utils import (  # type:ignore
     get_test_dataset_path,
     from_dummy_numpy_data,
@@ -103,55 +102,45 @@ def test_cache():
         assert_cache([test1], cache_path)
 
         test2 = test1.image(False, True, False)
-        assert_cache([test2, test1, test], cache_path)
+        assert_cache([test2], cache_path)
 
         test3 = test2.transform((read_text, None, None))
-        assert_cache([test3, test2, test1, test], cache_path)
+        assert_cache([test3], cache_path)
 
         test4 = test3.transform((None, None, read_bin))
-        assert_cache([test4, test3, test2, test1, test], cache_path)
+        assert_cache([test4], cache_path)
 
         test5 = test4.image_resize(None, (10, 10), None)
-        assert_cache([test5, test4, test3, test2, test1, test], cache_path)
+        assert_cache([test5], cache_path)
 
         test5_1, test5_2 = test5.split([0.3, -1], 2605)
         assert_cache(
-            [test5_1, test5_2, test5, test4, test3, test2, test1, test], cache_path
+            [test5_1, test5_2], cache_path
         )
         assert_cache(
-            [test5_2, test5_1, test5, test4, test3, test2, test1, test], cache_path
+            [test5_2, test5_1], cache_path
         )
 
         test5_3, test5_4 = test5_1.split_filter(lambda x: False)
         assert_cache(
-            [test5_3, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test5_3],
             cache_path,
         )
         assert_cache(
-            [test5_4, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test5_4],
             cache_path,
         )
 
         test6 = test5_2.filter(lambda x: False)
         assert_cache(
-            [test6, test5_4, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test6],
             cache_path,
         )
 
         test7 = test5_2.filter(lambda x: True)
         assert_cache(
             [
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test7
             ],
             cache_path,
         )
@@ -159,18 +148,7 @@ def test_cache():
         test8 = test7.sample(2, 2605)
         assert_cache(
             [
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test8
             ],
             cache_path,
         )
@@ -178,19 +156,7 @@ def test_cache():
         test9 = test8.shuffle(2605)
         assert_cache(
             [
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test9
             ],
             cache_path,
         )
@@ -198,20 +164,7 @@ def test_cache():
         test10 = test9.take(1)
         assert_cache(
             [
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test10
             ],
             cache_path,
         )
@@ -219,21 +172,7 @@ def test_cache():
         test11 = test10.repeat(3)
         assert_cache(
             [
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test11
             ],
             cache_path,
         )
@@ -241,22 +180,7 @@ def test_cache():
         test12 = test11.reorder("image_2", "calib", "velodyne_reduced")
         assert_cache(
             [
-                test12,
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test12
             ],
             cache_path,
         )
@@ -264,23 +188,7 @@ def test_cache():
         test13 = test12.cartesian_product(test12)
         assert_cache(
             [
-                test13,
-                test12,
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test13
             ],
             cache_path,
         )
@@ -316,16 +224,16 @@ def test_cache():
         assert_cache([test1], cache_path, False)
 
         test2 = test1.image(False, True, False).cached(cache_path)
-        assert_cache([test2, test1, test], cache_path, False)
+        assert_cache([test2], cache_path, False)
 
         test3 = test2.transform((read_text, None, None)).cached(cache_path)
-        assert_cache([test3, test2, test1, test], cache_path, False)
+        assert_cache([test3], cache_path, False)
 
         test4 = test3.transform((None, None, read_bin)).cached(cache_path)
-        assert_cache([test4, test3, test2, test1, test], cache_path, False)
+        assert_cache([test4], cache_path, False)
 
         test5 = test4.image_resize(None, (10, 10), None).cached(cache_path)
-        assert_cache([test5, test4, test3, test2, test1, test], cache_path, False)
+        assert_cache([test5], cache_path, False)
 
         test5_1, test5_2 = test5.split([0.3, -1], 2605)
 
@@ -333,12 +241,7 @@ def test_cache():
         test5_2 = test5_2.cached(cache_path)
 
         assert_cache(
-            [test5_1, test5_2, test5, test4, test3, test2, test1, test],
-            cache_path,
-            False,
-        )
-        assert_cache(
-            [test5_2, test5_1, test5, test4, test3, test2, test1, test],
+            [test5_1, test5_2],
             cache_path,
             False,
         )
@@ -349,19 +252,19 @@ def test_cache():
         test5_4 = test5_2.cached(cache_path)
 
         assert_cache(
-            [test5_3, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test5_3],
             cache_path,
             False,
         )
         assert_cache(
-            [test5_4, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test5_4],
             cache_path,
             False,
         )
 
         test6 = test5_2.filter(lambda x: False).cached(cache_path)
         assert_cache(
-            [test6, test5_4, test5_1, test5_2, test5, test4, test3, test2, test1, test],
+            [test6],
             cache_path,
             False,
         )
@@ -369,17 +272,7 @@ def test_cache():
         test7 = test5_2.filter(lambda x: True).cached(cache_path)
         assert_cache(
             [
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test7
             ],
             cache_path,
             False,
@@ -388,18 +281,7 @@ def test_cache():
         test8 = test7.sample(2, 2605).cached(cache_path)
         assert_cache(
             [
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test8
             ],
             cache_path,
             False,
@@ -408,19 +290,7 @@ def test_cache():
         test9 = test8.shuffle(2605).cached(cache_path)
         assert_cache(
             [
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test9
             ],
             cache_path,
             False,
@@ -429,20 +299,7 @@ def test_cache():
         test10 = test9.take(1).cached(cache_path)
         assert_cache(
             [
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test10
             ],
             cache_path,
             False,
@@ -451,21 +308,7 @@ def test_cache():
         test11 = test10.repeat(3).cached(cache_path)
         assert_cache(
             [
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test11
             ],
             cache_path,
             False,
@@ -476,22 +319,7 @@ def test_cache():
         )
         assert_cache(
             [
-                test12,
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test12
             ],
             cache_path,
             False,
@@ -500,23 +328,7 @@ def test_cache():
         test13 = test12.cartesian_product(test12).cached(cache_path)
         assert_cache(
             [
-                test13,
-                test12,
-                test11,
-                test10,
-                test9,
-                test8,
-                test7,
-                test6,
-                test5_4,
-                test5_1,
-                test5_2,
-                test5,
-                test4,
-                test3,
-                test2,
-                test1,
-                test,
+                test13
             ],
             cache_path,
             False,
