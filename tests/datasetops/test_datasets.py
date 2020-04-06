@@ -23,6 +23,12 @@ from testing_utils import (  # type:ignore
     DUMMY_NUMPY_DATA_SHAPE_3D,
 )
 
+def test_generator():
+    ds = from_dummy_data()
+    gen = ds.generator()
+
+    for d in list(ds):
+        assert d == next(gen)
 
 def test_shuffle():
     seed = 42
