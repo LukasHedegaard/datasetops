@@ -127,4 +127,15 @@ What follows here is a list of implemented and planned features.
 - [x] `cartesian_product` (create a dataset whose items are all combinations of items (zipped) of the originating datasets)
 
 
-
+## Bibtex
+To cite the framework use:
+```bibtex
+@misc{Hedegaard2020,
+  author = {Hedegaard, L. et al.},
+  title = {Dataset Ops},
+  year = {2020},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/LukasHedegaard/datasetops}}
+}
+```
