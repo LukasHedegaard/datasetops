@@ -4,7 +4,7 @@ import dill
 import base64
 
 
-class TransformationGraph():
+class TransformationGraph:
     def __init__(self, dataset) -> None:
 
         self.roots = []
@@ -25,15 +25,17 @@ class TransformationGraph():
             origin = dataset._get_origin()
 
             if type(origin) == list:
-                node["edge"] = (list(map(
-                    lambda partial_origin: {
-                        **partial_origin,
-                        "parent": compute_transformation_graph(
-                            partial_origin["dataset"]
-                        )
-                    },
-                    origin
-                )))
+                node["edge"] = list(
+                    map(
+                        lambda partial_origin: {
+                            **partial_origin,
+                            "parent": compute_transformation_graph(
+                                partial_origin["dataset"]
+                            ),
+                        },
+                        origin,
+                    )
+                )
             else:
 
                 node["edge"] = {
@@ -42,12 +44,13 @@ class TransformationGraph():
                 }
 
                 if "dataset" in origin:
-                    node["edge"]["parent"] = \
-                        compute_transformation_graph(origin["dataset"])
+                    node["edge"]["parent"] = compute_transformation_graph(
+                        origin["dataset"]
+                    )
                 elif "root" in origin:
 
                     root = origin["root"]
-                    if (root not in self.roots):
+                    if root not in self.roots:
                         self.roots.append(root)
 
             return node
@@ -109,9 +112,7 @@ class TransformationGraph():
                         minimize(edge["parent"])
                     return
                 else:
-                    current_node["edge"] = minimized_value(
-                        current_node["edge"]
-                    )
+                    current_node["edge"] = minimized_value(current_node["edge"])
                     current_node = current_node["edge"]["parent"]
 
         result = copy.deepcopy(self.graph)
@@ -121,5 +122,5 @@ class TransformationGraph():
 
         return result
 
-    def is_same_as_serialized(self, serialized):
+    def is_same_as_serialized(self, serialized):  # TODO: remove
         return self.serialize() == serialized
