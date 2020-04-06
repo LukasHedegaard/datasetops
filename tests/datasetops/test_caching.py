@@ -9,7 +9,6 @@ from testing_utils import (  # type:ignore
     read_bin,
     DATASET_PATHS,
 )
-import dill  # TODO: we should remove this (include it internally)
 
 
 def test_cachable():
@@ -43,6 +42,8 @@ def test_cachable():
 
 
 def test_cache():
+
+    import dill
 
     test_cache_path = get_test_dataset_path(DATASET_PATHS.CACHE_ROOT_PATH)
 
