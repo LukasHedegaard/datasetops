@@ -1,4 +1,4 @@
-# KITTI detection example
+# KITTI Detection
 
 ## Backgorund
 

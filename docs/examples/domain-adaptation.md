@@ -1,4 +1,4 @@
-# Domain Adaptation example
+# Domain Adaptation
 
 ## Backgorund
 
