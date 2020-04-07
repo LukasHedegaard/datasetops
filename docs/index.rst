@@ -31,9 +31,9 @@ Loaders and Transforms
 
 Get an overview of the available loaders and transforms that can be used with your dataset.
 
-* **Loaders**: :doc:`Standard loaders <loaders_standard>`
+* **Loaders**: :doc:`Standard loaders <loaders/standard>`
 
-* **Transforms**: :doc:`General <transforms_common>` | :doc:`Image <transforms_images>` | :doc:`Time-series <transforms_timeseries>`
+* **Transforms**: :doc:`General <transforms/common>` | :doc:`Image <transforms/images>` | :doc:`Time-series <transforms/timeseries>`
 
 It is also possible to implement your own loaders and transforms.
 
@@ -42,10 +42,10 @@ It is also possible to implement your own loaders and transforms.
    :hidden:
    :caption: Loaders and Transforms
    
-   loaders_standard
-   transforms_common
-   transforms_images
-   transforms_timeseries
+   loaders/standard
+   transforms/common
+   transforms/images
+   transforms/timeseries
 
 Custom Loaders and Transforms
 -----------------------------
@@ -55,25 +55,31 @@ Or does your application require  very specific and complex transformations to b
 The framework makes integration with custom loaders and transforms easy and clean.
 For how-to guides on how to do this see:
 
-* **User-Defined**: :doc:`Loaders <howto_new_loader>` | :doc:`Transforms <howto_new_transform>`
+* **User-Defined**: :doc:`Loaders <howto/custom_loader>` | :doc:`Transforms <howto/custom_transform>`
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: How-to guides:
 
-   howto_new_loader
-   howto_new_transform
+   howto/custom_loader
+   howto/custom_transform
 
 Performance And Optimizations
 -----------------------------
+
+Are you looking for ways to reduce the time required to load and process big datasets?
+The library provides several mechanisms that can drastically reduce the time required.
+
+* **Increasing performance**: :doc:`Caching <optimization/caching>` | :doc:`Multiprocessing <optimization/multiprocessing>`
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: Performance
 
-   optimizations
+   optimization/caching
+   optimization/multiprocessing
 
 API Reference
 -------------
