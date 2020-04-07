@@ -30,7 +30,19 @@ master_doc = "index"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["recommonmark", "sphinx_rtd_theme", "autoapi.extension"]
+extensions = [
+    "sphinx.ext.doctest",
+    "recommonmark",
+    "sphinx_rtd_theme",
+    "autoapi.extension"
+]
+doctest_global_setup = '''
+try:
+    import datasetops as do
+except ImportError:
+    do = None
+'''
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -53,6 +65,8 @@ exclude_patterns = [
 #
 html_theme = "sphinx_rtd_theme"
 html_logo = "pics/logo.svg"
+html_favicon = "pics/html_icon.png"
+
 html_theme_options = {
     "logo_only": True
 }
