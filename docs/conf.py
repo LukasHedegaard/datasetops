@@ -34,7 +34,6 @@ extensions = [
     "sphinx.ext.doctest",
     "recommonmark",
     "sphinx_rtd_theme",
-    "autoapi.extension"
 ]
 doctest_global_setup = '''
 try:
@@ -54,7 +53,7 @@ exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
-    "submodules/**/[rR][eE][aA][dD][mM][eE].[mM][dD]",
+    "pics/readme.md",
 ]
 
 
@@ -81,3 +80,4 @@ html_static_path = ["_static"]
 extensions.append("autoapi.extension")
 autoapi_type = "python"
 autoapi_dirs = ["../src/"]
+autoapi_keep_files = True

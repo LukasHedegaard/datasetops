@@ -1,3 +1,15 @@
+"""
+Module defining transforms which can be applied to compose two or more datasets.
+
+Examples
+--------
+
+  >>> ds_z = zipDataset(ds1,ds2)
+  >>> # TODO
+  >>>
+
+"""
+
 from datasetops.abstract import AbstractDataset
 from datasetops.types import *
 import numpy as np
@@ -37,7 +49,8 @@ class ZipDataset(AbstractDataset):
             raise ValueError("No datasets given to compose")
         self._downstream_datasets = downstream_datasets
         self._ids = list(range(self.__len__()))
-        self.name = "zipped{}".format([ds.name for ds in self._downstream_datasets])
+        self.name = "zipped{}".format(
+            [ds.name for ds in self._downstream_datasets])
         self._item_names = _zipped_item_names(*downstream_datasets)
 
     def __len__(self) -> int:
@@ -73,7 +86,8 @@ class CartesianProductDataset(AbstractDataset):
     def __len__(self) -> int:
         return int(
             functools.reduce(
-                lambda acc, ds: acc * len(ds), self._downstream_datasets, int(1)
+                lambda acc, ds: acc *
+                len(ds), self._downstream_datasets, int(1)
             )
         )
 
@@ -122,7 +136,8 @@ class ConcatDataset(AbstractDataset):
             [ds.name for ds in self._downstream_datasets]  # type:ignore
         )
         self._acc_idx_range = functools.reduce(
-            lambda acc, ds: acc + [len(ds) + acc[-1]], self._downstream_datasets, [0]
+            lambda acc, ds: acc +
+            [len(ds) + acc[-1]], self._downstream_datasets, [0]
         )
 
     def __len__(self) -> int:
@@ -130,7 +145,8 @@ class ConcatDataset(AbstractDataset):
 
     def __getitem__(self, idx: int) -> Tuple:
         dataset_index = (
-            np.where(np.array(self._acc_idx_range) > idx)[0][0] - 1  # type:ignore
+            np.where(np.array(self._acc_idx_range) > idx)[
+                0][0] - 1  # type:ignore
         )
         index_in_dataset = idx - self._acc_idx_range[dataset_index]
         return self._downstream_datasets[dataset_index][index_in_dataset]
