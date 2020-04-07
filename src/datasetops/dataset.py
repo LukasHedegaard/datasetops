@@ -1,3 +1,14 @@
+"""
+Module defining operations which may be applied to transform the data of a single dataset.
+The transforms are available as free functions or as ``extension`` methods defined on the dataset objects:
+
+  >>> ds.shuffle(seed=0)
+  >>> ds_s = shuffle(ds,seed=0)
+  >>> ds.idx == ds_s.idx
+  True
+
+"""
+
 import random
 from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.types import *
@@ -157,8 +168,10 @@ def _itemwise(item_names: Dict[str, int], l: Sequence, d: Dict):
 
 
 class Dataset(AbstractDataset):
-    """Contains information on how to access the raw data, and performs
-    sampling and splitting related operations."""
+    """
+    Contains information on how to access the raw data, and performs
+    sampling and splitting related operations.
+    """
 
     def __init__(
         self,
