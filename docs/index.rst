@@ -3,15 +3,15 @@ Dataset Ops documentation
 Friendly dataset operations for your data science needs.
 Dataset Ops provides declarative loading, sampling, splitting and transformation operations for datasets, alongside export options for easy integration with Tensorflow and PyTorch.
 
-.. figure:: pics/pipeline.svg
-   :figwidth: 600
-   :align: center
-   :alt: Dataset Ops pipeline
+.. .. figure:: pics/pipeline.svg
+..    :figwidth: 600
+..    :align: center
+..    :alt: Dataset Ops pipeline
 
-   Illustration Dataset Ops Pipeline. 
-   Several built-in loaders makes it possible to load datasets stored in various formats.
-   Several operators are provided that provide common pre-processing steps to be applied to the data quickly.
-   Finally, the processed data can be used as is or exported in a format to be used with ML frameworks.
+..    Illustration Dataset Ops Pipeline. 
+..    Several built-in loaders makes it possible to load datasets stored in various formats.
+..    Several operators are provided that provide common pre-processing steps to be applied to the data quickly.
+..    Finally, the processed data can be used as is or exported in a format to be used with ML frameworks.
 
 First Steps
 -----------
