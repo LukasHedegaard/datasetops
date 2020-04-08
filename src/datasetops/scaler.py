@@ -1,16 +1,30 @@
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, Normalizer
 from sklearn.preprocessing._data import _handle_zeros_in_scale
 import numpy as np
 from datasetops.types import *
-from collections import namedtuple
-from copy import deepcopy
-
-ScalingInfo = namedtuple("ScalingInfo", "shape axis")
-ScalingInfo.__new__.__defaults__ = (None,) * len(ScalingInfo._fields)
-ScalerFn = Callable[[Sequence[Any]], Sequence[Any]]
+from typing import NamedTuple
 
 
-def _make_scaler_reshapes(data_shape: Sequence[int], axis: int = 0):
+class ElemStats(NamedTuple):
+    mean: np.ndarray
+    std: np.ndarray
+    min: np.ndarray
+    max: np.ndarray
+    axis: int = 0
+
+    def __eq__(self, other):
+        return all(
+            [
+                np.array_equal(self.mean, other.mean),  # type:ignore
+                np.array_equal(self.std, other.std),  # type:ignore
+                np.array_equal(self.min, other.min),  # type:ignore
+                np.array_equal(self.max, other.max),  # type:ignore
+                self.axis == other.axis,
+            ]
+        )
+
+
+def _make_scaler_reshapes(data_shape: Shape = None, axis: int = 0):
     if not axis:
         axis = 0
     if not data_shape:
@@ -33,76 +47,70 @@ def _make_scaler_reshapes(data_shape: Sequence[int], axis: int = 0):
     return reshape_to_scale, reshape_from_scale
 
 
-class Scaler:
-    def __init__(self, scaling_info: Sequence[Optional[ScalingInfo]]):
-        self._scaling_info = scaling_info
-        self._std_scalers = []
-        self._minmax_scalers = []
-        self._forward = []  # data reshapers to scaling
-        self._backward = []  # data reshapers from scaling
+def _make_scaler(
+    transform_fn: ItemTransformFn, shape: Shape, axis=0
+) -> ItemTransformFn:
+    forward, backward = _make_scaler_reshapes(shape, axis)
 
-        for si in scaling_info:
-            if si:
-                self._std_scalers.append(StandardScaler())
-                self._minmax_scalers.append(MinMaxScaler())
-                forward, backward = _make_scaler_reshapes(si.shape, si.axis)
-                self._forward.append(forward)
-                self._backward.append(backward)
-            else:
-                self._std_scalers.append(None)
-                self._minmax_scalers.append(None)
-                self._forward.append(None)
-                self._backward.append(None)
+    def fn(elem: Any):
+        nonlocal transform_fn
+        return backward(transform_fn(forward(elem)))
 
-    def fit(self, item: Sequence[Any]):
-        for i, x in enumerate(item):
-            if i < len(self._scaling_info) and self._scaling_info[i]:
-                reshaped = self._forward[i](x)
-                self._std_scalers[i].partial_fit(reshaped)
-                self._minmax_scalers[i].partial_fit(reshaped)
+    return fn
 
-    def center(self) -> ScalerFn:
-        scalers = deepcopy(self._std_scalers)
-        for s in scalers:
-            if s:
-                s.with_std = False
-        return self._make_transform(scalers)
 
-    def standardize(self) -> ScalerFn:
-        scalers = deepcopy(self._std_scalers)
-        return self._make_transform(scalers)
+def fit(iterable: Iterable, shape: Shape = None, axis=0) -> ElemStats:
+    std_scaler = StandardScaler()
+    minmax_scaler = MinMaxScaler()
+    forward, _ = _make_scaler_reshapes(shape, axis)
 
-    def minmax(self, feature_range=(0, 1)) -> ScalerFn:
-        scalers = deepcopy(self._minmax_scalers)
-        for s in scalers:
-            if s and s.feature_range != feature_range:
-                # update feature scaling (hacking the scikit-preprocessing implementation)
-                s.feature_range = feature_range
-                s.scale_ = (
-                    s.feature_range[1] - s.feature_range[0]
-                ) / _handle_zeros_in_scale(s.data_range_)
-                s.min_ = feature_range[0] - s.data_min_ * s.scale_
-        return self._make_transform(scalers)
+    for x in iterable:
+        reshaped = forward(x)
+        std_scaler.partial_fit(reshaped)
+        minmax_scaler.partial_fit(reshaped)
 
-    def maxabs(self) -> ScalerFn:
-        scalers = [MaxAbsScaler() if s else None for s in self._scaling_info]
-        for s, mms in zip(scalers, self._minmax_scalers):
-            if s:
-                s.scale_ = np.max(
-                    np.array([np.abs(mms.data_min_), mms.data_max_]), axis=0
-                )
-        return self._make_transform(scalers)
+    return ElemStats(
+        mean=std_scaler.mean_,
+        std=std_scaler.scale_,
+        min=minmax_scaler.data_min_,
+        max=minmax_scaler.data_max_,
+        axis=axis,
+    )
 
-    def _make_transform(self, scalers) -> ScalerFn:
-        def fn(item: Sequence[Any]) -> Sequence[Any]:
-            nonlocal scalers
-            return tuple(
-                [
-                    self._backward[i](scalers[i].transform(self._forward[i](elem)))
-                    if i < len(self._scaling_info) and self._scaling_info[i]
-                    else elem
-                    for i, elem in enumerate(item)
-                ]
-            )
 
-        return fn
+def center(shape: Shape, stats: ElemStats) -> ItemTransformFn:
+    scaler = StandardScaler(with_std=False)
+    scaler.mean_ = stats.mean
+    return _make_scaler(scaler.transform, shape, stats.axis)
+
+
+def standardize(shape: Shape, stats: ElemStats) -> ItemTransformFn:
+    scaler = StandardScaler()
+    scaler.mean_ = stats.mean
+    scaler.scale_ = stats.std
+    scaler.var_ = stats.std ** 2
+    return _make_scaler(scaler.transform, shape, stats.axis)
+
+
+def minmax(shape: Shape, stats: ElemStats, feature_range=(0, 1)) -> ItemTransformFn:
+    scaler = MinMaxScaler(feature_range)
+    # repeating the scikit-learn implementation here, using our known stats
+    scaler.data_range_ = stats.max - stats.min
+    scaler.scale_ = (
+        scaler.feature_range[1] - scaler.feature_range[0]
+    ) / _handle_zeros_in_scale(scaler.data_range_)
+    scaler.min_ = feature_range[0] - stats.min * scaler.scale_
+    return _make_scaler(scaler.transform, shape, stats.axis)
+
+
+def maxabs(shape: Shape, stats: ElemStats) -> ItemTransformFn:
+    scaler = MaxAbsScaler()
+    scaler.scale_ = np.max(
+        np.array([np.abs(stats.min), stats.max]), axis=0  # type:ignore
+    )
+    return _make_scaler(scaler.transform, shape, stats.axis)
+
+
+# def normalize(shape: Shape, axis=0, norm="l2") -> ItemTransformFn:
+#     scaler = Normalizer(norm="l2")
+#     return _make_scaler(scaler.transform, shape, axis)
