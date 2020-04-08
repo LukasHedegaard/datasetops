@@ -18,18 +18,18 @@ First Steps
 Are you looking for ways to install the framework 
 or do you looking for inspiration to get started?
 
-* **Installing**: :doc:`Installing <installing>`
+* **Installing**: :doc:`Installing <getting_started/installing>`
 
-* **Getting Started**: :doc:`Getting started <getting_started>`
+* **Getting Started**: :doc:`Getting started <getting_started/getting_started>`
 
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Getting Started:
+   :caption: Getting Started
 
-   installing
-   getting_started
+   getting_started/installing
+   getting_started/getting_started
 
 Loaders and Transforms
 ----------------------
@@ -65,7 +65,7 @@ For how-to guides on how to do this see:
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: How-to guides:
+   :caption: How-to guides
 
    howto/custom_loader
    howto/custom_transform
@@ -106,7 +106,7 @@ See the example section:
 
 .. toctree::
     :maxdepth: 1
-    :caption: Examples:
+    :caption: Examples
     :glob:  
    
     examples/*
@@ -127,7 +127,7 @@ Information on how to the codebase is tested, how it is published, and how to ad
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Contributing:
+   :caption: Contributing
 
    development/communication
    development/codebase
