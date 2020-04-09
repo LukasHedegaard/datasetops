@@ -178,7 +178,7 @@ def test_cache():
             cache_path,
         )
 
-        test12 = test11.reorder("image_2", "calib", "velodyne_reduced")
+        test12 = test11.reorder("image_2", "calib", "velodyne")
         assert_cache(
             [
                 test12
@@ -315,7 +315,7 @@ def test_cache():
             False,
         )
 
-        test12 = test11.reorder("image_2", "calib", "velodyne_reduced").cached(
+        test12 = test11.reorder("image_2", "calib", "velodyne").cached(
             cache_path
         )
         assert_cache(

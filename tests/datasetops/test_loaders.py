@@ -38,7 +38,7 @@ def test_folder_group_data():
     expected_items = [str(p) for p in (Path(path)).glob("*/*.*")]
     ds = loaders.from_folder_group_data(path)
 
-    assert(set(ds.names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+    assert(set(ds.names) == set(["calib", "label_2", "image_2", "velodyne"]))
 
     found_items = [] 
 
@@ -76,8 +76,8 @@ def test_folder_dataset_group_data():
 
     datasets = loaders.from_folder_dataset_group_data(path)
 
-    assert(set(datasets[0].names) == set(["calib", "image_2", "velodyne_reduced"]))
-    assert(set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+    assert(set(datasets[0].names) == set(["calib", "image_2", "velodyne"]))
+    assert(set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne"]))
 
     def get_data_flat(ds):
         found_items = [] 
