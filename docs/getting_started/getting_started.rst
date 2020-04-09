@@ -16,11 +16,8 @@ At the beginning of this chain is a *loader* which implements the process of rea
 Following this the raw data can then processed into a desired from by applying a number of transformations, independently of the underlying storage format.
 After applying the transformations to the dataset it can be used as is or it can be converted into a type compatible with either PyTorch or TensorFlow.
 
-.. note::
-   The majority 
 
-An overview of the loaders and 
-
+An overview of the available loaders and transforms can be found in:
 
 .. doctest::
 

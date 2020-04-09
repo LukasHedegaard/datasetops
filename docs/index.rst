@@ -36,21 +36,19 @@ Loaders and Transforms
 
 Get an overview of the available loaders and transforms that can be used with your dataset.
 
-* **Loaders**: :doc:`Standard loaders <loaders/standard>`
+* **Loaders**: :doc:`Loaders <overview/loaders>`
 
-* **Transforms**: :doc:`General <transforms/common>` | :doc:`Image <transforms/images>` | :doc:`Time-series <transforms/timeseries>`
+* **Transforms**: :doc:`Transforms <overview/transforms>`
 
 It is also possible to implement your own loaders and transforms.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Loaders and Transforms
+   :caption: Overview
    
-   loaders/standard
-   transforms/common
-   transforms/images
-   transforms/timeseries
+   overview/loaders
+   overview/transforms
 
 Custom Loaders and Transforms
 -----------------------------
