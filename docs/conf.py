@@ -37,7 +37,10 @@ extensions = [
 ]
 doctest_global_setup = """
 try:
+    import numpy as np
     import datasetops as do
+    from datasetops.external_datasets import load_mnist
+    ds_mnist = load_mnist()
 except ImportError:
     do = None
 """

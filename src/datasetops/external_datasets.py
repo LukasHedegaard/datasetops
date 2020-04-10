@@ -3,12 +3,16 @@ This module provides a number of commonly used datasets.
 These may be used as reference or to experiment with various preprocessing steps.
 """
 
+from collections import namedtuple
+
 import numpy as np
 
 from datasetops.types import DatasetTransformFnCreator
 from datasetops.abstract import AbstractDataset
 from datasetops.dataset import Dataset
 from datasetops.loaders import Loader
+
+MnistSample = namedtuple("MnistSample", ["img", "lbl"])
 
 
 class MNIST(Loader):
@@ -46,7 +50,9 @@ class MNIST(Loader):
 
         img = self.images[idx, :]
         lbl = self.labels[idx]
-        return (img, lbl)
+        s = MnistSample(img, lbl)
+
+        return s
 
     # def __len__(self):
     #     return self._len
@@ -60,5 +66,7 @@ def load_mnist() -> Dataset:
 
 if __name__ == "__main__":
     train, val = MNIST().shuffle().split([0.7, 0.3])
-    img, lbl = train[0]
-    print(img.shape)
+    s = train[0]
+    img, lbl = s
+    print(lbl)
+    print(s.lbl)

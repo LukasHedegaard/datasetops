@@ -11,9 +11,10 @@ Shuffles a dataset such that samples are returned in random order when read.
 
 .. doctest::
 
-    >>> ds = do.load_mnist()
-    >>> ds_s = ds.shuffle(seed=0)
-    >>> ds.inds != ds.inds
+    >>> ds_shuffled = ds_mnist.shuffle(seed=0)
+    >>> ds_mnist[0] == ds_mnist[0]
+    True
+    >>> ds_mnist[0] == ds_shuffled[0]
     False
 
 
@@ -24,10 +25,10 @@ This may be used for creating a training and validation split.
 
 .. doctest::
 
-    >>> train, val = do.load_mnist().split([0.7,0.3])
-    >>> len(train) == 1000
+    >>> train, val = ds_mnist.split([0.5,0.5])
+    >>> len(train) == len(ds_mnist)/2
     True
-    >>> len(val) == 300
+    >>> len(val) == len(ds_mnist)/2
     True
 
 Split Filter
@@ -38,9 +39,10 @@ For example the MNIST dataset may be split into the samples corresponding to zer
 .. doctest::
 
     >>> def func(s):
-    >>>     return s.lbl == 0
+    >>>     lbl = s(1)
+    >>>     return lbl == 0
     >>>
-    >>> zeros, others = do.load_mnist().split_filter(func)
+    >>> zeros, others = ds_mnist.split_filter(func)
     >>> all([s.lbl == 0 for s in zeros])
     True
 
@@ -49,15 +51,21 @@ Changing Data
 
 Transform
 ~~~~~~~~~
-Applies an user defined transform to each sample of the dataset.
+Applies an user defined transform to each sample of a dataset.
+The function must take an sample as argument and in turn return a new sample.
 
 .. doctest::
 
-    >>> def func(s):
-    >>>     return someFunc(s)
+    >>> def func1(s):
+    >>>     img, lbl = s
+    >>>     img += np.Random.randn(img.shape)
+    >>>     return (img,lbl)
+    >>> 
+    >>> def func2(img):
+    >>>     return img + np.Random.randn(img.shape)
     >>>
-    >>> train, val = do.load_mnist().transform(TODO)
-    >>> TODO
+    >>> ds1 = ds_mnist.transform(func1)
+    >>> ds2 = ds_mnist.transform("img",func2)
     True
 
 Subsample
@@ -74,23 +82,29 @@ how each sample should be divided. This function must return an iterable consist
     >>>     img, lbl = s
     >>>     return [(img,lbl),(img,lbl)]
     >>>    
-    >>> def funct2(img):
+    >>> def func2(img):
     >>>     return [img,img]
     >>>
     >>> ss1 = ds_mnist.subsample(func1)
     >>> ss2 = ds_mnist.subsample("img", func2)
-    >>> ss3 = ds_mnist.subsample(func1, n=4)
-    >>> ss4 = ds_mnist.subsample("img", func2, n=4)
+    >>> ss3 = ds_mnist.subsample(func1, n="eager")
+    >>> ss4 = ds_mnist.subsample(func1, n="sample")
+    >>> ss4 = ds_mnist.subsample(func1, n=4)
     True
 
 The function can be called in several ways as shown in the example.
 In the first case, the entire sample is passed to the supplied function.
-In the second case, the *img* item is specified which 
+In the second case, the first argument specifies that only the *img*-item is to be subsampled.
+This results in only the image being passed as an argument to the function. 
+The items which are not specified remain untouched, e.g. the first and second case are equivalent.
 
+To define the number of samples in the new dataset, the number of subsamples per sample must be specified.
+This can be done in one of three ways, by doing the subsampling eagerly on all samples, 
+by performing subsampling on a single sample or by specifying the number of subsamples per sample.
+In case the number of subsamples per sample may vary based on the concrete sample the first option should be used.
 
-The difference between the :meth:`transform <datasetops.dataset.Dataset.transform>` and :func:`subsample <datasetops.dataset.subsample>` methods, 
-is that the former modifies the sample itself, but not the number of samples, whereas the latter is allowed to do both.
-
+.. The difference between the :meth:`transform <datasetops.dataset.Dataset.transform>` and :func:`subsample <datasetops.dataset.subsample>` methods, 
+.. is that the former modifies the sample itself, but not the number of samples, whereas the latter is allowed to do both.
 
 Images Manipulation
 -------------------
