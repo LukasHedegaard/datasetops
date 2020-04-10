@@ -9,6 +9,26 @@ PyTorch
 Tensorflow
 ----------
 
+Recursive File Loader
+---------------------
+Provides functionality to load files stored in a tree structure in a recursively in a generic manner.
+A callback function must be specified which is invoked with the `path <https://docs.python.org/3/library/pathlib.html#pathlib.Path>`__  of each file. 
+When called this function should return a sample corresponding to the contents of the file.
+Specific files may be skipped by returning None from the callback.
+
+.. doctest::
+    >>> def func(path):
+    >>>     if(path.suffix != ".txt"):
+    >>>         return None
+    >>>     return {"data" : np.loadtxt(path) }
+    >>>
+    >>> ds = load_files_recursive("recursive_txt", func)
+    >>> len(ds)
+    4
+    >>> ds[0].shape
+    
+
+
 Comma-separated values (CSV)
 ----------------------------
 
@@ -92,5 +112,10 @@ This will search recursively for CSV files creating a sample for each file.
 
 .. doctest::
 
-    >>> ds = load_csv("cars_csv")
+    >>> ds = do.load_csv("cars_csv")
+    >>> len(ds)
+    4
+    >>> ds[0].shape
+    (3,2)
 
+Similar to before it is possible to supply a callback function for transforming the data.

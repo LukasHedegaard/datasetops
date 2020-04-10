@@ -65,7 +65,22 @@ def load_mnist() -> Dataset:
 
 
 if __name__ == "__main__":
-    train, val = MNIST().shuffle().split([0.7, 0.3])
+    def func(s):
+        return s._replace(lbl=s.lbl*2)
+
+    def func_lbl(lbl):
+        return lbl * 100
+
+    def make_unnamed(nt):
+        return tuple(nt)
+
+    def make_named(t):
+        return MnistSample(*t)
+
+    #train, val = MNIST().shuffle().transform(func).named("img", 'lbl').transform(lbl=func_lbl).split([0.7, 0.3])
+    train, val = MNIST().shuffle().transform(
+        make_unnamed).transform(make_named).split([0.7, 0.3])
+
     s = train[0]
     img, lbl = s
     print(lbl)

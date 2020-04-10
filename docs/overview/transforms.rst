@@ -39,8 +39,7 @@ For example the MNIST dataset may be split into the samples corresponding to zer
 .. doctest::
 
     >>> def func(s):
-    >>>     lbl = s(1)
-    >>>     return lbl == 0
+    >>>     return s.lbl == 0
     >>>
     >>> zeros, others = ds_mnist.split_filter(func)
     >>> all([s.lbl == 0 for s in zeros])
