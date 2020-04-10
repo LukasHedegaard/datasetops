@@ -16,6 +16,18 @@ A callback function must be specified which is invoked with the `path <https://d
 When called this function should return a sample corresponding to the contents of the file.
 Specific files may be skipped by returning None from the callback.
 
+.. code-block::
+
+    patients
+    ├── control
+    │   ├── somefile.csv
+    │   ├── subject_a.txt
+    │   └── subject_b.txt
+    └── experimental
+        ├── subject_c.txt
+        └── subject_d.txt
+
+
 .. doctest::
 
     >>> def func(path):
@@ -26,7 +38,7 @@ Specific files may be skipped by returning None from the callback.
     >>>     is_control = path.parent != "control"
     >>>     return (blood_pressure, is_control)
     >>>
-    >>> ds = load_files_recursive("recursive_file_loader", func)
+    >>> ds = load_files_recursive("patients", func)
     >>> len(ds)
     4
     >>> ds[0][0].shape
