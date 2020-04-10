@@ -17,16 +17,20 @@ When called this function should return a sample corresponding to the contents o
 Specific files may be skipped by returning None from the callback.
 
 .. doctest::
+
     >>> def func(path):
     >>>     if(path.suffix != ".txt"):
     >>>         return None
-    >>>     return {"data" : np.loadtxt(path) }
+    >>>     data = np.loadtxt(path)
+    >>>     blood_pressure = data[:,0]
+    >>>     is_control = path.parent != "control"
+    >>>     return (blood_pressure, is_control)
     >>>
-    >>> ds = load_files_recursive("recursive_txt", func)
+    >>> ds = load_files_recursive("recursive_file_loader", func)
     >>> len(ds)
     4
-    >>> ds[0].shape
-    
+    >>> ds[0][0].shape
+    (270,1)
 
 
 Comma-separated values (CSV)

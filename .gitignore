@@ -143,3 +143,4 @@ tests/recourses/*
 !tests/recourses/caching
 !tests/recourses/folder_dataset_class_data
 !tests/recourses/mat_single_with_multi_data
+!tests/recourses/recursive_file_loader
