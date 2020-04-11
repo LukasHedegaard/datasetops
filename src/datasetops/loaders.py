@@ -4,14 +4,17 @@ Additionally, the module provides adapters for the dataset types used by various
 """
 
 from pathlib import Path
-from datasetops.dataset import zipped
-from datasetops.abstract import ItemGetter
-from scipy.io import loadmat
-from datasetops.dataset import Dataset
-from datasetops.types import *
-import numpy as np
+import os
 import re
 import warnings
+
+import numpy as np
+from scipy.io import loadmat
+
+from datasetops.dataset import zipped
+from datasetops.abstract import ItemGetter
+from datasetops.dataset import Dataset
+from datasetops.types import *
 
 
 class Loader(Dataset):
@@ -371,3 +374,59 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         )
 
     return sorted(datasets, key=lambda d: d.name)
+
+
+def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Dataset:
+    """Provides functionality to load files stored in a tree structure in a recursively in a generic manner.
+    A callback function must be specified which is invoked with the path of each file.
+    When called this function should return a sample corresponding to the contents of the file.
+    Specific files may be skipped by supplying a predicate function.
+
+    Arguments:
+        root {AnyPath} -- Path to the root directory
+        load_func {[type]} -- Function invoked with the path of each file.
+        predicate_func {[type]} -- Predicate function determining 
+
+    Returns:
+        Dataset -- The resulting dataset.
+
+    Examples:
+
+    Consider the file structure below:
+    ```
+    patients
+    ├── control
+    │   ├── somefile.csv
+    │   ├── subject_a.txt
+    │   └── subject_b.txt
+    └── experimental
+        ├── subject_c.txt
+        └── subject_d.txt
+    ```
+    """
+
+    root_dir = Path(root)
+
+    if(predicate_func is None):
+        def predicate_func(_): return True
+
+    # find all files matching predicate function
+    matches = []
+    for root, _, files in os.walk(root_dir):
+        for f in files:
+            p = Path(root) / f
+            if(predicate_func(p)):
+                matches.append(p)
+
+    ids_to_file = {idx: f for idx, f in enumerate(matches)}
+
+    def get_data(i):
+        nonlocal ids_to_file
+        nonlocal load_func
+        sample = load_func(ids_to_file[i])
+        return sample
+
+    ds = Loader(get_data, "TODO")
+    ds.extend(ids_to_file.keys())
+
+    return ds

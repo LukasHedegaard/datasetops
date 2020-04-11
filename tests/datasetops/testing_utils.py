@@ -12,6 +12,7 @@ class DatasetPaths(NamedTuple):
     KITTI_DATASET: str = "caching/kitti_dataset"
     FOLDER_GROUP_DATA: str = KITTI_DATASET + '/training'
     FOLDER_DATASET_GROUP_DATA: str = KITTI_DATASET
+    PATIENTS: str = "patients"
 
 
 DATASET_PATHS = DatasetPaths()

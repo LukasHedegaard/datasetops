@@ -38,9 +38,10 @@ def test_folder_group_data():
     expected_items = [str(p) for p in (Path(path)).glob("*/*.*")]
     ds = loaders.from_folder_group_data(path)
 
-    assert(set(ds.names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+    assert(set(ds.names) == set(
+        ["calib", "label_2", "image_2", "velodyne_reduced"]))
 
-    found_items = [] 
+    found_items = []
 
     for i in ds:
         for q in i:
@@ -76,11 +77,13 @@ def test_folder_dataset_group_data():
 
     datasets = loaders.from_folder_dataset_group_data(path)
 
-    assert(set(datasets[0].names) == set(["calib", "image_2", "velodyne_reduced"]))
-    assert(set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne_reduced"]))
+    assert(set(datasets[0].names) == set(
+        ["calib", "image_2", "velodyne_reduced"]))
+    assert(set(datasets[1].names) == set(
+        ["calib", "label_2", "image_2", "velodyne_reduced"]))
 
     def get_data_flat(ds):
-        found_items = [] 
+        found_items = []
 
         for i in ds:
             for q in i:
@@ -147,7 +150,8 @@ def test_pytorch():
     ds_torch = loaders.from_pytorch(torch_ds)
 
     # tensor type in torch dataset
-    assert torch.all(torch.eq(torch_ds[0][0], torch.Tensor([0, 0])))  # type:ignore
+    assert torch.all(
+        torch.eq(torch_ds[0][0], torch.Tensor([0, 0])))  # type:ignore
 
     # numpy type in ours
     assert np.array_equal(ds_torch[0][0], (np.array([0, 0])))  # type:ignore
@@ -190,3 +194,25 @@ def test_tfds():
 
     assert np.array_equal(mnist_item[0].numpy(), ds_mnist_item[0])
     assert np.array_equal(mnist_item[1].numpy(), ds_mnist_item[1])
+
+
+def test_from_recursive_files():
+
+    from collections import namedtuple
+    Patient = namedtuple("Patient", ["blood_pressure", "control"])
+
+    root = get_test_dataset_path(DATASET_PATHS.PATIENTS)
+
+    def predicate(path):
+        return path.suffix == ".txt"
+
+    def func(path):
+        blood_pressure = np.loadtxt(path)
+        is_control = (path.parent != "control")
+        return Patient(blood_pressure, is_control)
+
+    ds = loaders.from_recursive_files(root, func, predicate)
+
+    assert len(ds) == 4
+
+    assert ds[0].blood_pressure.shape == (270,)
