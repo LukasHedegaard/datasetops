@@ -19,8 +19,16 @@ class DatasetPaths(NamedTuple):
 DATASET_PATHS = DatasetPaths()
 
 
-def get_test_dataset_path(dataset_path: str) -> str:
-    return str((Path(__file__).parent.parent / "recourses" / dataset_path).absolute())
+def get_test_dataset_path(dataset_path: str) -> Path:
+    """Returns the path to the dataset relative to the test-resources folder.
+
+    Arguments:
+        dataset_path {str} -- path to the dataset defined relative to the test-resource folder
+
+    Returns:
+        Path -- path to the dataset
+    """
+    return Path(__file__).parent.parent / "recourses" / dataset_path
 
 
 def from_dummy_data(num_total=11, with_label=False) -> Loader:
