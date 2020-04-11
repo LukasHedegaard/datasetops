@@ -117,9 +117,11 @@ def from_tensorflow(tf_dataset):
 def from_folder_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
-    folder
-    ├ sample1.jpg
-    ├ sample2.jpg
+    .. code-block::
+
+        folder
+        ├ sample1.jpg
+        ├ sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to folder
@@ -143,16 +145,16 @@ def from_folder_data(path: AnyPath) -> Dataset:
 
 
 def from_folder_class_data(path: AnyPath) -> Dataset:
-    u"""Load data from a folder with the data structure:
+    """Load data from a folder with the data structure:
 
-    ```
-    data
-    ├── class1
-    │   ├── sample1.jpg
-    │   └── sample2.jpg
-    └── class2
-    ****└── sample3.jpg
-    ```
+    .. code-block::
+
+        data
+        ├── class1
+        │   ├── sample1.jpg
+        │   └── sample2.jpg
+        └── class2
+            └── sample3.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -179,15 +181,17 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
 
 
 def from_folder_group_data(path: AnyPath) -> Dataset:
-    u"""Load data from a folder with the data structure:
+    """Load data from a folder with the data structure:
 
-    data
-    ├── group1
-    │   ├── sample1.jpg
-    │   └── sample2.jpg
-    └── group2
-    ....├── sample1.jpg
-    ....└── sample2.jpg
+    .. code-block::
+
+        data
+        ├── group1
+        │   ├── sample1.jpg
+        │   └── sample2.jpg
+        └── group2
+            ├── sample1.jpg
+            └── sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -214,17 +218,17 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
 def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
-    ```
-    data
-    ├── dataset1
-    │   ├── class1
-    │   │   ├── sample1.jpg
-    │   │   └── sample2.jpg
-    │   └── class2
-    │       └── sample3.jpg
-    └── dataset2
-    ****└── sample3.jpg
-    ```
+    .. code-block::
+
+        data
+        ├── dataset1
+        │   ├── class1
+        │   │   ├── sample1.jpg
+        │   │   └── sample2.jpg
+        │   └── class2
+        │       └── sample3.jpg
+        └── dataset2
+            └── sample3.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -405,19 +409,20 @@ def from_csv(path,
         predicate_func {Callable} -- optional predicate function used to define files to be skipped. (default: {None})
         data_format {bool} -- defines how the data read from the csv is formatted. Possible options are {"tuple", "dataframe"}
         kwargs {Any} -- additional arguments passed to pandas read_csv function
+
     Examples:
 
     Consider the example below:
 
-    ```
-    cars
-    ├── car_1
-    │   ├── load_1000.csv
-    │   └── load_2000.csv
-    └── car_2
-        ├── load_1000.csv
-        └── load_2000.csv
-    ```
+    .. code-block::
+
+        cars
+        ├── car_1
+        │   ├── load_1000.csv
+        │   └── load_2000.csv
+        └── car_2
+            ├── load_1000.csv
+            └── load_2000.csv
 
     """
     import pandas as pd
@@ -508,17 +513,18 @@ def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Datas
 
     Examples:
 
-    Consider the file structure below:
-    ```
-    patients
-    ├── control
-    │   ├── somefile.csv
-    │   ├── subject_a.txt
-    │   └── subject_b.txt
-    └── experimental
-        ├── subject_c.txt
-        └── subject_d.txt
-    ```
+    Consider the file structure shown below:
+
+    .. code-block::
+
+        patients
+        ├── control
+        │   ├── somefile.csv
+        │   ├── subject_a.txt
+        │   └── subject_b.txt
+        └── experimental
+            ├── subject_c.txt
+            └── subject_d.txt
     """
 
     root_dir = Path(root)
