@@ -221,19 +221,44 @@ def test_from_recursive_files():
     assert ds[0].blood_pressure.shape == (270,)
 
 
-def test_from_csv():
+class TestLoadCSV():
 
     root = get_test_dataset_path(DATASET_PATHS.CARS)
 
-    ds1 = loaders.from_csv(root)
+    def test_single_default(self):
+        ds = loaders.from_csv(TestLoadCSV.root / "car_1" / "load_1000.csv")
+        assert len(ds) == 1
+        s = ds[0]
+        assert s.speed == [1, 2, 3]
+        assert s.vibration == [0.5, 1.0, 1.5]
 
-    assert len(ds1) == 4
+    def test_nested_default(self):
+        ds = loaders.from_csv(TestLoadCSV.root)
+        assert len(ds) == 4
 
-    def func(path, data):
-        load = path.stem.split("_")[-1]
-        return (data, load)
+    def test_nested_custom(self):
 
-    ds2 = loaders.from_csv(root, func)
+        def func(path, data):
+            load = int(path.stem.split("_")[-1])
+            model = path.parent.name
+            Sample = namedtuple('Sample', data._fields + ('model', 'load',))
+            t = Sample(*data, model, load)
+            return t
 
-    assert len(ds2[0]) == 2
-    assert len(ds2) == 4
+        ds = loaders.from_csv(TestLoadCSV.root)
+        assert len(ds) == 4
+
+        def find_sample(data):
+            return data.model == "car_1" and data.load == 1000
+
+        ds = loaders.from_csv(TestLoadCSV.root, func, data_format="tuple")
+        assert len(ds) == 4
+
+        ds = ds.filter(find_sample)
+
+        assert len(ds) == 1
+        s = ds[0]
+        assert s.model == "car_1"
+        assert s.speed == [1, 2, 3]
+        assert s.vibration == [0.5, 1, 1.5]
+        assert s.load == 1000

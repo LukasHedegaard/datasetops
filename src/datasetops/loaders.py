@@ -8,6 +8,7 @@ import os
 import re
 import warnings
 from typing import List
+from collections import namedtuple
 
 
 import numpy as np
@@ -382,7 +383,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
 def from_csv(path,
              load_func=None,
              predicate_func=None,
-             single_sample=False):
+             data_format="tuple"):
     """Load data stored as comma-separated values (CSV).
     The csv-data can be stored as either a single file or in several smaller
     files stored in a tree structure.
@@ -401,8 +402,7 @@ def from_csv(path,
     Keyword Arguments:
         load_func {Callable} -- optional user-defined function called with the path and contents of each CSV file. (default: {None})
         predicate_func {Callable} -- optional predicate function used to define files to be skipped. (default: {None})
-        single_sample {bool} -- when reading a single CSV file, treat its entire contents as a single sample. (default: {False})
-
+        data_format {bool} -- defines how the data read from the csv is formatted. Possible options are {"tuple", "dataframe"}
     Examples:
 
     Consider the example below:
@@ -418,7 +418,7 @@ def from_csv(path,
     ```
 
     """
-    import pandas
+    import pandas as pd
     p = Path(path)
 
     # Since there are no standardized filename extension for CSV files,
@@ -431,18 +431,58 @@ def from_csv(path,
         def load_func(path, data):
             return data
 
+    formats = {"tuple", "dataframe"}
+
+    if(data_format not in formats):
+        raise ValueError(
+            f"Unable to load the dataset from CSV, the specified data fromat : {data_format} is not recognized. Options are: {formats}")
+
+    # read csv using pandas
+    # if specified the dataframe is converted to a tuple of numpy arrays.
     def read_single_csv(path):
-        nonlocal predicate_func
-        data = pandas.read_csv(path)
+        data = pd.read_csv(path)
+
+        if(data_format == "tuple"):
+            Row = namedtuple("Row", data.columns)
+            n = data.to_numpy().T.tolist()
+            data = Row(*n)
+
         return load_func(path, data)
 
     if(p.is_file()):
-        raise NotImplementedError()
+        ds = from_files_list([p], read_single_csv)
+
     elif(p.is_dir()):
         ds = from_recursive_files(p, read_single_csv, predicate_func)
     else:
         raise ValueError(
             f"Unable to load the dataset from CSV, the supplied path: {p} is neither a file or directory")
+
+    return ds
+
+
+def from_files_list(files, load_func):
+    """Reads a list of files using by invoking a user-defined function on each file.
+    The function is invoked with the path of each file and must return a new sample.
+
+    Arguments:
+        files {[Iterable]} -- an list of files to load
+        load_func {[type]} -- function invoked with the path to each file to produce a sample.
+
+    Returns:
+        Dataset -- The resulting dataset.
+    """
+
+    ids_to_file = {idx: f for idx, f in enumerate(files)}
+
+    def get_data(i):
+        nonlocal ids_to_file
+        nonlocal load_func
+        sample = load_func(ids_to_file[i])
+        return sample
+
+    ds = Loader(get_data, "files_list")
+    ds.extend(ids_to_file.keys())
 
     return ds
 
@@ -489,15 +529,4 @@ def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Datas
             if(predicate_func(p)):
                 matches.append(p)
 
-    ids_to_file = {idx: f for idx, f in enumerate(matches)}
-
-    def get_data(i):
-        nonlocal ids_to_file
-        nonlocal load_func
-        sample = load_func(ids_to_file[i])
-        return sample
-
-    ds = Loader(get_data, "TODO")
-    ds.extend(ids_to_file.keys())
-
-    return ds
+    return from_files_list(matches, load_func)
