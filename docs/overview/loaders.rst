@@ -96,16 +96,6 @@ To load a single CSV file the path of the file is passed to the function.
     >>> ds[0].shape
     (1,2)
 
-It is possible to specify whether a sample should be generated from each row, or only a single sample should be produced from the entire file.
-
-.. doctest::
-
-    >>> ds = do.load_csv("car1/load_1000.csv", single_sample=True)
-    >>> len(ds)
-    1
-    >>> ds[0].shape
-    (3,2)
-
 Finally, it is possible to pass a function to transform the raw data into a sample.
 The function must take the path and the raw data as argument and in turn return a new sample:
 
@@ -135,3 +125,10 @@ This will search recursively for CSV files creating a sample for each file.
     (3,2)
 
 Similar to before it is possible to supply a callback function for transforming the data.
+
+Data format
+~~~~~~~~~~~
+Its possible to control the format of the data read from the CSV files by specifying the *data_format* parameter.
+The two options are a tuple or a Pandas `DataFrame <https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html?highlight=dataframe#pandas.DataFrame>`__
+If the column names defined in the CSV are valid attributes names a named tuple will be returned otherwise a plain tuple is returned.
+ 

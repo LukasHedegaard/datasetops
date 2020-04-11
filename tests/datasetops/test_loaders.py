@@ -223,17 +223,27 @@ def test_from_recursive_files():
 
 class TestLoadCSV():
 
-    root = get_test_dataset_path(DATASET_PATHS.CARS)
+    cars = get_test_dataset_path("csv/cars")
+
+    def test_names_missing(self):
+        p = get_test_dataset_path("csv/weird/no_names.csv")
+        ds = loaders.from_csv(p, names=["a", "b", "c"])
+
+        assert len(ds) == 1
+        s = ds[0]
+        s.a == [1, 2]
+        s.b == [2, 4]
+        s.c == [3, 6]
 
     def test_single_default(self):
-        ds = loaders.from_csv(TestLoadCSV.root / "car_1" / "load_1000.csv")
+        ds = loaders.from_csv(TestLoadCSV.cars / "car_1" / "load_1000.csv")
         assert len(ds) == 1
         s = ds[0]
         assert s.speed == [1, 2, 3]
         assert s.vibration == [0.5, 1.0, 1.5]
 
     def test_nested_default(self):
-        ds = loaders.from_csv(TestLoadCSV.root)
+        ds = loaders.from_csv(TestLoadCSV.cars)
         assert len(ds) == 4
 
     def test_nested_custom(self):
@@ -245,13 +255,13 @@ class TestLoadCSV():
             t = Sample(*data, model, load)
             return t
 
-        ds = loaders.from_csv(TestLoadCSV.root)
+        ds = loaders.from_csv(TestLoadCSV.cars)
         assert len(ds) == 4
 
         def find_sample(data):
             return data.model == "car_1" and data.load == 1000
 
-        ds = loaders.from_csv(TestLoadCSV.root, func, data_format="tuple")
+        ds = loaders.from_csv(TestLoadCSV.cars, func, data_format="tuple")
         assert len(ds) == 4
 
         ds = ds.filter(find_sample)

@@ -383,7 +383,8 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
 def from_csv(path,
              load_func=None,
              predicate_func=None,
-             data_format="tuple"):
+             data_format="tuple",
+             **kwargs):
     """Load data stored as comma-separated values (CSV).
     The csv-data can be stored as either a single file or in several smaller
     files stored in a tree structure.
@@ -403,6 +404,7 @@ def from_csv(path,
         load_func {Callable} -- optional user-defined function called with the path and contents of each CSV file. (default: {None})
         predicate_func {Callable} -- optional predicate function used to define files to be skipped. (default: {None})
         data_format {bool} -- defines how the data read from the csv is formatted. Possible options are {"tuple", "dataframe"}
+        kwargs {Any} -- additional arguments passed to pandas read_csv function
     Examples:
 
     Consider the example below:
@@ -440,12 +442,15 @@ def from_csv(path,
     # read csv using pandas
     # if specified the dataframe is converted to a tuple of numpy arrays.
     def read_single_csv(path):
-        data = pd.read_csv(path)
+        data = pd.read_csv(path, **kwargs)
 
+        # convert dataframe to
         if(data_format == "tuple"):
-            Row = namedtuple("Row", data.columns)
-            n = data.to_numpy().T.tolist()
-            data = Row(*n)
+            try:
+                Row = namedtuple("Row", data.columns)
+                data = Row(*data.to_numpy().T.tolist())
+            except Exception:
+                data = tuple(data.to_numpy().T.tolist())
 
         return load_func(path, data)
 
