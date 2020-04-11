@@ -1,6 +1,4 @@
-"""Defines type-hints used various placed in the code."""
-
-from typing import Callable, Dict, Sequence, Union, Any, List, Tuple, Optional
+from typing import Callable, Dict, Sequence, Union, Any, List, Tuple, Optional, Iterable
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
 

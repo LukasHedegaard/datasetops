@@ -19,7 +19,6 @@ https://datasetops.readthedocs.io/en/latest/
 from .dataset import (
     Dataset,
     allow_unique,
-    custom,
     reshape,
     categorical,
     one_hot,
