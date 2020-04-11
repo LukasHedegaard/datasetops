@@ -71,6 +71,17 @@ Subsample
 ~~~~~~~~~
 For some applications it may be useful to convert each sample into several smaller sub-samples.
 For example, a sample may be a time-series stretching over a large time interval, which needs to be split into several series of shorter length.
+Likewise a single image can be split into sub images. Both scenarios are depicted in :numref:`fig_subsample`. 
+
+
+.. _fig_subsample:
+.. figure:: ../pics/subsample.svg
+   :figwidth: 600
+   :align: center
+   :alt: subsample operation
+
+   Subsampling of image (a) and subsampling of time-series (b)
+
 
 To subsample a dataset the :func:`subsample <datasetops.dataset.subsample>` method is called with a function that describes
 how each sample should be divided. This function must return an iterable consisting of the new samples as seen below:
