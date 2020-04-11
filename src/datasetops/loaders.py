@@ -7,6 +7,8 @@ from pathlib import Path
 import os
 import re
 import warnings
+from typing import List
+
 
 import numpy as np
 from scipy.io import loadmat
@@ -15,6 +17,7 @@ from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from datasetops.dataset import Dataset
 from datasetops.types import *
+from datasetops.types import AnyPath
 
 
 class Loader(Dataset):
@@ -376,6 +379,74 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     return sorted(datasets, key=lambda d: d.name)
 
 
+def from_csv(path,
+             load_func=None,
+             predicate_func=None,
+             single_sample=False):
+    """Load data stored as comma-separated values (CSV).
+    The csv-data can be stored as either a single file or in several smaller
+    files stored in a tree structure.
+
+    Information from the path of the individual CSV files can be incorporated
+    through a user-defined function.
+    The function is invoked with the path to the CSV files and its contents,
+    and must return a new sample.
+
+    Additionally, specific files may be skipped by supplying a predicate function.
+    This function is invoked with the path of each file.
+
+    Arguments:
+        path {AnyPath} -- path to either a single csv file or a directory containing CSV files.
+
+    Keyword Arguments:
+        load_func {Callable} -- optional user-defined function called with the path and contents of each CSV file. (default: {None})
+        predicate_func {Callable} -- optional predicate function used to define files to be skipped. (default: {None})
+        single_sample {bool} -- when reading a single CSV file, treat its entire contents as a single sample. (default: {False})
+
+    Examples:
+
+    Consider the example below:
+
+    ```
+    cars
+    ├── car_1
+    │   ├── load_1000.csv
+    │   └── load_2000.csv
+    └── car_2
+        ├── load_1000.csv
+        └── load_2000.csv
+    ```
+
+    """
+    import pandas
+    p = Path(path)
+
+    # Since there are no standardized filename extension for CSV files,
+    # we assume that every file is csv unless specified otherwise.
+    if(predicate_func is None):
+        def predicate_func(path):
+            return True
+
+    if(load_func is None):
+        def load_func(path, data):
+            return data
+
+    def read_single_csv(path):
+        nonlocal predicate_func
+        data = pandas.read_csv(path)
+        return load_func(path, data)
+
+    if(p.is_file()):
+        raise NotImplementedError()
+    elif(p.is_dir()):
+        ds = from_recursive_files(p, read_single_csv, predicate_func)
+    else:
+        raise ValueError(
+            f"Unable to load the dataset from CSV, the supplied path: {p} is neither a file or directory")
+
+    return ds
+
+
 def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Dataset:
     """Provides functionality to load files stored in a tree structure in a recursively in a generic manner.
     A callback function must be specified which is invoked with the path of each file.
@@ -385,7 +456,7 @@ def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Datas
     Arguments:
         root {AnyPath} -- Path to the root directory
         load_func {[type]} -- Function invoked with the path of each file.
-        predicate_func {[type]} -- Predicate function determining 
+        predicate_func {[type]} -- Predicate function determining
 
     Returns:
         Dataset -- The resulting dataset.

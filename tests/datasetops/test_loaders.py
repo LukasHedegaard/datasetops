@@ -1,9 +1,13 @@
-import datasetops.loaders as loaders
 import random
+from collections import namedtuple
 from pathlib import Path
-from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+
 import numpy as np
 import pytest
+
+import datasetops.loaders as loaders
+from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+
 
 # tests ##########################
 
@@ -198,7 +202,6 @@ def test_tfds():
 
 def test_from_recursive_files():
 
-    from collections import namedtuple
     Patient = namedtuple("Patient", ["blood_pressure", "control"])
 
     root = get_test_dataset_path(DATASET_PATHS.PATIENTS)
@@ -216,3 +219,21 @@ def test_from_recursive_files():
     assert len(ds) == 4
 
     assert ds[0].blood_pressure.shape == (270,)
+
+
+def test_from_csv():
+
+    root = get_test_dataset_path(DATASET_PATHS.CARS)
+
+    ds1 = loaders.from_csv(root)
+
+    assert len(ds1) == 4
+
+    def func(path, data):
+        load = path.stem.split("_")[-1]
+        return (data, load)
+
+    ds2 = loaders.from_csv(root, func)
+
+    assert len(ds2[0]) == 2
+    assert len(ds2) == 4
