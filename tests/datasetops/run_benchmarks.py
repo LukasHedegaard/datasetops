@@ -129,14 +129,18 @@ def benchmark_kitti(kitti_full_path: str):
             lambda:create_train_dataset(train, True, take)
         ])
 
+        cached_dataset = create_train_dataset(
+            train, True, take, keep_loaded_items
+        )
+
         results = Benchmark.run([
             create_traverse_dataset(create_train_dataset(
                 train, False, take, keep_loaded_items
             ), randomize),
-            create_traverse_dataset(create_train_dataset(
-                train, True, take, keep_loaded_items
-            ), randomize),
+            create_traverse_dataset(cached_dataset, randomize),
         ], traverse_repeats)
+
+        cached_dataset.close()
 
         return {
             "amount": str(take) if take is not None else "all",

@@ -1089,6 +1089,9 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis]),
         )
 
+    def close(self):
+        pass
+
     ########## Framework converters #########################
 
     def to_tensorflow(self):

@@ -85,6 +85,9 @@ def test_cache():
             for a, c2 in zip(all_data, cached2_all_data):
                 assert are_same(a, c2)
 
+            cached.close()
+            cached2.close()
+
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
     test, train = loaders.from_folder_dataset_group_data(path)
 
