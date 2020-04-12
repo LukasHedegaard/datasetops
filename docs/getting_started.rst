@@ -2,6 +2,7 @@ Getting started
 ===============
 
 .. code-block:: python
+
    import datasetops as do
 
    path = '../data/nested_class_folder'

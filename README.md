@@ -114,11 +114,11 @@ What follows here is a list of implemented and planned features.
 - [ ] `image_brightness` (modify brightness of PIL.Image.Image elements)
 - [ ] `image_contrast` (modify contrast of PIL.Image.Image elements)
 - [ ] `image_filter` (apply an image filter to PIL.Image.Image elements)
+- [x] `center` (modify each item according to dataset statistics)
+- [x] `standardize` (modify each item according to dataset statistics)
+- [x] `minmax` (scale data to reside within a range)
+- [x] `maxabs` (scale each feature by its maximum absolute value.)
 - [ ] `noise` (adds noise to the data)
-- [ ] `center` (modify each item according to dataset statistics)
-- [ ] `normalize` (modify each item according to dataset statistics)
-- [ ] `standardize` (modify each item according to dataset statistics)
-- [ ] `whiten` (modify each item according to dataset statistics)
 - [ ] `randomly` (apply data transformations with some probability)
 
 ### Dataset combinations 

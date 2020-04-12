@@ -1,9 +1,28 @@
+"""
+This module defines a generic interface for datasets.
+
+Examples
+--------
+A simple dataset can be implemented as::
+
+  >>> class DummyDataset(AbstractDataset):
+  >>>     def __len__(self):
+  >>>         return 10
+  >>>     def __getitem__(self, idx):
+  >>>         return idx
+  >>>     
+  >>> ds = DummyDataset()
+  >>> ds.__getitem__(0)
+  0
+"""
+
 from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, Dict
 from datasetops.transformation_graph import TransformationGraph
 
 
 class ItemGetter(ABC):
+    """Abstract base class implemented by classes that implement a index based get method"""
     @abstractmethod
     def __getitem__(self, i: int) -> Tuple:
         pass  # pragma: no cover
@@ -26,10 +45,11 @@ class AbstractDataset(ItemGetter):
     def __getitem__(self, idx: int) -> Tuple:
         """Returns the element at the specified index.
 
-        Parameters
-        ----------
-        idx : int
-            the index from which to read the sample.
+        Arguments:
+            idx {int} -- the index from which to read the sample.
+
+        Returns:
+            Tuple -- A tuple representing the sample
         """
         pass  # pragma: no cover
 

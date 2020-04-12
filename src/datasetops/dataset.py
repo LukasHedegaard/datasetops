@@ -1,6 +1,18 @@
+"""
+Module defining operations which may be applied to transform the data of a single dataset.
+The transforms are available as free functions or as ``extension`` methods defined on the dataset objects:
+
+  >>> ds.shuffle(seed=0)
+  >>> ds_s = shuffle(ds,seed=0)
+  >>> ds.idx == ds_s.idx
+  True
+
+"""
+
 import random
 from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.cache import Cache
+from datasetops.scaler import ElemStats
 from datasetops.types import *
 import datasetops.compose as compose
 import numpy as np
@@ -12,6 +24,7 @@ from datasetops.abstract import AbstractDataset
 from pathlib import Path
 from typing import Optional, Tuple, overload, TypeVar, IO
 import dill
+from datasetops import scaler
 
 
 ########## Local Helpers ####################
@@ -47,12 +60,12 @@ def _raise_no_args(skip=0):
     return with_args
 
 
-def _dummy_arg_receiving(fn):
-    @functools.wraps(fn)
-    def wrapped(dummy, *args, **kwargs):
-        return fn(*args, **kwargs)
+# def _dummy_arg_receiving(fn):
+#     @functools.wraps(fn)
+#     def wrapped(dummy, *args, **kwargs):
+#         return fn(*args, **kwargs)
 
-    return wrapped
+#     return wrapped
 
 
 def _key_index(item_names: ItemNames, key: Key) -> int:
@@ -80,14 +93,14 @@ def _split_bulk_itemwise(
 
 def _combine_conditions(
     item_names: ItemNames,
-    shape: Shape,
+    shape: Sequence[Shape],
     predicates: Optional[
         Union[DataPredicate, Sequence[Optional[DataPredicate]]]
     ] = None,
     **kwpredicates: DataPredicate
 ) -> DataPredicate:
 
-    bulk, itemwise = _split_bulk_itemwise(predicates)  # type: ignore
+    bulk, itemwise = _split_bulk_itemwise(predicates)  # type:ignore
 
     if len(itemwise) > len(shape):
         raise ValueError("Too many predicates given")
@@ -119,17 +132,17 @@ def _combine_conditions(
 
 
 def _optional_argument_indexed_transform(
-    shape: Shape,
+    shape: Union[Shape, Sequence[Shape]],
     ds_transform: Callable,
     transform_fn: DatasetTransformFnCreator,
-    args: Sequence[Any],
+    args: Sequence[Optional[Sequence[Any]]],
 ):
     if len(args) == 0:
-        raise ValueError("Unable to perform transform: No arguments arguments given")
+        warnings.warn("Skipping transform: No arguments arguments given")
     if len(shape) < len(args):
         raise ValueError("Unable to perform transform: Too many arguments given")
 
-    tfs = [transform_fn(a) if a else None for a in args]
+    tfs = [transform_fn(*a) if (a != None) else None for a in args]
     return ds_transform(tfs)
 
 
@@ -137,26 +150,43 @@ def _keywise(item_names: Dict[str, int], l: Sequence, d: Dict):
     keywise = {i: v for i, v in enumerate(l)}
     keywise.update({_key_index(item_names, k): v for k, v in d.items()})
     return keywise
-    # return dict(
-    #     {i: v for i, v in enumerate(l)},
-    #     **{_key_index(item_names, k): v for k, v in d.items()}
-    # )
 
 
 def _itemwise(item_names: Dict[str, int], l: Sequence, d: Dict):
     keywise = _keywise(item_names, l, d)
-    itemwise = [
-        (keywise[i] if i in keywise else None) for i in range(max(keywise.keys()) + 1)
-    ]
+    keywise = {k: v for k, v in keywise.items() if v != None}
+    if keywise:
+        itemwise = [
+            ([keywise[i]] if i in keywise else None)
+            for i in range(max(keywise.keys()) + 1)
+        ]
+    else:
+        itemwise = []
     return itemwise
+
+
+def _keyarg2list(
+    item_names, key_or_keys: Union[Key, Sequence[Key]], arg: Sequence[Any]
+) -> List[Optional[Sequence[Any]]]:
+    if type(key_or_keys) in (list, tuple):
+        idxs: List[int] = [
+            _key_index(item_names, k) for k in key_or_keys  # type:ignore
+        ]
+    else:
+        idxs: List[int] = [_key_index(item_names, key_or_keys)]  # type: ignore
+
+    args = [arg if i in idxs else None for i in range(max(idxs) + 1)]
+    return args
 
 
 ########## Dataset ####################
 
 
 class Dataset(AbstractDataset):
-    """Contains information on how to access the raw data, and performs
-    sampling and splitting related operations."""
+    """
+    Contains information on how to access the raw data, and performs
+    sampling and splitting related operations.
+    """
 
     def __init__(
         self,
@@ -167,6 +197,7 @@ class Dataset(AbstractDataset):
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
         operation_parameters: Dict = None,
+        stats: List[Optional[ElemStats]] = [],
     ):
         """Initialise.
 
@@ -200,6 +231,7 @@ class Dataset(AbstractDataset):
             self._ids: Ids = ids
 
         self._item_transform_fn = item_transform_fn
+        self._item_stats = stats
 
         if operation == "transform":
             self.origin = {
@@ -312,9 +344,51 @@ class Dataset(AbstractDataset):
                 operation="cache",
                 operation_parameters={"identifier": identifier},
             )
+    def item_stats(self, item_key: Key, axis=None) -> scaler.ElemStats:
+        """Compute the statistics (mean, std, min, max) for an item element
+        
+        Arguments:
+            item_key {Key} -- index of string identifyer for element on which the stats should be computed
+        
+        Keyword Arguments:
+            axis {[type]} -- the axis on which to accumulate statistics (default: {None})
+        
+        Raises:
+            TypeError: if statistics cannot be computed on the element type
+        
+        Returns:
+            scaler.ElemStats -- Named tuple with (mean, std, min, max, axis)
+        """
+        idx = _key_index(self._item_names, item_key)
+        elem = self.__getitem__(0)[idx]
+
+        if not type(elem) in [int, float, np.ndarray] or issubclass(
+            type(elem), Image.Image
+        ):
+            raise TypeError(
+                "Cannot compute statistics for element of type {}".format(type(elem))
+            )
+
+        if not axis:
+            axis = -1 if issubclass(type(elem), Image.Image) else 0
+
+        if len(self._item_stats) <= idx:
+            for _ in range(idx - len(self._item_stats) + 1):
+                self._item_stats.append(None)
+
+        if not self._item_stats[idx] or self._item_stats[idx].axis != axis:
+
+            def iterable():
+                for item in self:
+                    yield np.array(item[idx])
+
+            self._item_stats[idx] = scaler.fit(
+                iterable(), shape=np.array(elem).shape, axis=axis
+            )
+        return self._item_stats[idx]  # type: ignore
 
     @property
-    def shape(self) -> Sequence[int]:
+    def shape(self) -> Sequence[Shape]:
         """Get the shape of a dataset item.
 
         Returns:
@@ -747,7 +821,7 @@ class Dataset(AbstractDataset):
             for f in funcs:
                 if f:
                     if len(signature(f).parameters) == 1:
-                        f = custom(f)  # type:ignore
+                        f = _custom(f)
                     new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
         return new_dataset
@@ -768,7 +842,7 @@ class Dataset(AbstractDataset):
         """
         idx: int = _key_index(self._item_names, key)
         mapping_fn = mapping_fn or categorical_template(self, key)
-        args = [mapping_fn or True if i == idx else None for i in range(idx + 1)]
+        args = [[mapping_fn] or [] if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=categorical, args=args
         )
@@ -796,7 +870,7 @@ class Dataset(AbstractDataset):
         enc_size = encoding_size or len(self.unique(key))
         mapping_fn = mapping_fn or categorical_template(self, key)
         idx: int = _key_index(self._item_names, key)
-        args = [enc_size if i == idx else None for i in range(idx + 1)]
+        args = [[enc_size] if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
@@ -823,16 +897,15 @@ class Dataset(AbstractDataset):
             for elem in self.__getitem__(0):
                 try:
                     _check_image_compatibility(elem)
-                    positional_flags.append(True)  # didn't raise error
+                    positional_flags.append([])  # didn't raise error
                 except:
-                    positional_flags.append(False)
+                    positional_flags.append(None)
+        else:
+            positional_flags = list(map(lambda a: [] if a else None, positional_flags))
 
-        if any(positional_flags):
+        if any([f != None and f != False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape,
-                self.transform,
-                transform_fn=_dummy_arg_receiving(image),
-                args=positional_flags,
+                self.shape, self.transform, transform_fn=image, args=positional_flags,  # type: ignore
             )
         else:
             warnings.warn("Conversion to image skipped. No elements were compatible")
@@ -853,17 +926,14 @@ class Dataset(AbstractDataset):
             positional_flags = []
             for elem in self.__getitem__(0):
                 try:
-                    _check_numpy_compatibility(elem)
-                    positional_flags.append(True)  # didn't raise error
+                    _check_numpy_compatibility()(elem)
+                    positional_flags.append([])  # didn't raise error
                 except:
-                    positional_flags.append(False)
+                    positional_flags.append(None)
 
-        if any(positional_flags):
+        if any([f != None and f != False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape,
-                self.transform,
-                transform_fn=_dummy_arg_receiving(numpy),
-                args=positional_flags,
+                self.shape, self.transform, transform_fn=numpy, args=positional_flags,  # type: ignore
             )
         else:
             warnings.warn(
@@ -892,9 +962,6 @@ class Dataset(AbstractDataset):
             args=_itemwise(self._item_names, new_shapes, kwshapes),
         )
 
-    # def scale(self, scaler):
-    #     pass
-
     # def add_noise(self, noise):
     #     pass
 
@@ -913,6 +980,114 @@ class Dataset(AbstractDataset):
 
     # def img_filter(self, filter_fn):
     #     pass
+
+    ########## Dataset scalers #########################
+
+    def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+        """Standardize features by removing the mean and scaling to unit variance
+        
+        Arguments:
+            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+        
+        Keyword Arguments:
+            axis {int} -- Axis on which to accumulate statistics (default: {0})
+        
+        Returns:
+            Dataset -- Transformed dataset
+        """
+        return _optional_argument_indexed_transform(
+            self.shape,
+            self.transform,
+            transform_fn=standardize,
+            args=_keyarg2list(self._item_names, key_or_keys, [axis]),
+        )
+
+    def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+        """Centers features by removing the mean
+        
+        Arguments:
+            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+        
+        Keyword Arguments:
+            axis {int} -- Axis on which to accumulate statistics (default: {0})
+        
+        Returns:
+            Dataset -- Transformed dataset
+        """
+        return _optional_argument_indexed_transform(
+            self.shape,
+            self.transform,
+            transform_fn=center,
+            args=_keyarg2list(self._item_names, key_or_keys, [axis]),
+        )
+
+    ## When people say normalize, they often mean either minmax or standardize.
+    ## This implementation follows the scikit-learn terminology
+    ## Not included in the library for now, because it is used very seldomly in practice
+    # def normalize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0, norm="l2"):
+    #     """Normalize samples individually to unit norm.
+
+    #     Arguments:
+    #         key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+
+    #     Keyword Arguments:
+    #         axis {int} -- Axis on which to accumulate statistics (default: {0})
+
+    #     Keyword Arguments:
+    #         norm {str} -- "l1" or "l2"
+
+    #     Returns:
+    #         Dataset -- Transformed dataset
+    #     """
+    #     return _optional_argument_indexed_transform(
+    #         self.shape,
+    #         self.transform,
+    #         transform_fn=normalize,
+    #         args=_keyarg2list(self._item_names, key_or_keys, [axis]),
+    #     )
+
+    def minmax(
+        self, key_or_keys: Union[Key, Sequence[Key]], axis=0, feature_range=(0, 1)
+    ):
+        """Transform features by scaling each feature to a given range.
+        
+        Arguments:
+            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+        
+        Keyword Arguments:
+            axis {int} -- Axis on which to accumulate statistics (default: {0})
+        
+        Keyword Arguments:
+            feature_range {Tuple[int, int]} -- Minimum and maximum bound to scale to
+        
+        Returns:
+            Dataset -- Transformed dataset
+        """
+        return _optional_argument_indexed_transform(
+            self.shape,
+            self.transform,
+            transform_fn=minmax,
+            args=_keyarg2list(self._item_names, key_or_keys, [axis, feature_range],),
+        )
+
+    def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+        """Scale each feature by its maximum absolute value.
+        
+        Arguments:
+            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+        
+        Keyword Arguments:
+            axis {int} -- Axis on which to accumulate statistics (default: {0})
+        
+        Returns:
+            Dataset -- Transformed dataset
+        """
+        return _optional_argument_indexed_transform(
+            self.shape,
+            self.transform,
+            transform_fn=maxabs,
+            args=_keyarg2list(self._item_names, key_or_keys, [axis]),
+        )
 
     ########## Framework converters #########################
 
@@ -1013,27 +1188,68 @@ class StreamDataset(Dataset):
 ########## Handy decorators ####################
 
 
-def _dataset_element_transforming(fn: Callable, check: Callable = None):
-    """Applies the function to dataset item elements."""
-
-    # @functools.wraps(fn)
+def _make_dataset_element_transforming(
+    make_fn: Callable[[AbstractDataset, Optional[int]], Callable],
+    check: Callable = None,
+    maintain_stats=False,
+) -> DatasetTransformFn:
     def wrapped(idx: int, ds: AbstractDataset) -> AbstractDataset:
 
+        fn = make_fn(ds, idx)
+
         if check:
-            # grab an item and check its elements
-            for i, elem in enumerate(ds[0]):
-                if i == idx:
-                    check(elem)
+            check(ds[0][idx])
 
         def item_transform_fn(item: Sequence):
             return tuple(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
+        stats: List[Optional[ElemStats]] = []
+        if maintain_stats and hasattr(ds, "_item_stats"):
+            # maintain stats on other elements, and optionally on this one
+            stats = [
+                (s if i != idx else (s if maintain_stats else None))
+                for i, s in enumerate(ds._item_stats)  # type:ignore
+            ]
+
+        return Dataset(
+            downstream_getter=ds, item_transform_fn=item_transform_fn,
+            operation="transform", stats=stats
+        )
+
+    return wrapped
+
+
+def _dataset_element_transforming(
+    fn: Callable, check: Callable = None, maintain_stats=False
+) -> DatasetTransformFn:
+    """Applies the function to dataset item elements."""
+
+    def wrapped(idx: int, ds: AbstractDataset) -> AbstractDataset:
+
+        if check:
+            check(ds[0][idx])
+
+        def item_transform_fn(item: Sequence):
+            return tuple(
+                [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
+            )
+
+
+        stats: List[Optional[ElemStats]] = []
+        if maintain_stats and hasattr(ds, "_item_stats"):
+            # maintain stats on other elements, and optionally on this one
+            stats = [
+                (s if i != idx else (s if maintain_stats else None))
+                for i, s in enumerate(ds._item_stats)  # type:ignore
+            ]
+
         return Dataset(
             downstream_getter=ds,
             item_transform_fn=item_transform_fn,
             operation="transform",
+            stats=stats
         )
 
     return wrapped
@@ -1083,12 +1299,18 @@ def _check_image_compatibility(elem):
     convert2img(elem)
 
 
-def _check_numpy_compatibility(elem):
-    # skip simple datatypes such as int and float as well
-    if type(elem) in [dict, str, int, float]:
-        raise ValueError("Unable to convert element {} to numpy".format(elem))
-    # check if this raises an Exception
-    np.array(elem)
+def _check_numpy_compatibility(allow_scalars=False):
+    allowed = [dict, str]
+    if not allow_scalars:
+        allowed.extend([int, float])
+
+    def fn(elem):
+        if type(elem) in allowed:
+            raise ValueError("Unable to convert element {} to numpy".format(elem))
+        # check if this raises an Exception
+        np.array(elem)
+
+    return fn
 
 
 ########## Predicate implementations ####################
@@ -1122,7 +1344,7 @@ def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
 ########## Transform implementations ####################
 
 
-def custom(
+def _custom(
     elem_transform_fn: Callable[[Any], Any], elem_check_fn: Callable[[Any], None] = None
 ) -> DatasetTransformFn:
     """Create a user defined transform.
@@ -1240,12 +1462,14 @@ def one_hot(
 
 
 def numpy() -> DatasetTransformFn:
-    return _dataset_element_transforming(fn=np.array, check=_check_numpy_compatibility)
+    return _dataset_element_transforming(
+        fn=np.array, check=_check_numpy_compatibility(), maintain_stats=True
+    )
 
 
 def image() -> DatasetTransformFn:
     return _dataset_element_transforming(
-        fn=convert2img, check=_check_image_compatibility
+        fn=convert2img, check=_check_image_compatibility, maintain_stats=True
     )
 
 
@@ -1254,6 +1478,120 @@ def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
         check=_check_image_compatibility,
+    )
+
+
+########## Dataset scalers #########################
+
+
+def standardize(axis=0) -> DatasetTransformFn:
+    """Standardize features by removing the mean and scaling to unit variance
+    
+    Keyword Arguments:
+        axis {int} -- Axis on which to accumulate statistics (default: {0})
+    
+    Returns:
+        DatasetTransformFn -- Function to be passed to Datasets.transform
+    """
+
+    def make_fn(ds, idx) -> Callable:
+        return scaler.standardize(shape=ds.shape[idx], stats=ds.item_stats(idx, axis))
+
+    return _make_dataset_element_transforming(
+        make_fn=make_fn,
+        check=_check_numpy_compatibility(allow_scalars=True),
+        maintain_stats=True,
+    )
+
+
+def center(axis=0) -> DatasetTransformFn:
+    """Center features by removing the mean
+    
+    Keyword Arguments:
+        axis {int} -- Axis on which to accumulate statistics (default: {0})
+    
+    Returns:
+        DatasetTransformFn -- Function to be passed to Datasets.transform
+    """
+
+    def make_fn(ds, idx) -> Callable:
+        return scaler.center(shape=ds.shape[idx], stats=ds.item_stats(idx, axis))
+
+    return _make_dataset_element_transforming(
+        make_fn=make_fn,
+        check=_check_numpy_compatibility(allow_scalars=True),
+        maintain_stats=True,
+    )
+
+
+## When people say normalize, they often mean either minmax or standardize.
+## This implementation follows the scikit-learn terminology
+## Not included in the library for now, because it is used very seldomly in practice
+# def normalize(axis=0, norm="l2") -> DatasetTransformFn:
+#     """Normalize samples individually to unit norm.
+
+#     Keyword Arguments:
+#         axis {int} -- Axis on which to accumulate statistics (default: {0})
+
+#     Keyword Arguments:
+#         norm {str} -- "l1" or "l2"
+
+#     Returns:
+#         DatasetTransformFn -- Function to be passed to Datasets.transform
+#     """
+
+#     def make_fn(ds, idx) -> Callable:
+#         return scaler.normalize(shape=ds.shape[idx], axis=axis, norm=norm,)
+
+#     return _make_dataset_element_transforming(
+#         make_fn=make_fn, check=_check_numpy_compatibility(allow_scalars=True),
+#     )
+
+
+def minmax(axis=0, feature_range=(0, 1)) -> DatasetTransformFn:
+    """Transform features by scaling each feature to a given range.
+    
+    Keyword Arguments:
+        axis {int} -- Axis on which to accumulate statistics (default: {0})
+    
+    Keyword Arguments:
+        feature_range {Tuple[int, int]} -- Minimum and maximum bound to scale to
+    
+    Returns:
+        DatasetTransformFn -- Function to be passed to Datasets.transform
+    """
+
+    def make_fn(ds, idx) -> Callable:
+        return scaler.minmax(
+            shape=ds.shape[idx],
+            stats=ds.item_stats(idx, axis),
+            feature_range=feature_range,
+        )
+
+    return _make_dataset_element_transforming(
+        make_fn=make_fn,
+        check=_check_numpy_compatibility(allow_scalars=True),
+        maintain_stats=True,
+    )
+
+
+def maxabs(axis=0) -> DatasetTransformFn:
+    """Scale each feature by its maximum absolute value.
+    
+    Keyword Arguments:
+        axis {int} -- Axis on which to accumulate statistics (default: {0})
+    
+    Returns:
+        DatasetTransformFn -- Function to be passed to Datasets.transform
+    """
+
+    def make_fn(ds, idx) -> Callable:
+        return scaler.maxabs(shape=ds.shape[idx], stats=ds.item_stats(idx, axis))
+
+    return _make_dataset_element_transforming(
+        make_fn=make_fn,
+        check=_check_numpy_compatibility(allow_scalars=True),
+        maintain_stats=True,
     )
 
 

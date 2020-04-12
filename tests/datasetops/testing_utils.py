@@ -76,3 +76,19 @@ def read_lines(path):
 
 def read_bin(path):
     return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
+
+
+def multi_shape_dataset(SHAPE_1D=(2,), SHAPE_3D=(5, 4, 3)):
+    data = [
+        # (string, 1D, 3D, scalar)
+        ("0", 0 * np.ones(SHAPE_1D), 0 * np.ones(SHAPE_3D), 0),
+        ("1", 1 * np.ones(SHAPE_1D), 1 * np.ones(SHAPE_3D), 1),
+        ("2", 2 * np.ones(SHAPE_1D), 2 * np.ones(SHAPE_3D), 2),
+    ]
+
+    def get_data(idx):
+        return data[idx]
+
+    ds = Loader(get_data)
+    ds.extend(list(range(len(data))))
+    return ds

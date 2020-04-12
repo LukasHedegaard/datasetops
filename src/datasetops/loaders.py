@@ -1,3 +1,8 @@
+"""
+Module defining loaders for several formats which are commonly used to exchange datasets.
+Additionally, the module provides adapters for the dataset types used by various ML frameworks.
+"""
+
 from pathlib import Path
 from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
@@ -44,13 +49,14 @@ class Loader(Dataset):
 
 def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
     """Create dataset from a Pytorch dataset
-    
+
     Arguments:
         tf_dataset {torch.utils.data.Dataset} -- A Pytorch dataset to load from
         identifier {Optional[str]} -- unique identifier
     
     Returns:
         [Dataset] -- A datasetops.Dataset
+
     """
 
     def get_data(i) -> Tuple:
@@ -65,16 +71,17 @@ def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
 
 def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
     """Create dataset from a Tensorflow dataset
-    
+
     Arguments:
         tf_dataset {tf.data.Dataset} -- A Tensorflow dataset to load from
         identifier {Optional[str]} -- unique identifier
     
     Raises:
         AssertionError: Raises error if Tensorflow is not executing eagerly
-    
+
     Returns:
         [Dataset] -- A datasetops.Dataset
+
     """
     import tensorflow as tf
 
@@ -101,7 +108,8 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(
+                    tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
@@ -118,8 +126,8 @@ def from_folder_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
     folder
-    |- sample1.jpg
-    |- sample2.jpg
+    ├ sample1.jpg
+    ├ sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to folder
@@ -127,6 +135,7 @@ def from_folder_data(path: AnyPath) -> Dataset:
     Returns:
         Dataset -- A dataset of data paths,
                    e.g. ('nested_folder/class1/sample1.jpg')
+
     """
     p = Path(path)
     ids = [str(x.relative_to(p)) for x in p.glob("[!._]*")]
@@ -144,14 +153,16 @@ def from_folder_data(path: AnyPath) -> Dataset:
 
 
 def from_folder_class_data(path: AnyPath) -> Dataset:
-    """Load data from a folder with the data structure:
+    u"""Load data from a folder with the data structure:
 
-    nested_folder
-    |- class1
-        |- sample1.jpg
-        |- sample2.jpg
-    |- class2
-        |- sample3.jpg
+    ```
+    data
+    ├── class1
+    │   ├── sample1.jpg
+    │   └── sample2.jpg
+    └── class2
+    ****└── sample3.jpg
+    ```
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -179,22 +190,23 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
 
 
 def from_folder_group_data(path: AnyPath) -> Dataset:
-    """Load data from a folder with the data structure:
+    u"""Load data from a folder with the data structure:
 
-        nested_folder
-        |- group1
-            |- sample1.jpg
-            |- sample2.jpg
-        |- group2
-            |- sample1.txt
-            |- sample2.txt
+    data
+    ├── group1
+    │   ├── sample1.jpg
+    │   └── sample2.jpg
+    └── group2
+    ....├── sample1.jpg
+    ....└── sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
-    
+
     Returns:
-        Dataset -- A dataset of paths to objects of each groups zipped togeter with corresponding names, 
+        Dataset -- A dataset of paths to objects of each groups zipped together with corresponding names,
                    e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
+
     """
     p = Path(path)
     groups = [x for x in p.glob("[!._]*")]
@@ -214,15 +226,17 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
 def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
-    nested_folder
-    |- dataset1
-        |- type1
-            |- sample1.jpg
-            |- sample2.jpg
-        |- type2
-            |- sample1.jpg
-    |- dataset2
-        |- ...
+    ```
+    data
+    ├── dataset1
+    │   ├── class1
+    │   │   ├── sample1.jpg
+    │   │   └── sample2.jpg
+    │   └── class2
+    │       └── sample3.jpg
+    └── dataset2
+    ****└── sample3.jpg
+    ```
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -230,6 +244,7 @@ def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     Returns:
         List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels,
                          e.g. ('nested_folder/class1/sample1.jpg', 'class1')
+
     """
     p = Path(path)
     dataset_paths = sorted([x for x in p.glob("[!._]*")])
@@ -252,7 +267,7 @@ def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
 
     Arguments:
         path {AnyPath} -- path to nested folder
-    
+
     Returns:
         List[Dataset] -- A list of datasets, each with data composed from different types, 
                          e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
@@ -276,7 +291,8 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all(
+        [s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
@@ -336,6 +352,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     Returns:
         List[Dataset] -- A list of datasets, where a dataset was created for each suffix
                          e.g. a dataset with data from the keys ('X_src', 'Y_src') and from ('X_tgt', 'Y_tgt')
+
     """
     p = Path(path)
     if p.is_dir():

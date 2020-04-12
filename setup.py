@@ -22,7 +22,7 @@ setup(
     ],
     packages=find_packages("src"),
     package_dir={"": "src"},
-    install_requires=["numpy", "pillow", "pandas", "scipy", "dill"],
+    install_requires=["numpy", "pillow", "pandas", "scikit-learn", "dill"],
     extras_require={
         "tests": [
             "pytest",
