@@ -1,8 +1,9 @@
+from typing import Sequence
 from datasetops.dataset import (
     Dataset,
     image_resize,
     reshape,
-    custom,
+    _custom,
     allow_unique,
     one_hot,
     categorical,
@@ -22,6 +23,14 @@ from testing_utils import (  # type:ignore
     DUMMY_NUMPY_DATA_SHAPE_2D,
     DUMMY_NUMPY_DATA_SHAPE_3D,
 )
+
+
+def test_generator():
+    ds = from_dummy_data()
+    gen = ds.generator()
+
+    for d in list(ds):
+        assert d == next(gen)
 
 
 def test_shuffle():
@@ -294,7 +303,10 @@ def test_reorder():
         assert llbl == rlbl
 
     # we can even place the same element multiple times
-    ds_re_creative = ds.reorder(0, 1, 1, 0)
+    with pytest.warns(UserWarning):
+        # but discard item-names (gives a warning)
+        ds_re_creative = ds.reorder(0, 1, 1, 0)
+
     for (ldata, llbl), (rdata1, rlbl1, rlbl2, rdata2) in zip(
         list(ds), list(ds_re_creative)
     ):
@@ -622,7 +634,8 @@ def test_reshape():
         assert np.array_equal(old_data, new_data)
 
     # doing nothing also works
-    ds_dummy = ds.reshape(None, None)
+    with pytest.warns(UserWarning):
+        ds_dummy = ds.reshape(None, None)
     items_dummy = [x for x in ds_dummy]
     for (old_data, _), (new_data, _) in zip(items, items_dummy):
         assert np.array_equal(old_data, new_data)
@@ -634,7 +647,7 @@ def test_reshape():
         # string has no shape
         ds_str.reshape((1, 2))
 
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         # No input
         ds.reshape()
 
@@ -642,7 +655,7 @@ def test_reshape():
         # bad input
         ds.reshape("whazzagh")
 
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         # Too many inputs
         ds.reshape(None, None, None)
 
@@ -731,7 +744,7 @@ def test_image_resize():
         assert data.mode == "L"  # grayscale int
 
     # also if they are floats
-    ds_resized_float = ds.transform([custom(np.float32)]).image_resize(NEW_SIZE)
+    ds_resized_float = ds.transform([_custom(np.float32)]).image_resize(NEW_SIZE)
     for tpl in ds_resized_float:
         data = tpl[0]
         assert data.size == NEW_SIZE
@@ -751,7 +764,7 @@ def test_image_resize():
         assert data.size == DUMMY_NUMPY_DATA_SHAPE_2D
 
     # Test error scenarios
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         ds.image_resize()  # No args
 
     with pytest.raises(ValueError):
@@ -818,3 +831,45 @@ def test_to_pytorch():
     # labels equal
     assert torch.all(torch.eq(elem[1][0], torch.Tensor(ds[0][1])))  # type:ignore
     assert torch.all(torch.eq(elem[1][1], torch.Tensor(ds[1][1])))  # type:ignore
+
+
+def test_stats():
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+    # numpy data
+    ds_np = from_dummy_numpy_data().reshape(DUMMY_NUMPY_DATA_SHAPE_3D)
+
+    std_scaler = StandardScaler()
+    mm_scaler = MinMaxScaler()
+
+    axis = 2
+
+    def _make_scaler_reshapes(data_shape: Sequence[int], axis: int = 0):
+
+        ishape = list(data_shape)
+        ishape[0], ishape[axis] = ishape[axis], ishape[0]
+
+        def reshape_to_scale(d):
+            return np.swapaxes(  # type:ignore
+                np.swapaxes(d, 0, axis).reshape((data_shape[axis], -1)),  # type:ignore
+                0,
+                1,
+            )
+
+        def reshape_from_scale(d):
+            return np.swapaxes(  # type:ignore
+                np.swapaxes(d, 0, 1).reshape(ishape), 0, axis  # type:ignore
+            )
+
+        return reshape_to_scale, reshape_from_scale
+
+    reshape_to_scale, reshape_from_scale = _make_scaler_reshapes(ds_np[0][0].shape, 2)
+
+    for d, l in ds_np:
+        old_shape = d.shape
+        # stats are accumulated along 2nd axis in sklearn preprocessing: reshape accordingly
+        dlist = np.swapaxes(  # type:ignore
+            np.swapaxes(d, 0, axis).reshape((old_shape[axis], -1)), 0, 1  # type:ignore
+        )
+        std_scaler.partial_fit(dlist)
+        mm_scaler.partial_fit(dlist)
