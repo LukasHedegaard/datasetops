@@ -76,7 +76,8 @@ Likewise a single image can be split into sub images. Both scenarios are depicte
 
 .. _fig_subsample:
 .. figure:: ../pics/subsample.svg
-   :figwidth: 600
+   :figwidth: 75%
+   :width: 60%
    :align: center
    :alt: subsample operation
 
@@ -88,33 +89,55 @@ how each sample should be divided. This function must return an iterable consist
 
 .. doctest::
 
-    >>> def func1(s):
-    >>>     img, lbl = s
-    >>>     return [(img,lbl),(img,lbl)]
-    >>>    
-    >>> def func2(img):
-    >>>     return [img,img]
+    >>> def func(s):
+    >>>     return (s,s)
     >>>
-    >>> ss1 = ds_mnist.subsample(func1)
-    >>> ss2 = ds_mnist.subsample("img", func2)
-    >>> ss3 = ds_mnist.subsample(func1, n="eager")
-    >>> ss4 = ds_mnist.subsample(func1, n="sample")
-    >>> ss4 = ds_mnist.subsample(func1, n=4)
-    True
+    >>> len(ds_mnist)
+    70000
+    >>> ds = ds_mnist.subsample(func, n_samples=2)
+    >>> len(ds)
+    140000
 
-The function can be called in several ways as shown in the example.
-In the first case, the entire sample is passed to the supplied function.
-In the second case, the first argument specifies that only the *img*-item is to be subsampled.
-This results in only the image being passed as an argument to the function. 
-The items which are not specified remain untouched, e.g. the first and second case are equivalent.
-
-To define the number of samples in the new dataset, the number of subsamples per sample must be specified.
-This can be done in one of three ways, by doing the subsampling eagerly on all samples, 
-by performing subsampling on a single sample or by specifying the number of subsamples per sample.
-In case the number of subsamples per sample may vary based on the concrete sample the first option should be used.
+The method requires that user to specify the number of sub-samples produces by each sample.
+This is necessary to ensure that the operation can be evaluated lazily, without first having to apply the function to every sample of the dataset.
 
 .. The difference between the :meth:`transform <datasetops.dataset.Dataset.transform>` and :func:`subsample <datasetops.dataset.subsample>` methods, 
 .. is that the former modifies the sample itself, but not the number of samples, whereas the latter is allowed to do both.
+
+To reduce the amount of unnecessary reads from the dataset being sub-sampled, it is possible to enable different caching strategies.
+Consider the example shown below, where each sample of the original dataset is subsampled to produces two new samples.
+
+.. _fig_subsample_caching:
+.. figure:: ../pics/subsample_caching.svg
+   :figwidth: 75%
+   :width: 75%
+   :align: center
+   :alt: subsample caching modes.
+
+   Caching modes of the subsample operation.
+
+.. doctest::
+
+    >>> cnt = 0
+    >>> def func(s):
+    >>>     nonlocal cnt
+    >>>     cnt += 1
+    >>>     return (s,s)
+    >>> 
+    >>> ds = ds_mnist.subsample(func, n_samples=2, cache=None)
+    >>> ds[0]
+    >>> ds[1]
+    >>> cnt
+    2
+    >>> cnt = 0
+    >>> ds_cache = ds_mnist.subsample(func, n_samples=2, cache="block")
+    >>> ds[0]
+    >>> ds[1]
+    >>> cnt
+    1
+
+These should not be confused by the more general caching mechanism described in the section on :ref:`caching <sec_caching>`.
+
 
 Images Manipulation
 -------------------

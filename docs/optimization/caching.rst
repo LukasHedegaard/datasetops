@@ -1,3 +1,4 @@
+.. _sec_caching:
 Caching
 =======
 
