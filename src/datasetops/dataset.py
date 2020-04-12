@@ -10,7 +10,7 @@ import functools
 from inspect import signature
 from datasetops.abstract import AbstractDataset
 from pathlib import Path
-from typing import Optional, Tuple, overload, TypeVar
+from typing import Optional, Tuple, overload, TypeVar, IO
 import dill
 
 ########## Local Helpers ####################
@@ -940,6 +940,93 @@ class Dataset(AbstractDataset):
     def to_pytorch(self):
         return to_pytorch(self)
 
+
+class StreamDataset(Dataset):
+    def __init__(
+        self, stream: IO,
+        identifier: str,
+        keep_loaded_items: bool = False
+    ) -> None:
+
+        self._last_accessed_id: int = -1
+        self.__loaded_items: List[Tuple] = []
+        self.__stream: IO = stream
+        self.keep_loaded_items: bool = keep_loaded_items
+
+        length: int = self.__read_once()
+        names: List[str] = self.__read_once()
+
+        super().__init__(
+            self,
+            operation="stream",
+            operation_parameters={
+                "identifier": identifier,
+            },
+            ids = list(range(length)),
+            item_names={n: i for i, n in enumerate(names)},
+        )
+
+        self.cachable = True
+
+
+    @property
+    def allow_random_access(self) -> bool:
+        return self.keep_loaded_items
+
+    def __skip_header(self):
+        for i in range(2):
+            self.__read_once()
+
+    def __read_once(self):
+        return dill.load(self.__stream)
+
+    def __reset(self, clear_loaded_items: bool = False):
+        self._last_accessed_id = -1
+        self.__stream.seek(0)
+        self.__skip_header()
+
+        if clear_loaded_items:
+            self.__loaded_items.clear()
+
+    def __read_item(self):
+        self._last_accessed_id += 1
+
+        item = self.__read_once()
+
+        if self.keep_loaded_items:
+            self.__loaded_items.append(item)
+
+        if self._last_accessed_id + 1 == len(self):
+            self.__reset()
+
+        return item
+
+    def __getitem__(self, i: int) -> Tuple:
+
+        if len(self.__loaded_items) > i:
+            return self.__loaded_items[i]
+        else:
+            is_next = i == (self._last_accessed_id + 1)
+
+            if is_next:
+                item = self.__read_item()
+                return item
+            elif self.allow_random_access:
+
+                item = ()
+
+                while (
+                    (self._last_accessed_id < i) and not
+                    (i == len(self) - 1 and self._last_accessed_id == -1)
+                ):
+                    item = self.__read_item()
+                
+                return item
+            else:
+                raise Exception("Random access is not allowed")
+
+    def close(self):
+        self.__stream.close()
 
 ########## Handy decorators ####################
 
