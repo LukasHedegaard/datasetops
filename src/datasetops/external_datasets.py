@@ -26,8 +26,7 @@ class MNIST(Loader):
         try:
             import mnist
         except Exception as e:
-            raise RuntimeError(
-                f"Unable to load MNIST dataset due to error: {e}")
+            raise RuntimeError(f"Unable to load MNIST dataset due to error: {e}")
 
         train_images = mnist.train_images()
         train_labels = mnist.train_labels()
@@ -40,13 +39,14 @@ class MNIST(Loader):
         n = self.images.shape[0]
 
         super().__init__(self._getdata, "MNIST")
-        self.extend(np.arange(0, n-1))
+        self.extend(np.arange(0, n - 1))
         self.named("image", "label")
 
     def _getdata(self, idx):
-        if(idx > len(self)-1):
+        if idx > len(self) - 1:
             raise ValueError(
-                f"Index: {idx} is out of range. The dataset only contains: {len(self)} samples.")
+                f"Index: {idx} is out of range. The dataset only contains: {len(self)} samples."
+            )
 
         img = self.images[idx, :]
         lbl = self.labels[idx]
@@ -65,8 +65,9 @@ def load_mnist() -> Dataset:
 
 
 if __name__ == "__main__":
+
     def func(s):
-        return s._replace(lbl=s.lbl*2)
+        return s._replace(lbl=s.lbl * 2)
 
     def func_lbl(lbl):
         return lbl * 100
@@ -77,9 +78,14 @@ if __name__ == "__main__":
     def make_named(t):
         return MnistSample(*t)
 
-    #train, val = MNIST().shuffle().transform(func).named("img", 'lbl').transform(lbl=func_lbl).split([0.7, 0.3])
-    train, val = MNIST().shuffle().transform(
-        make_unnamed).transform(make_named).split([0.7, 0.3])
+    # train, val = MNIST().shuffle().transform(func).named("img", 'lbl').transform(lbl=func_lbl).split([0.7, 0.3])
+    train, val = (
+        MNIST()
+        .shuffle()
+        .transform(make_unnamed)
+        .transform(make_named)
+        .split([0.7, 0.3])
+    )
 
     s = train[0]
     img, lbl = s

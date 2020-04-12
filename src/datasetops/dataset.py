@@ -10,20 +10,21 @@ The transforms are available as free functions or as ``extension`` methods defin
 """
 
 import random
+import warnings
+import functools
+from typing import overload, TypeVar
+from pathlib import Path
+from inspect import signature
+
+import numpy as np
+from PIL import Image
+
 from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.scaler import ElemStats
 from datasetops.types import *
 import datasetops.compose as compose
-import numpy as np
-from PIL import Image
-import warnings
-import functools
-from inspect import signature
 from datasetops.abstract import AbstractDataset
-from pathlib import Path
-from typing import overload, TypeVar
 from datasetops import scaler
-
 
 ########## Local Helpers ####################
 
@@ -95,7 +96,7 @@ def _combine_conditions(
     predicates: Optional[
         Union[DataPredicate, Sequence[Optional[DataPredicate]]]
     ] = None,
-    **kwpredicates: DataPredicate
+    **kwpredicates: DataPredicate,
 ) -> DataPredicate:
 
     bulk, itemwise = _split_bulk_itemwise(predicates)  # type:ignore
@@ -207,7 +208,8 @@ class Dataset(AbstractDataset):
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
-            self._ids = list(range(len(self._downstream_getter._ids)))  # type: ignore
+            # type: ignore
+            self._ids = list(range(len(self._downstream_getter._ids)))
             self._item_names = getattr(downstream_getter, "_item_names", None)
         else:
             self.name = ""
@@ -232,16 +234,16 @@ class Dataset(AbstractDataset):
 
     def item_stats(self, item_key: Key, axis=None) -> scaler.ElemStats:
         """Compute the statistics (mean, std, min, max) for an item element
-        
+
         Arguments:
             item_key {Key} -- index of string identifyer for element on which the stats should be computed
-        
+
         Keyword Arguments:
             axis {[type]} -- the axis on which to accumulate statistics (default: {None})
-        
+
         Raises:
             TypeError: if statistics cannot be computed on the element type
-        
+
         Returns:
             scaler.ElemStats -- Named tuple with (mean, std, min, max, axis)
         """
@@ -354,6 +356,20 @@ class Dataset(AbstractDataset):
         """
         return [x[0] for x in self.counts(*itemkeys)]
 
+    def subsample(self, func, n_samples: int, cache_method="block"):
+        """Divide each sample in the dataset into several sub-samples using a user-defined function.
+        The function must take a single sample as an argument and must return a list of samples.
+
+        Arguments:
+            func {Callable} -- function defining how each sample should divided.
+            n_samples {int} -- the number of sub-samples produced for each sample.
+            cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
+
+        Returns:
+            Dataset -- a new dataset containing the subsamples.
+        """
+        return subsample(self, func, n_samples, cache_method)
+
     def sample(self, num: int, seed: int = None):
         """Sample data randomly from the dataset.
 
@@ -384,7 +400,7 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate
+        **kwpredicates: DataPredicate,
     ):
         """Filter a dataset using a predicate function.
 
@@ -407,7 +423,7 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate
+        **kwpredicates: DataPredicate,
     ):
         """Split a dataset using a predicate function.
 
@@ -614,7 +630,7 @@ class Dataset(AbstractDataset):
         fns: Optional[
             Union[ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
         ] = None,
-        **kwfns: DatasetTransformFn
+        **kwfns: DatasetTransformFn,
     ):
         """Transform the items of a dataset according to some function (passed
         as argument).
@@ -811,13 +827,13 @@ class Dataset(AbstractDataset):
 
     def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
         """Standardize features by removing the mean and scaling to unit variance
-        
+
         Arguments:
             key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
-        
+
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
-        
+
         Returns:
             Dataset -- Transformed dataset
         """
@@ -830,13 +846,13 @@ class Dataset(AbstractDataset):
 
     def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
         """Centers features by removing the mean
-        
+
         Arguments:
             key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
-        
+
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
-        
+
         Returns:
             Dataset -- Transformed dataset
         """
@@ -847,9 +863,9 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis]),
         )
 
-    ## When people say normalize, they often mean either minmax or standardize.
-    ## This implementation follows the scikit-learn terminology
-    ## Not included in the library for now, because it is used very seldomly in practice
+    # When people say normalize, they often mean either minmax or standardize.
+    # This implementation follows the scikit-learn terminology
+    # Not included in the library for now, because it is used very seldomly in practice
     # def normalize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0, norm="l2"):
     #     """Normalize samples individually to unit norm.
 
@@ -876,16 +892,16 @@ class Dataset(AbstractDataset):
         self, key_or_keys: Union[Key, Sequence[Key]], axis=0, feature_range=(0, 1)
     ):
         """Transform features by scaling each feature to a given range.
-        
+
         Arguments:
             key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
-        
+
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
-        
+
         Keyword Arguments:
             feature_range {Tuple[int, int]} -- Minimum and maximum bound to scale to
-        
+
         Returns:
             Dataset -- Transformed dataset
         """
@@ -898,13 +914,13 @@ class Dataset(AbstractDataset):
 
     def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
         """Scale each feature by its maximum absolute value.
-        
+
         Arguments:
             key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
-        
+
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
-        
+
         Returns:
             Dataset -- Transformed dataset
         """
@@ -922,6 +938,72 @@ class Dataset(AbstractDataset):
 
     def to_pytorch(self):
         return to_pytorch(self)
+
+
+class SubsampleDataset(Dataset):
+    def __init__(self, dataset: Dataset, subsample_func, n_ss: int, cache_method=None):
+
+        if n_ss < 1:
+            raise ValueError(
+                "Unable to perform subsampling, value of n_ss should be greater than one."
+            )
+
+        valid_cache_methods = {"block", None}
+
+        if cache_method not in valid_cache_methods:
+            raise ValueError(
+                "Unable to perform subsampling, cache method: {cache_methods} is invalid, possible values are {valid_cache_methods}"
+            )
+
+        new_ids = list(range(0, len(dataset) * n_ss))
+
+        # super().__init__(self, ids=new_ids) # TODO why does every class deriving from Dataset have to define _ids?
+        super().__init__(dataset, ids=new_ids)
+
+        self.cached = {}
+        self.subsample_func = subsample_func
+        self.n_ss = n_ss
+        self.dataset = dataset
+
+    def __getitem__(self, ss_idx):
+        """Gets the subsample corresponding to the
+
+        Arguments:
+            ss_idx {[type]} -- index of the subsample
+
+        Returns:
+            [Any] -- the subsample corresponding to the specified index
+        """
+        if ss_idx in self.cached:
+            return self.cached[ss_idx]
+        else:
+            ds_idx = self._get_downstream_idx(ss_idx)
+            ds_sample = self.dataset[ds_idx]
+            ss = self.subsample_func(ds_sample)
+
+            n_actual = None
+            # ensure that subsampling function has returned the correct value of subsamples
+            try:
+                n_actual = len(ss)
+            except Exception as e:
+                raise RuntimeError(
+                    f"subsampling function returned: {n_actual}, this should be an non-empty iterable"
+                )
+
+            if n_actual != self.n_ss:
+                raise RuntimeError(
+                    f"subsampling function returned {n_actual} subsamples, which is different than the expected: {self.n_ss}"
+                )
+
+            self._do_cache_for(ds_idx, ss)
+            ss_relative_idx = ss_idx % self.n_ss
+            return ss[ss_relative_idx]
+
+    def _get_downstream_idx(self, ss_idx):
+        return ss_idx // self.n_ss
+
+    def _do_cache_for(self, ds_idx, ss_vals):
+        pass
 
 
 ########## Handy decorators ####################
@@ -1220,10 +1302,10 @@ def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
 
 def standardize(axis=0) -> DatasetTransformFn:
     """Standardize features by removing the mean and scaling to unit variance
-    
+
     Keyword Arguments:
         axis {int} -- Axis on which to accumulate statistics (default: {0})
-    
+
     Returns:
         DatasetTransformFn -- Function to be passed to Datasets.transform
     """
@@ -1240,10 +1322,10 @@ def standardize(axis=0) -> DatasetTransformFn:
 
 def center(axis=0) -> DatasetTransformFn:
     """Center features by removing the mean
-    
+
     Keyword Arguments:
         axis {int} -- Axis on which to accumulate statistics (default: {0})
-    
+
     Returns:
         DatasetTransformFn -- Function to be passed to Datasets.transform
     """
@@ -1258,9 +1340,9 @@ def center(axis=0) -> DatasetTransformFn:
     )
 
 
-## When people say normalize, they often mean either minmax or standardize.
-## This implementation follows the scikit-learn terminology
-## Not included in the library for now, because it is used very seldomly in practice
+# When people say normalize, they often mean either minmax or standardize.
+# This implementation follows the scikit-learn terminology
+# Not included in the library for now, because it is used very seldomly in practice
 # def normalize(axis=0, norm="l2") -> DatasetTransformFn:
 #     """Normalize samples individually to unit norm.
 
@@ -1284,13 +1366,13 @@ def center(axis=0) -> DatasetTransformFn:
 
 def minmax(axis=0, feature_range=(0, 1)) -> DatasetTransformFn:
     """Transform features by scaling each feature to a given range.
-    
+
     Keyword Arguments:
         axis {int} -- Axis on which to accumulate statistics (default: {0})
-    
+
     Keyword Arguments:
         feature_range {Tuple[int, int]} -- Minimum and maximum bound to scale to
-    
+
     Returns:
         DatasetTransformFn -- Function to be passed to Datasets.transform
     """
@@ -1311,10 +1393,10 @@ def minmax(axis=0, feature_range=(0, 1)) -> DatasetTransformFn:
 
 def maxabs(axis=0) -> DatasetTransformFn:
     """Scale each feature by its maximum absolute value.
-    
+
     Keyword Arguments:
         axis {int} -- Axis on which to accumulate statistics (default: {0})
-    
+
     Returns:
         DatasetTransformFn -- Function to be passed to Datasets.transform
     """
@@ -1351,7 +1433,7 @@ def concat(*datasets: AbstractDataset):
 
 
 ########## Sampling ####################
-def subsample(dataset, func, n_samples: int) -> Dataset:
+def subsample(dataset, func, n_samples: int, cache_method="block") -> Dataset:
     """Divide each sample in the dataset into several sub-samples using a user-defined function.
     The function must take a single sample as an argument and must return a list of samples.
 
@@ -1359,12 +1441,13 @@ def subsample(dataset, func, n_samples: int) -> Dataset:
         dataset {[type]} -- dataset containing the samples which are sub-sampled.
         func {Callable} -- function defining how each sample should divided.
         n_samples {int} -- the number of sub-samples produced for each sample.
+        cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
 
     Returns:
         Dataset -- a new dataset containing the subsamples.
     """
 
-    raise NotImplementedError()
+    return SubsampleDataset(dataset, func, n_samples, cache_method)
 
 
 ########## Converters ####################

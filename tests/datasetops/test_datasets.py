@@ -1,4 +1,10 @@
 from typing import Sequence
+
+import pytest
+import numpy as np
+from PIL import Image
+
+from datasetops.loaders import from_csv
 from datasetops.dataset import (
     Dataset,
     image_resize,
@@ -11,9 +17,6 @@ from datasetops.dataset import (
     _DEFAULT_SHAPE,
 )
 import datasetops.loaders as loaders
-import pytest
-import numpy as np
-from PIL import Image
 from testing_utils import (  # type:ignore
     get_test_dataset_path,
     from_dummy_data,
@@ -111,53 +114,6 @@ def test_filter():
 
     with pytest.raises(KeyError):
         ds.filter(badkey=lambda x: True)  # key doesn't exist
-
-
-# def test_filter_old():
-#     num_total=10
-#     ds = from_dummy_data(num_total=num_total, with_label=True).named('data', 'label')
-
-#     # expected items
-#     a = [ (x, 'a') for x in list(range(5))]
-#     b = [ (x, 'b') for x in list(range(5,num_total))]
-#     even_a = [x for x in a if x[0]%2==0]
-#     odd_a  = [x for x in a if x[0]%2==1]
-#     even_b = [x for x in b if x[0]%2==0]
-#     odd_b  = [x for x in b if x[0]%2==1]
-
-#     # itemwise
-#     ds_even = ds.filter(itemwise=[lambda x: x%2==0])
-#     assert(list(ds_even) == even_a + even_b)
-
-#     ds_even_a = ds.filter(itemwise=[lambda x: x%2==0, lambda x: x=='a'])
-#     assert(list(ds_even_a) == even_a)
-
-#     # by key
-#     ds_b = ds.filter(label=lambda x:x=='b')
-#     assert(list(ds_b) == b)
-
-#     # bulk
-#     ds_odd_b = ds.filter(lambda x: x[0]%2==1 and x[1]=='b')
-#     assert(list(ds_odd_b) == odd_b)
-
-#     # mix
-#     ds_even_b_no_4 = ds.filter(lambda x: x[0]!= 4, itemwise=[lambda x: x%2==0], label=lambda x: x=='b')
-#     assert(list(ds_even_b_no_4) == [x for x in even_b if x[0]!=4])
-
-#     # sample_classwise
-#     ds_classwise = ds.filter(label=allow_unique(2))
-#     assert(list(ds_classwise) == list(a[:2] + b[:2]))
-
-#     # error scenarios
-#     with pytest.warns(UserWarning):
-#         ds_same = ds.filter() # no args
-#         assert(list(ds) == list(ds_same))
-
-#     with pytest.raises(AssertionError):
-#         ds.filter(itemwise=[None, None, None]) # too many args
-
-#     with pytest.raises(AssertionError):
-#         ds.filter(badkey=lambda x:True) # key doesn't exist
 
 
 def test_split_filter():
@@ -268,7 +224,7 @@ def test_reorder():
     ds = from_dummy_numpy_data()
     ds.named("mydata", "mylabel")
 
-    ## error scenarios
+    # error scenarios
     with pytest.warns(UserWarning):
         # no order given
         ds_ignored = ds.reorder()
@@ -282,7 +238,7 @@ def test_reorder():
         # a keys doesn't exist
         ds_re = ds.reorder("badkey", "mydata")
 
-    ## working scenarios
+    # working scenarios
 
     # using indexes
     ds_re = ds.reorder(1, 0)
@@ -327,6 +283,51 @@ def test_reorder():
         ds.named("one", "two").reorder(
             0, 1, 1
         )  # key needs to be unique, but wouldn't be
+
+
+class TestSubsample:
+
+    cars = from_csv(get_test_dataset_path(DATASET_PATHS.csv / "cars"))
+
+    def test_subsample(self):
+        def func(s):
+            return (s, s)
+
+        assert len(self.cars) == 4
+        ds = TestSubsample.cars.subsample(func, 2)
+        assert len(ds) == 8
+
+        s = ds[0]
+        assert len(s.speed) == 3
+        assert len(s.vibration) == 3
+
+    def test_invalid_subsample_func(self):
+
+        # incorrect number of subsamples returned
+        def func1(s):
+            return s
+
+        with pytest.raises(RuntimeError):
+            ds = TestSubsample.cars.subsample(func1, 3)
+            _ = ds[0]
+
+        # invalid subsample returned
+        def func2(s):
+            return None
+
+        with pytest.raises(RuntimeError):
+            ds = TestSubsample.cars.subsample(func2, 2)
+            _ = ds[0]
+
+    def test_invalid_nsamples(self):
+        def func(s):
+            return s
+
+        with pytest.raises(ValueError):
+            TestSubsample.cars.subsample(func, 0)
+
+        with pytest.raises(ValueError):
+            TestSubsample.cars.subsample(func, -1)
 
 
 ########## Tests relating to stats #########################

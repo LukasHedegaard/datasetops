@@ -100,8 +100,7 @@ def from_tensorflow(tf_dataset):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(
-                    tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
@@ -170,8 +169,7 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(
-        get_data, "Data Getter for folder with structure 'root/classes/data'")
+    ds = Loader(get_data, "Data Getter for folder with structure 'root/classes/data'")
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -207,8 +205,7 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
     datasets = []
 
     for group in groups:
-        ds = from_folder_data(group) \
-            .named(re.split(r"/|\\", str(group))[-1])
+        ds = from_folder_data(group).named(re.split(r"/|\\", str(group))[-1])
 
         datasets.append(ds)
 
@@ -274,8 +271,7 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all(
-        [s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
@@ -384,11 +380,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     return sorted(datasets, key=lambda d: d.name)
 
 
-def from_csv(path,
-             load_func=None,
-             predicate_func=None,
-             data_format="tuple",
-             **kwargs):
+def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **kwargs):
     """Load data stored as comma-separated values (CSV).
     The csv-data can be stored as either a single file or in several smaller
     files stored in a tree structure.
@@ -426,23 +418,27 @@ def from_csv(path,
 
     """
     import pandas as pd
+
     p = Path(path)
 
     # Since there are no standardized filename extension for CSV files,
     # we assume that every file is csv unless specified otherwise.
-    if(predicate_func is None):
+    if predicate_func is None:
+
         def predicate_func(path):
             return True
 
-    if(load_func is None):
+    if load_func is None:
+
         def load_func(path, data):
             return data
 
     formats = {"tuple", "dataframe"}
 
-    if(data_format not in formats):
+    if data_format not in formats:
         raise ValueError(
-            f"Unable to load the dataset from CSV, the specified data fromat : {data_format} is not recognized. Options are: {formats}")
+            f"Unable to load the dataset from CSV, the specified data fromat : {data_format} is not recognized. Options are: {formats}"
+        )
 
     # read csv using pandas
     # if specified the dataframe is converted to a tuple of numpy arrays.
@@ -450,7 +446,7 @@ def from_csv(path,
         data = pd.read_csv(path, **kwargs)
 
         # convert dataframe to
-        if(data_format == "tuple"):
+        if data_format == "tuple":
             try:
                 Row = namedtuple("Row", data.columns)
                 data = Row(*data.to_numpy().T.tolist())
@@ -459,14 +455,15 @@ def from_csv(path,
 
         return load_func(path, data)
 
-    if(p.is_file()):
+    if p.is_file():
         ds = from_files_list([p], read_single_csv)
 
-    elif(p.is_dir()):
+    elif p.is_dir():
         ds = from_recursive_files(p, read_single_csv, predicate_func)
     else:
         raise ValueError(
-            f"Unable to load the dataset from CSV, the supplied path: {p} is neither a file or directory")
+            f"Unable to load the dataset from CSV, the supplied path: {p} is neither a file or directory"
+        )
 
     return ds
 
@@ -529,15 +526,17 @@ def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Datas
 
     root_dir = Path(root)
 
-    if(predicate_func is None):
-        def predicate_func(_): return True
+    if predicate_func is None:
+
+        def predicate_func(_):
+            return True
 
     # find all files matching predicate function
     matches = []
     for root, _, files in os.walk(root_dir):
         for f in files:
             p = Path(root) / f
-            if(predicate_func(p)):
+            if predicate_func(p):
                 matches.append(p)
 
     return from_files_list(matches, load_func)
