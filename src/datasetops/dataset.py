@@ -1041,6 +1041,23 @@ def concat(*datasets: AbstractDataset):
     return Dataset(downstream_getter=comp, ids=comp._ids,)
 
 
+########## Sampling ####################
+def subsample(dataset, func, n_samples: int) -> Dataset:
+    """Divide each sample in the dataset into several sub-samples using a user-defined function.
+    The function must take a single sample as an argument and must return a list of samples.
+
+    Arguments:
+        dataset {[type]} -- dataset containing the samples which are sub-sampled.
+        func {Callable} -- function defining how each sample should divided.
+        n_samples {int} -- the number of sub-samples produced for each sample.
+
+    Returns:
+        Dataset -- a new dataset containing the subsamples.
+    """
+
+    raise NotImplementedError()
+
+
 ########## Converters ####################
 
 
