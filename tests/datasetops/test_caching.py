@@ -364,4 +364,26 @@ def test_cache():
             False,
         )
 
+        for dataset in [
+            test14,
+            test13,
+            test12,
+            test11,
+            test10,
+            test9,
+            test8,
+            test7,
+            test6,
+            test5_4,
+            test5_1,
+            test5_2,
+            test5,
+            test4,
+            test3,
+            test2,
+            test1,
+            test,
+        ]:
+            dataset.close()
+
         Cache.clear(cache_path)
