@@ -69,5 +69,10 @@ def read_text(path):
         return file.read()
 
 
+def read_lines(path):
+    with open(path, 'r') as file:
+        return file.readlines()
+
+
 def read_bin(path):
     return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
