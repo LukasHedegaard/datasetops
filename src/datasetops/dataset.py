@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Tuple, overload, TypeVar, IO
 import dill
 
+
 ########## Local Helpers ####################
 
 _DEFAULT_SHAPE = tuple()
@@ -179,9 +180,12 @@ class Dataset(AbstractDataset):
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
-            self._ids = list(range(len(self._downstream_getter._ids)))  # type: ignore
+            self._ids = (
+                list(range(len(self._downstream_getter._ids)))  # type: ignore
+                if ids is None else ids
+            )
             self._item_names = getattr(downstream_getter, "_item_names", None)
-            self.cachable = self._downstream_getter.cachable  # type: ignore
+            self.cachable: bool = getattr(downstream_getter, "cachable", False)
         else:
             self.name = ""
             self._ids = []
@@ -221,7 +225,7 @@ class Dataset(AbstractDataset):
                 "dataset": self._downstream_getter,
                 "operation": {"name": operation, "parameters": operation_parameters},
             }
-        elif operation == "cache":
+        elif operation in ["cache", "stream"]:
             self.origin = {
                 "root": operation_parameters["identifier"],
             }
@@ -239,10 +243,17 @@ class Dataset(AbstractDataset):
     def _get_origin(self) -> Union[List[Dict], Dict]:
         return self.origin
 
-    def cached(self, path: str = None):
+    def cached(
+        self, path: str = None,
+        keep_loaded_items: bool = False,
+        display_progress: bool = False
+    ):
 
         if not self.cachable:
-            raise Exception("Dataset must be cachable")
+            raise Exception(
+                "Dataset must be cachable"
+                + "(Provide identifiers for memory-based Loaders)"
+            )
 
         if path is None:
             path = Cache.DEFAULT_PATH
@@ -252,64 +263,33 @@ class Dataset(AbstractDataset):
 
         if cache.is_cached(identifier):
 
-            length = 0
-            values = []
-            read_file = None
-            names = []
+            if display_progress:
+                print("Loaded from cache")
 
-            def data_extractor():
-
-                nonlocal length
-                nonlocal values
-                nonlocal read_file
-                nonlocal names
-
-                length = dill.load(read_file)
-                yield True
-
-                names = dill.load(read_file)
-                yield True
-
-                for i in range(length):
-                    element = dill.load(read_file)
-                    values.append(element)
-                    yield True
-
-                yield False
-
-            generator = data_extractor()
-
-            def reader(file):
-                nonlocal read_file
-                read_file = file
-                return next(generator)
-
-            cache.load(identifier, reader)
-
-            class Getter(ItemGetter):
-                def __getitem__(self, i: int):
-                    return values[i]
-
-            ids = list(range(length))
-
-            result = Dataset(
-                downstream_getter=Getter(),
-                operation="cache",
-                ids=ids,
-                operation_parameters={"identifier": identifier},
-            )
-
-            if len(names) > 0:
-                result = result.named(names)
-
-            return result
+            stream = cache.create_stream(identifier)
+            return StreamDataset(stream, identifier, keep_loaded_items)
         else:
 
+            length = len(self)
+            index = 0
+
             def data_generator():
+
+                nonlocal index
+                nonlocal length
+
                 yield len(self)
                 yield self.names
 
                 for data in self:
+                    index += 1
+
+                    if display_progress:
+                        print(
+                            "Caching [" + str(index)
+                            + "/" + str(length) + "]", end="\r"
+                        )
+
                     yield data
 
             generator = data_generator()
@@ -320,6 +300,8 @@ class Dataset(AbstractDataset):
                     dill.dump(val, file)
                     return True
                 except StopIteration:
+                    if display_progress:
+                        print("Cached")
                     return False
 
             cache.save(identifier, saver)

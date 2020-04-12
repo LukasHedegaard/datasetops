@@ -88,17 +88,18 @@ class Cache:
 
         self.__save_database()
 
-    def load(self, identifier, reader: Callable[[IO], bool]):
+    def create_stream(self, identifier):
         if not self.is_cached(identifier):
             raise Exception("No cache for identifier=" + identifier)
 
         entry = next(
-            x for x in self.database["entries"] if x["identifier"] == identifier
+            x for x in self.database["entries"]
+            if x["identifier"] == identifier
         )
 
         cache_id = entry["cache_id"]
         file_path = self.__cache_file_path(cache_id)
 
-        with open(file_path, "rb") as file:
-            while reader(file):
-                pass
+        file = open(file_path, "rb")
+
+        return file
