@@ -155,7 +155,7 @@ def test_operation_origins():
     assert "times" in test6._get_origin()["operation"]["parameters"]
     assert "mode" in test6._get_origin()["operation"]["parameters"]
 
-    test7 = test6.reorder("image_2", "calib", "velodyne_reduced")
+    test7 = test6.reorder("image_2", "calib", "velodyne")
     assert len(test7) == 3
     assert test7[0][0] == test6[0][1]
     assert test7._get_origin()["operation"]["name"] == "reorder"
@@ -223,7 +223,7 @@ def test_serialization_same():
     test6 = test6.repeat(3)
     assert_serialized_is_same(test6)
 
-    test7 = test6.reorder("image_2", "calib", "velodyne_reduced")
+    test7 = test6.reorder("image_2", "calib", "velodyne")
     assert_serialized_is_same(test7)
 
     test7 = test7.cartesian_product(test7)
@@ -358,7 +358,7 @@ def test_serialization_not_same():
         test,
     )
 
-    test12 = test11.reorder("image_2", "calib", "velodyne_reduced")
+    test12 = test11.reorder("image_2", "calib", "velodyne")
     assert_serialized_is_not_same(
         test12,
         test11,
