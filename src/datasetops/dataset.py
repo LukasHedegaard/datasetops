@@ -964,6 +964,8 @@ class SubsampleDataset(Dataset):
         self.subsample_func = subsample_func
         self.n_ss = n_ss
         self.dataset = dataset
+        self.cache_method = cache_method
+        self.last_downstream_idx = None
 
     def __getitem__(self, ss_idx):
         """Gets the subsample corresponding to the
@@ -974,20 +976,22 @@ class SubsampleDataset(Dataset):
         Returns:
             [Any] -- the subsample corresponding to the specified index
         """
-        if ss_idx in self.cached:
-            return self.cached[ss_idx]
+
+        ds_idx = self._get_downstream_idx(ss_idx)
+
+        if self._is_subsample_cached(ss_idx):
+            return self._get_cached_subsample(ss_idx)
         else:
-            ds_idx = self._get_downstream_idx(ss_idx)
+
             ds_sample = self.dataset[ds_idx]
             ss = self.subsample_func(ds_sample)
-
             n_actual = None
             # ensure that subsampling function has returned the correct value of subsamples
             try:
                 n_actual = len(ss)
             except Exception as e:
                 raise RuntimeError(
-                    f"subsampling function returned: {n_actual}, this should be an non-empty iterable"
+                    f"subsampling function returned: {n_actual}, this should be an iterable"
                 )
 
             if n_actual != self.n_ss:
@@ -1002,8 +1006,32 @@ class SubsampleDataset(Dataset):
     def _get_downstream_idx(self, ss_idx):
         return ss_idx // self.n_ss
 
-    def _do_cache_for(self, ds_idx, ss_vals):
-        pass
+    def _is_subsample_cached(self, ss_idx):
+        return self._get_downstream_idx(ss_idx) in self.cached
+
+    def _get_cached_subsample(self, ss_idx):
+        assert self._is_subsample_cached(ss_idx)
+        ds_idx = self._get_downstream_idx(ss_idx)
+        return self.cached[ds_idx][ss_idx]
+
+    def _do_cache_for(self, ds_idx, ss):
+        """Caches the values read from the specified index of the downstream data set.
+
+        Arguments:
+            ds_idx {Idx} -- index of the last read downstream sample
+            ss {Tuple[Any]} -- the items produced by subsampling the downstream dataset at the specified index.
+        """
+
+        if self.cache_method == None:
+            return
+        elif self.cache_method == "block":
+            if (
+                ds_idx != self.last_downstream_idx
+                and self.last_downstream_idx is not None
+            ):
+                del self.cached[self.last_downstream_idx]
+
+            self.cached[ds_idx] = ss
 
 
 ########## Handy decorators ####################
