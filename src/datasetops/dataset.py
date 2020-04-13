@@ -374,6 +374,19 @@ class Dataset(AbstractDataset):
         """
         return SubsampleDataset(self, func, n_samples, cache_method)
 
+    def supersample(self, func, n_samples: int):
+        """Combines several samples into a smaller number of samples using a user-defined function.
+        The function is invoked with an iterable of and must return a single sample.
+        
+        Arguments:
+            func {[type]} -- a function used to transform a number of samples into a single supersample
+            n_samples {int} -- number of samples required to produce each supersample
+        
+        Returns:
+            [Dataset] -- a new dataset containing the supersamples
+        """
+        return SupersampleDataset(self, func, n_samples)
+
     def sample(self, num: int, seed: int = None):
         """Sample data randomly from the dataset.
 
@@ -1050,6 +1063,19 @@ class SubsampleDataset(Dataset):
             self.cached[ds_idx] = ss
             self.last_downstream_idx = ds_idx
 
+
+class SupersampleDataset(AbstractDataset):
+    def __init__(self, dataset, func, n_ss):
+
+        self.n_ss = n_ss
+        self.func = func
+        self.dataset = dataset
+
+    def __getitem__(self, idx):
+        pass
+
+    def __len__(self):
+        pass
 
 ########## Handy decorators ####################
 

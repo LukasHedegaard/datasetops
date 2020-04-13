@@ -67,6 +67,8 @@ The function must take an sample as argument and in turn return a new sample.
     >>> ds2 = ds_mnist.transform("img",func2)
     True
 
+.. _tf_subsample:
+
 Subsample
 ~~~~~~~~~
 For some applications it may be useful to convert each sample into several smaller sub-samples.
@@ -138,6 +140,17 @@ Consider the example shown below, where each sample of the original dataset is s
 
 These should not be confused by the more general caching mechanism described in the section on :ref:`caching <sec_caching>`.
 
+Supersample
+~~~~~~~~~~~
+This :func:`supersample <datasetops.dataset.supersample>` transform can be used to combine several samples into fewer, but larger samples.
+The transform can be seen as the inverse of :ref:`subsample <tf_subsample>`.
+
+>>> def sum(s):
+>>>     return (s(0) + s(1))
+>>> ds = do.from_iterable([1,2,3,4,5,6])
+>>> ds.supersample(sum, n_samples=2)
+>>> list(ds)
+[(3),(7),(11)]
 
 Images Manipulation
 -------------------
