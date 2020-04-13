@@ -372,7 +372,7 @@ class Dataset(AbstractDataset):
         Returns:
             Dataset -- a new dataset containing the subsamples.
         """
-        return subsample(self, func, n_samples, cache_method)
+        return SubsampleDataset(self, func, n_samples, cache_method)
 
     def sample(self, num: int, seed: int = None):
         """Sample data randomly from the dataset.
@@ -1025,8 +1025,10 @@ class SubsampleDataset(Dataset):
 
     def _get_cached_subsample(self, ss_idx):
         assert self._is_subsample_cached(ss_idx)
+
         ds_idx = self._get_downstream_idx(ss_idx)
-        return self.cached[ds_idx][ss_idx]
+        ss_relative_idx = ss_idx % self.n_ss
+        return self.cached[ds_idx][ss_relative_idx]
 
     def _do_cache_for(self, ds_idx, ss):
         """Caches the values read from the specified index of the downstream data set.
