@@ -36,7 +36,8 @@ def _warn_no_args(skip=0):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
             if len(args) + len(kwargs) <= skip:
-                warnings.warn("Too few args passed to {}".format(fn.__code__.co_name))
+                warnings.warn("Too few args passed to {}".format(
+                    fn.__code__.co_name))
             return fn(*args, **kwargs)
 
         return wrapped
@@ -123,7 +124,8 @@ def _combine_conditions(
             bulk(x)
             and all([pred(x[i]) for i, pred in enumerate(preds)])
             and all(
-                [pred(x[_key_index(item_names, k)]) for k, pred in kwpredicates.items()]
+                [pred(x[_key_index(item_names, k)])
+                 for k, pred in kwpredicates.items()]
             )
         )
 
@@ -139,7 +141,8 @@ def _optional_argument_indexed_transform(
     if len(args) == 0:
         warnings.warn("Skipping transform: No arguments arguments given")
     if len(shape) < len(args):
-        raise ValueError("Unable to perform transform: Too many arguments given")
+        raise ValueError(
+            "Unable to perform transform: Too many arguments given")
 
     tfs = [transform_fn(*a) if (a != None) else None for a in args]
     return ds_transform(tfs)
@@ -254,7 +257,8 @@ class Dataset(AbstractDataset):
             type(elem), Image.Image
         ):
             raise TypeError(
-                "Cannot compute statistics for element of type {}".format(type(elem))
+                "Cannot compute statistics for element of type {}".format(
+                    type(elem))
             )
 
         if not axis:
@@ -414,7 +418,8 @@ class Dataset(AbstractDataset):
         condition = _combine_conditions(
             self._item_names, self.shape, predicates, **kwpredicates
         )
-        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
+        new_ids = list(filter(lambda i: condition(
+            self.__getitem__(i)), self._ids))
         return Dataset(downstream_getter=self, ids=new_ids)
 
     @_raise_no_args(skip=1)
@@ -445,7 +450,8 @@ class Dataset(AbstractDataset):
                 nack.append(i)
 
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids) for new_ids in [ack, nack]]
+            [Dataset(downstream_getter=self, ids=new_ids)
+             for new_ids in [ack, nack]]
         )
 
     def shuffle(self, seed: int = None):
@@ -506,7 +512,8 @@ class Dataset(AbstractDataset):
 
         # create datasets corresponding to each split
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids,) for new_ids in split_ids]
+            [Dataset(downstream_getter=self, ids=new_ids,)
+             for new_ids in split_ids]
         )
 
     def take(self, num: int):
@@ -519,7 +526,8 @@ class Dataset(AbstractDataset):
             Dataset -- A dataset with only the first `num` elements
         """
         if num > len(self):
-            raise ValueError("Can't take more elements than are available in dataset")
+            raise ValueError(
+                "Can't take more elements than are available in dataset")
 
         new_ids = list(range(num))
         return Dataset(downstream_getter=self, ids=new_ids)
@@ -628,7 +636,8 @@ class Dataset(AbstractDataset):
     def transform(
         self,
         fns: Optional[
-            Union[ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
+            Union[ItemTransformFn,
+                  Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
         ] = None,
         **kwfns: DatasetTransformFn,
     ):
@@ -666,7 +675,8 @@ class Dataset(AbstractDataset):
                 if f:
                     if len(signature(f).parameters) == 1:
                         f = _custom(f)
-                    new_dataset = f(_key_index(self._item_names, k), new_dataset)
+                    new_dataset = f(_key_index(
+                        self._item_names, k), new_dataset)
 
         return new_dataset
 
@@ -686,7 +696,8 @@ class Dataset(AbstractDataset):
         """
         idx: int = _key_index(self._item_names, key)
         mapping_fn = mapping_fn or categorical_template(self, key)
-        args = [[mapping_fn] or [] if i == idx else None for i in range(idx + 1)]
+        args = [[mapping_fn] or [] if i ==
+                idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=categorical, args=args
         )
@@ -718,7 +729,8 @@ class Dataset(AbstractDataset):
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
-            transform_fn=functools.partial(one_hot, mapping_fn=mapping_fn, dtype=dtype),
+            transform_fn=functools.partial(
+                one_hot, mapping_fn=mapping_fn, dtype=dtype),
             args=args,
         )
 
@@ -750,7 +762,8 @@ class Dataset(AbstractDataset):
                 self.shape, self.transform, transform_fn=image, args=positional_flags,  # type: ignore
             )
         else:
-            warnings.warn("Conversion to image skipped. No elements were compatible")
+            warnings.warn(
+                "Conversion to image skipped. No elements were compatible")
             return self
 
     # TODO: reconsider API
@@ -909,7 +922,8 @@ class Dataset(AbstractDataset):
             self.shape,
             self.transform,
             transform_fn=minmax,
-            args=_keyarg2list(self._item_names, key_or_keys, [axis, feature_range],),
+            args=_keyarg2list(self._item_names, key_or_keys,
+                              [axis, feature_range],),
         )
 
     def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
@@ -1032,6 +1046,7 @@ class SubsampleDataset(Dataset):
                 del self.cached[self.last_downstream_idx]
 
             self.cached[ds_idx] = ss
+            self.last_downstream_idx = ds_idx
 
 
 ########## Handy decorators ####################
@@ -1150,7 +1165,8 @@ def _check_numpy_compatibility(allow_scalars=False):
 
     def fn(elem):
         if type(elem) in allowed:
-            raise ValueError("Unable to convert element {} to numpy".format(elem))
+            raise ValueError(
+                "Unable to convert element {} to numpy".format(elem))
         # check if this raises an Exception
         np.array(elem)
 
@@ -1521,7 +1537,8 @@ def _tf_item_conversion(item: Any):
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
-    ds = Dataset(downstream_getter=dataset, item_transform_fn=_tf_item_conversion)
+    ds = Dataset(downstream_getter=dataset,
+                 item_transform_fn=_tf_item_conversion)
     item = ds[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,

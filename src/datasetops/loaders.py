@@ -100,7 +100,8 @@ def from_tensorflow(tf_dataset):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(
+                    tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
@@ -169,7 +170,8 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(get_data, "Data Getter for folder with structure 'root/classes/data'")
+    ds = Loader(
+        get_data, "Data Getter for folder with structure 'root/classes/data'")
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -271,7 +273,8 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all(
+        [s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
@@ -433,7 +436,7 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
         def load_func(path, data):
             return data
 
-    formats = {"tuple", "dataframe"}
+    formats = {"tuple", "numpy", "dataframe"}
 
     if data_format not in formats:
         raise ValueError(
@@ -447,11 +450,14 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
 
         # convert dataframe to
         if data_format == "tuple":
+            # try to create named tuple, otherwise create plain tuple
             try:
                 Row = namedtuple("Row", data.columns)
                 data = Row(*data.to_numpy().T.tolist())
             except Exception:
                 data = tuple(data.to_numpy().T.tolist())
+        elif data_format == "numpy":
+            data = data.to_numpy()
 
         return load_func(path, data)
 
