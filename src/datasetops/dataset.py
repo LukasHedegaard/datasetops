@@ -225,12 +225,28 @@ class Dataset(AbstractDataset):
 
         self._item_transform_fn = item_transform_fn
         self._item_stats = stats
+        self._shape = None
 
     def __len__(self):
         return len(self._ids)
 
-    def __getitem__(self, i: int) -> Tuple:
-        return self._item_transform_fn(self._downstream_getter[self._ids[i]])
+    def __getitem__(self, i: IdxSlice) -> Tuple:
+        """Returns the element at the specified index or slice
+
+        Arguments:
+            i {IdxSlice} -- An single index or a slice
+
+        Returns:
+            Tuple -- the element(s) of the dataset specified by the index or slice
+        """
+        if isinstance(i, int):
+            return self._item_transform_fn(self._downstream_getter[self._ids[i]])
+        else:
+            ids = self._ids[i]
+            return tuple(
+                self._item_transform_fn(self._downstream_getter[self._ids[ii]])
+                for ii in ids
+            )
 
     def item_stats(self, item_key: Key, axis=None) -> scaler.ElemStats:
         """Compute the statistics (mean, std, min, max) for an item element
@@ -276,15 +292,23 @@ class Dataset(AbstractDataset):
         return self._item_stats[idx]  # type: ignore
 
     @property
-    @functools.lru_cache(1)
+    # @functools.lru_cache(1)
     def shape(self) -> Sequence[Shape]:
-        """Get the shape of a dataset item.
+        """Get the shape of a dataset's items.
+
+        The process for doing this is picking a single sample from the dataset.
+        Each item in the sample is checked for the presence "shape" or "size"
+        properties. If present they are added to the shape tuple otherwise an
+        empty tuple "()" is added.
 
         Returns:
             Sequence[int] -- Item shapes
         """
         if len(self) == 0:
             return _DEFAULT_SHAPE
+
+        if self._shape is not None:
+            return self._shape
 
         item = self.__getitem__(0)
         if hasattr(item, "__getitem__"):
@@ -297,9 +321,12 @@ class Dataset(AbstractDataset):
                 else:
                     item_shape.append(_DEFAULT_SHAPE)
 
-            return tuple(item_shape)
+            shape = tuple(item_shape)
+        else:
+            shape = _DEFAULT_SHAPE
 
-        return _DEFAULT_SHAPE
+        self._shape = shape
+        return shape
 
     @functools.lru_cache(4)
     @_warn_no_args(skip=1)
@@ -1093,7 +1120,7 @@ class SupersampleDataset(AbstractDataset):
 
     def __getitem__(self, idx):
         start = idx * self.sampling_ratio
-        end = start + self.sampling_ratio - 1
+        end = start + self.sampling_ratio
         ss = self.dataset[start:end]
 
         return self.func(ss)

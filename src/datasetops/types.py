@@ -6,6 +6,10 @@ Shape = Sequence[int]
 IdIndex = int
 Id = int
 Ids = List[Id]
+
+"""Represents a single index or a slice"""
+IdxSlice = Union[int, slice]
+
 Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
 ItemTransformFn = Callable[[Any], Any]
