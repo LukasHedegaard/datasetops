@@ -41,7 +41,7 @@ class Loader(Dataset):
         self._ids.extend(list(ids))
 
 
-def from_iterable(iterable: Iterable) -> AbstractDataset:
+def from_iterable(iterable: Iterable) -> Dataset:
     """Creates a new dataset from the elements of the iterable.
 
     An iterable must must implement implement at least one of the following

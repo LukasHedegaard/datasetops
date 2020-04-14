@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from PIL import Image
 
-from datasetops.loaders import from_csv
+from datasetops.loaders import from_csv, from_iterable
 from datasetops.dataset import (
     Dataset,
     image_resize,
@@ -71,8 +71,7 @@ def test_sample():
 
 def test_filter():
     num_total = 10
-    ds = from_dummy_data(num_total=num_total,
-                         with_label=True).named("data", "label")
+    ds = from_dummy_data(num_total=num_total, with_label=True).named("data", "label")
 
     # expected items
     a = [(x, "a") for x in list(range(5))]
@@ -119,8 +118,7 @@ def test_filter():
 
 def test_split_filter():
     num_total = 10
-    ds = from_dummy_data(num_total=num_total,
-                         with_label=True).named("data", "label")
+    ds = from_dummy_data(num_total=num_total, with_label=True).named("data", "label")
 
     # expected items
     a = [(x, "a") for x in list(range(5))]
@@ -147,8 +145,7 @@ def test_split_filter():
     assert list(ds_a) == a
 
     # bulk
-    ds_odd_b, ds_even_b = ds.split_filter(
-        lambda x: x[0] % 2 == 1 and x[1] == "b")
+    ds_odd_b, ds_even_b = ds.split_filter(lambda x: x[0] % 2 == 1 and x[1] == "b")
     assert list(ds_odd_b) == odd_b
     assert list(ds_even_b) == a + even_b
 
@@ -210,7 +207,7 @@ def test_repeat():
     # whole
     ds_whole = ds.repeat(2, mode="whole")
     assert set(ds) == set(ds_whole)
-    assert list(ds) == list(ds_whole)[: len(ds)] == list(ds_whole)[len(ds):]
+    assert list(ds) == list(ds_whole)[: len(ds)] == list(ds_whole)[len(ds) :]
 
 
 def test_take():
@@ -367,13 +364,25 @@ class TestSubsample:
         assert cnt == 3
 
 
+class TestSupersample:
+    def test_supersample(self):
+        def ssum(ss):
+            return sum(ss)
+
+        ds = from_iterable(range(10))
+        assert len(ds) == 10
+
+        ds = ds.supersample(ssum, 10)
+        assert len(ds) == 1
+        assert ds[0] == sum(range(10))
+
+
 ########## Tests relating to stats #########################
 
 
 def test_counts():
     num_total = 11
-    ds = from_dummy_data(num_total=num_total,
-                         with_label=True).named("data", "label")
+    ds = from_dummy_data(num_total=num_total, with_label=True).named("data", "label")
 
     counts = ds.counts("label")  # name based
     counts_alt = ds.counts(1)  # index based
@@ -497,8 +506,7 @@ def test_categorical():
     ds_label_userdef = ds.categorical("label", lambda x: 1 if x == "a" else 0)
 
     assert ds_label_userdef.unique("label") == [1, 0]
-    assert list(ds_label_userdef) == [
-        (d, 1 if l == "a" else 0, l2) for d, l, l2 in ds]
+    assert list(ds_label_userdef) == [(d, 1 if l == "a" else 0, l2) for d, l, l2 in ds]
 
     # error scenarios
     with pytest.raises(TypeError):
@@ -553,8 +561,7 @@ def test_one_hot():
     )
 
     for l, e in zip(
-        ds_oh_userdef.unique("label"), [np.array(
-            [0, 1, 0]), np.array([1, 0, 0])]
+        ds_oh_userdef.unique("label"), [np.array([0, 1, 0]), np.array([1, 0, 0])]
     ):
         assert np.array_equal(l, e)  # type:ignore
 
@@ -651,8 +658,7 @@ def test_reshape():
     for (old_data, l), (new_data, ln), (new_data_alt, lna) in zip(
         items, items_r, items_r_alt
     ):
-        assert set(old_data) == set(new_data.flatten()
-                                    ) == set(new_data_alt.flatten())
+        assert set(old_data) == set(new_data.flatten()) == set(new_data_alt.flatten())
         assert old_data.shape != new_data.shape == new_data_alt.shape
         assert l == ln == lna
 
@@ -683,8 +689,7 @@ def test_reshape():
         assert np.array_equal(old_data, new_data)
 
     # TODO test reshape on string data
-    ds_str = loaders.from_folder_data(
-        get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
+    ds_str = loaders.from_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
 
     with pytest.raises(ValueError):
         # string has no shape
@@ -787,16 +792,14 @@ def test_image_resize():
         assert data.mode == "L"  # grayscale int
 
     # also if they are floats
-    ds_resized_float = ds.transform(
-        [_custom(np.float32)]).image_resize(NEW_SIZE)
+    ds_resized_float = ds.transform([_custom(np.float32)]).image_resize(NEW_SIZE)
     for tpl in ds_resized_float:
         data = tpl[0]
         assert data.size == NEW_SIZE
         assert data.mode == "F"  # grayscale float
 
     # works directly on strings
-    ds_str = loaders.from_folder_data(
-        get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
+    ds_str = loaders.from_folder_data(get_test_dataset_path(DATASET_PATHS.FOLDER_DATA))
     ds_resized_from_str = ds_str.image_resize(NEW_SIZE)
     for tpl in ds_resized_from_str:
         data = tpl[0]
@@ -852,8 +855,7 @@ def test_to_tensorflow():
     preds = model.predict(tf_ds)
     pred_labels = np.argmax(preds, axis=1)
 
-    expected_labels = np.array(
-        [v[0] for v in ds.reorder("label").categorical(0)])
+    expected_labels = np.array([v[0] for v in ds.reorder("label").categorical(0)])
     assert sum(pred_labels == expected_labels) > len(ds) // 2  # type:ignore
 
 
@@ -871,16 +873,12 @@ def test_to_pytorch():
     elem = next(iter(loader))
 
     # data equals
-    assert torch.all(
-        torch.eq(elem[0][0], torch.Tensor(ds[0][0])))  # type:ignore
-    assert torch.all(
-        torch.eq(elem[0][1], torch.Tensor(ds[1][0])))  # type:ignore
+    assert torch.all(torch.eq(elem[0][0], torch.Tensor(ds[0][0])))  # type:ignore
+    assert torch.all(torch.eq(elem[0][1], torch.Tensor(ds[1][0])))  # type:ignore
 
     # labels equal
-    assert torch.all(
-        torch.eq(elem[1][0], torch.Tensor(ds[0][1])))  # type:ignore
-    assert torch.all(
-        torch.eq(elem[1][1], torch.Tensor(ds[1][1])))  # type:ignore
+    assert torch.all(torch.eq(elem[1][0], torch.Tensor(ds[0][1])))  # type:ignore
+    assert torch.all(torch.eq(elem[1][1], torch.Tensor(ds[1][1])))  # type:ignore
 
 
 def test_stats():
@@ -901,8 +899,7 @@ def test_stats():
 
         def reshape_to_scale(d):
             return np.swapaxes(  # type:ignore
-                np.swapaxes(d, 0, axis).reshape(
-                    (data_shape[axis], -1)),  # type:ignore
+                np.swapaxes(d, 0, axis).reshape((data_shape[axis], -1)),  # type:ignore
                 0,
                 1,
             )
@@ -914,15 +911,13 @@ def test_stats():
 
         return reshape_to_scale, reshape_from_scale
 
-    reshape_to_scale, reshape_from_scale = _make_scaler_reshapes(
-        ds_np[0][0].shape, 2)
+    reshape_to_scale, reshape_from_scale = _make_scaler_reshapes(ds_np[0][0].shape, 2)
 
     for d, l in ds_np:
         old_shape = d.shape
         # stats are accumulated along 2nd axis in sklearn preprocessing: reshape accordingly
         dlist = np.swapaxes(  # type:ignore
-            np.swapaxes(d, 0, axis).reshape(
-                (old_shape[axis], -1)), 0, 1  # type:ignore
+            np.swapaxes(d, 0, axis).reshape((old_shape[axis], -1)), 0, 1  # type:ignore
         )
         std_scaler.partial_fit(dlist)
         mm_scaler.partial_fit(dlist)

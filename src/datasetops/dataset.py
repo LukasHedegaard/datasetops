@@ -276,6 +276,7 @@ class Dataset(AbstractDataset):
         return self._item_stats[idx]  # type: ignore
 
     @property
+    @functools.lru_cache(1)
     def shape(self) -> Sequence[Shape]:
         """Get the shape of a dataset item.
 
@@ -1053,13 +1054,15 @@ class SubsampleDataset(Dataset):
 
 
 class SupersampleDataset(AbstractDataset):
-    def __init__(self, dataset, func, n_samples: int, excess_samples_policy="discard"):
+    def __init__(
+        self, dataset, func, sampling_ratio: int, excess_samples_policy="discard"
+    ):
         """Performs supersampling on the provided dataset.
 
         Arguments:
             dataset {AbstractDataset} -- the dataset which the supersampling is applied to
             func {Callable} -- function used to combine several samples into a single supersample.
-            n_samples {int} -- the number of samples used to produce a each supersample.
+            sampling_ratio {int} -- the number of samples used to produce a each supersample.
 
         Keyword Arguments:
             excess_samples_policy {str} -- defines how left over samples should be treated. Possible values are {"discard","error"} (default: {"discard"})
@@ -1073,30 +1076,30 @@ class SupersampleDataset(AbstractDataset):
                 f"Illegal value for argument excess_samples_policy: {excess_samples_policy}, possible options are {excess_samples_policy_options}."
             )
 
-        if n_samples < 1:
+        if sampling_ratio < 1:
             raise ValueError(
-                f"Illegal value for argument n_samples: {n_samples}, this must be 1 or greater."
+                f"Illegal value for argument sampling_ratio: {sampling_ratio}, this must be 1 or greater."
             )
 
-        excess_samples = len(dataset) % n_samples
+        excess_samples = len(dataset) % sampling_ratio
         if excess_samples_policy == "error" and (excess_samples != 0):
             raise ValueError(
                 f"The specified excess sample policy: {excess_samples} does not permit left over samples, of which: {excess_samples} would exist."
             )
 
-        self.n_samples = n_samples
+        self.sampling_ratio = sampling_ratio
         self.func = func
         self.dataset = dataset
 
     def __getitem__(self, idx):
-        start = idx * n_samples
-        end = start + n_samples
+        start = idx * self.sampling_ratio
+        end = start + self.sampling_ratio - 1
         ss = self.dataset[start:end]
 
         return self.func(ss)
 
     def __len__(self):
-        return len(self.dataset) // self.n
+        return len(self.dataset) // self.sampling_ratio
 
 
 ########## Handy decorators ####################
