@@ -3,7 +3,11 @@ import datasetops.loaders as loaders
 import datasetops.dataset as mlds
 from datasetops.examples import domain_adaptation_office31
 import datasetops as do
-from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+from testing_utils import (
+    get_test_dataset_path,
+    DATASET_PATHS,
+    RESOURCES_PATH,
+)  # type:ignore
 from pathlib import Path
 
 
@@ -47,6 +51,5 @@ def test_readme_example_2():
 
     ssl._create_default_https_context = ssl._create_unverified_context
 
-    p = str((Path(__file__).parent.parent / "recourses").absolute())
-    torch_usps = torchvision.datasets.USPS(p, download=True)
+    torch_usps = torchvision.datasets.USPS(str(RESOURCES_PATH), download=True)
     tensorflow_usps = do.from_pytorch(torch_usps).to_tensorflow()

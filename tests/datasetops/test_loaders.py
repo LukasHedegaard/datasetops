@@ -1,7 +1,11 @@
 import datasetops.loaders as loaders
 import random
 from pathlib import Path
-from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
+from testing_utils import (
+    get_test_dataset_path,
+    DATASET_PATHS,
+    RESOURCES_PATH,
+)  # type:ignore
 import numpy as np
 import pytest
 
@@ -38,9 +42,9 @@ def test_folder_group_data():
     expected_items = [str(p) for p in (Path(path)).glob("*/*.*")]
     ds = loaders.from_folder_group_data(path)
 
-    assert(set(ds.names) == set(["calib", "label_2", "image_2", "velodyne"]))
+    assert set(ds.names) == set(["calib", "label_2", "image_2", "velodyne"])
 
-    found_items = [] 
+    found_items = []
 
     for i in ds:
         for q in i:
@@ -76,11 +80,11 @@ def test_folder_dataset_group_data():
 
     datasets = loaders.from_folder_dataset_group_data(path)
 
-    assert(set(datasets[0].names) == set(["calib", "image_2", "velodyne"]))
-    assert(set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne"]))
+    assert set(datasets[0].names) == set(["calib", "image_2", "velodyne"])
+    assert set(datasets[1].names) == set(["calib", "label_2", "image_2", "velodyne"])
 
     def get_data_flat(ds):
-        found_items = [] 
+        found_items = []
 
         for i in ds:
             for q in i:
@@ -125,10 +129,12 @@ def test_pytorch():
     import torch
     from torch.utils.data import Dataset as TorchDataset
 
-    dataset_path = str((Path(__file__).parent.parent / "recourses").absolute())
-
     mnist = torchvision.datasets.MNIST(
-        dataset_path, train=True, transform=None, target_transform=None, download=True
+        str(RESOURCES_PATH),
+        train=True,
+        transform=None,
+        target_transform=None,
+        download=True,
     )
     mnist_item = mnist[0]
     ds_mnist = loaders.from_pytorch(mnist)

@@ -3,6 +3,8 @@ from typing import NamedTuple
 from datasetops.loaders import Loader
 import numpy as np
 
+RESOURCES_PATH = Path(__file__).parent.parent / "resources"
+
 
 class DatasetPaths(NamedTuple):
     FOLDER_DATA: str = "folder_dataset_class_data/amazon/back_pack"
@@ -19,7 +21,7 @@ DATASET_PATHS = DatasetPaths()
 
 
 def get_test_dataset_path(dataset_path: str) -> str:
-    return str((Path(__file__).parent.parent / "resourses" / dataset_path).absolute())
+    return str((RESOURCES_PATH / dataset_path).absolute())
 
 
 def from_dummy_data(num_total=11, with_label=False) -> Loader:
@@ -70,7 +72,7 @@ def read_text(path):
 
 
 def read_lines(path):
-    with open(path, 'r') as file:
+    with open(path, "r") as file:
         return file.readlines()
 
 
