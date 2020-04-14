@@ -6,10 +6,63 @@ import numpy as np
 import pytest
 
 import datasetops.loaders as loaders
+from datasetops.loaders import from_iterable
 from testing_utils import get_test_dataset_path, DATASET_PATHS  # type:ignore
 
 
 # tests ##########################
+
+
+class TestFromIterable:
+    def test_list(self):
+
+        ds = from_iterable([0, 1, 2])
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        ds = from_iterable([])
+        assert len(ds) == 0
+
+    def test_tuple(self):
+
+        ds = from_iterable((0, 1, 2))
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        ds = from_iterable(())
+        assert len(ds) == 0
+
+    def test_generator(self):
+        def gen(size):
+            for i in range(size):
+                yield i
+
+        iterator = gen(3)
+        ds = from_iterable(iterator)
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        iterator = gen(0)
+        ds = from_iterable(iterator)
+
+        assert len(ds) == 0
+
+    def test_invalid(self):
+
+        with pytest.raises(TypeError):
+            ds = from_iterable(None)
+
+        with pytest.raises(TypeError):
+            ds = from_iterable(10)
 
 
 def test_folder_data():
@@ -134,7 +187,7 @@ def test_pytorch():
     dataset_path = str((Path(__file__).parent.parent / "recourses").absolute())
 
     mnist = torchvision.datasets.MNIST(
-        dataset_path, train=True, transform=None, target_transform=None, download=True
+        dataset_path, train=True, transform=None, target_transform=None, download=True,
     )
     mnist_item = mnist[0]
     ds_mnist = loaders.from_pytorch(mnist)

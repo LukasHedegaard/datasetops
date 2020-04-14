@@ -7,7 +7,7 @@ from pathlib import Path
 import os
 import re
 import warnings
-from typing import List
+from typing import List, Tuple, Iterable
 from collections import namedtuple
 
 
@@ -39,6 +39,42 @@ class Loader(Dataset):
 
     def extend(self, ids: Union[List[Data], np.ndarray]):
         self._ids.extend(list(ids))
+
+
+def from_iterable(iterable: Iterable) -> AbstractDataset:
+    """Creates a new dataset from the elements of the iterable.
+
+    An iterable must must implement implement at least one of the following
+    functions:
+    __next__ or __getitem__
+
+    Arguments:
+        iterable {Iterable} -- an iterable containing the samples
+
+    Returns:
+        AbstractDataset -- a new dataset containing the elements of the iterable.
+    """
+
+    len_func = None
+
+    """
+    https://nelsonslog.wordpress.com/2016/04/06/python3-no-len-for-iterators/
+    https://gist.github.com/NelsonMinar/90212fbbfc6465c8e263341b86aa01a8
+    It appears the most effective way of getting length of a iterable is to
+    convert it to a tuple or list"""
+
+    if hasattr(iterable, "__getitem__"):
+        itr = iterable
+    else:
+        itr = tuple(iterable)
+
+    def getter(idx):
+        nonlocal itr
+        return itr[idx]
+
+    l = Loader(getter)
+    l.extend(range(len(itr)))
+    return l
 
 
 def from_pytorch(pytorch_dataset):
@@ -79,10 +115,12 @@ def from_tensorflow(tf_dataset):
 
     if not tf.executing_eagerly():
         raise AssertionError(
-            "Tensorflow must be executing eagerly for `from_tensorflow` to work"
+            """Tensorflow must be executing eagerly
+            for `from_tensorflow` to work"""
         )
 
-    # We could create a mem which is filled up gradually, when samples are needed. However, then we would the to get the number of samples as a parameter
+    # We could create a mem which is filled up gradually, when samples are needed.
+    #  However, then we would the to get the number of samples as a parameter
     # The latency using this solution seems to be acceptable
     tf_ds = list(tf_dataset)
 
@@ -100,8 +138,7 @@ def from_tensorflow(tf_dataset):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(
-                    tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
@@ -170,8 +207,7 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(
-        get_data, "Data Getter for folder with structure 'root/classes/data'")
+    ds = Loader(get_data, "Data Getter for folder with structure 'root/classes/data'")
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -273,8 +309,7 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all(
-        [s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
