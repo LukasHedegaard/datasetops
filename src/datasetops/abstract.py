@@ -23,6 +23,7 @@ from datasetops.transformation_graph import TransformationGraph
 
 class ItemGetter(ABC):
     """Abstract base class implemented by classes that implement a index based get method"""
+
     @abstractmethod
     def __getitem__(self, i: int) -> Tuple:
         pass  # pragma: no cover

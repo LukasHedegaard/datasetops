@@ -420,4 +420,3 @@ def test_serialization_not_same():
         test1,
         test,
     )
-

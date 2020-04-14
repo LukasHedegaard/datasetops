@@ -12,13 +12,16 @@ from testing_utils import (  # type:ignore
 import numpy as np
 from typing import Callable, List
 from timeit import timeit
-from benchmark_kitti_common import reduce_point_cloud, display_ponit_cloud, \
-    get_label_anno, parse_calib
+from benchmark_kitti_common import (
+    reduce_point_cloud,
+    display_ponit_cloud,
+    get_label_anno,
+    parse_calib,
+)
 import random
 
 
-class Benchmark():
-
+class Benchmark:
     @staticmethod
     def run(tests: List[Callable], repeats=2):
 
@@ -67,15 +70,16 @@ def benchmark_kitti(kitti_full_path: str):
             calib["R0_rect"],
             calib["P"][2],
             calib["Tr_velo_to_cam"],
-            image_shape
+            image_shape,
         )
 
         return (data[0], data[1], data[2], velodyne)
 
     def create_train_dataset(
-        train, is_cached: bool,
+        train,
+        is_cached: bool,
         take: Optional[int] = None,
-        keep_loaded_items: bool = False
+        keep_loaded_items: bool = False,
     ):
         train = (
             train.image(False, True, False)
@@ -86,21 +90,19 @@ def benchmark_kitti(kitti_full_path: str):
             .transform(label_2=read_lines)
             .transform(label_2=get_label_anno)
             .transform(train_reduce_point_cloud)
-            )
+        )
 
         if take is not None:
             train = train.take(take)
 
         if is_cached:
             train = train.cached(
-                keep_loaded_items=keep_loaded_items,
-                display_progress=True
+                keep_loaded_items=keep_loaded_items, display_progress=True
             )
 
         return train
 
     def create_traverse_dataset(dataset, randomize=False):
-
         def traverse():
 
             ids = list(range(len(dataset)))
@@ -110,35 +112,38 @@ def benchmark_kitti(kitti_full_path: str):
 
             for i, id in enumerate(ids):
                 dataset[id]
-                print(
-                    "[" + str(i + 1) + "/" + str(len(dataset)) + "]", end="\r"
-                )
+                print("[" + str(i + 1) + "/" + str(len(dataset)) + "]", end="\r")
 
             print()
 
         return traverse
 
     def run_test(
-        train, take: Optional[int], traverse_repeats: int,
-        keep_loaded_items: bool, randomize: bool
+        train,
+        take: Optional[int],
+        traverse_repeats: int,
+        keep_loaded_items: bool,
+        randomize: bool,
     ):
 
         Cache.clear()
 
-        caching_time, = Benchmark.run([
-            lambda:create_train_dataset(train, True, take)
-        ])
-
-        cached_dataset = create_train_dataset(
-            train, True, take, keep_loaded_items
+        (caching_time,) = Benchmark.run(
+            [lambda: create_train_dataset(train, True, take)]
         )
 
-        results = Benchmark.run([
-            create_traverse_dataset(create_train_dataset(
-                train, False, take, keep_loaded_items
-            ), randomize),
-            create_traverse_dataset(cached_dataset, randomize),
-        ], traverse_repeats)
+        cached_dataset = create_train_dataset(train, True, take, keep_loaded_items)
+
+        results = Benchmark.run(
+            [
+                create_traverse_dataset(
+                    create_train_dataset(train, False, take, keep_loaded_items),
+                    randomize,
+                ),
+                create_traverse_dataset(cached_dataset, randomize),
+            ],
+            traverse_repeats,
+        )
 
         cached_dataset.close()
 
@@ -155,43 +160,47 @@ def benchmark_kitti(kitti_full_path: str):
         run_test(train, 20, 50, False, False),
         run_test(train, 20, 50, True, False),
         run_test(train, 20, 50, True, True),
-
         run_test(train, 60, 100, False, False),
         run_test(train, 60, 100, True, False),
         run_test(train, 60, 100, True, True),
-
         run_test(train, 60, 200, False, False),
         run_test(train, 60, 200, True, False),
         run_test(train, 60, 200, True, True),
-
         run_test(train, 60, 600, False, False),
         run_test(train, 60, 600, True, False),
         run_test(train, 60, 600, True, True),
-
         run_test(train, None, 2, False, False),
     ]
 
     row_format = "{:>18}" * 8
 
     print()
-    print(row_format.format(
-        "Dataset Size", "Repeats", "Storage", "Access", "Time Raw (s)",
-        "Time Cached (s)", "Caching Time (s)", "Difference"
-    ))
+    print(
+        row_format.format(
+            "Dataset Size",
+            "Repeats",
+            "Storage",
+            "Access",
+            "Time Raw (s)",
+            "Time Cached (s)",
+            "Caching Time (s)",
+            "Difference",
+        )
+    )
 
     for result in results:
-        print(row_format.format(
-            result["amount"],
-            result["traverse_repeats"],
-            result["storage"],
-            result["access"],
-            int(result["results"][0] * 100) / 100,
-            int(result["results"][1] * 100) / 100,
-            int(result["caching_time"] * 100) / 100,
-            "x" + str(
-                int(result["results"][0] / result["results"][1] * 100) / 100
+        print(
+            row_format.format(
+                result["amount"],
+                result["traverse_repeats"],
+                result["storage"],
+                result["access"],
+                int(result["results"][0] * 100) / 100,
+                int(result["results"][1] * 100) / 100,
+                int(result["caching_time"] * 100) / 100,
+                "x" + str(int(result["results"][0] / result["results"][1] * 100) / 100),
             )
-        ))
+        )
 
 
 benchmark_kitti("/data/sets/kitti")

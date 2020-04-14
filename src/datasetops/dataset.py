@@ -213,7 +213,8 @@ class Dataset(AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
             self._ids = (
                 list(range(len(self._downstream_getter._ids)))  # type: ignore
-                if ids is None else ids
+                if ids is None
+                else ids
             )
             self._item_names = getattr(downstream_getter, "_item_names", None)
             self.cachable: bool = getattr(downstream_getter, "cachable", False)
@@ -276,9 +277,10 @@ class Dataset(AbstractDataset):
         return self.origin
 
     def cached(
-        self, path: str = None,
+        self,
+        path: str = None,
         keep_loaded_items: bool = False,
-        display_progress: bool = False
+        display_progress: bool = False,
     ):
 
         if not self.cachable:
@@ -318,8 +320,7 @@ class Dataset(AbstractDataset):
 
                     if display_progress:
                         print(
-                            "Caching [" + str(index)
-                            + "/" + str(length) + "]", end="\r"
+                            "Caching [" + str(index) + "/" + str(length) + "]", end="\r"
                         )
 
                     yield data
@@ -344,6 +345,7 @@ class Dataset(AbstractDataset):
                 operation="cache",
                 operation_parameters={"identifier": identifier},
             )
+
     def item_stats(self, item_key: Key, axis=None) -> scaler.ElemStats:
         """Compute the statistics (mean, std, min, max) for an item element
         
@@ -1103,9 +1105,7 @@ class Dataset(AbstractDataset):
 
 class StreamDataset(Dataset):
     def __init__(
-        self, stream: IO,
-        identifier: str,
-        keep_loaded_items: bool = False
+        self, stream: IO, identifier: str, keep_loaded_items: bool = False
     ) -> None:
 
         self._last_accessed_id: int = -1
@@ -1119,15 +1119,12 @@ class StreamDataset(Dataset):
         super().__init__(
             self,
             operation="stream",
-            operation_parameters={
-                "identifier": identifier,
-            },
-            ids = list(range(length)),
+            operation_parameters={"identifier": identifier,},
+            ids=list(range(length)),
             item_names={n: i for i, n in enumerate(names)},
         )
 
         self.cachable = True
-
 
     @property
     def allow_random_access(self) -> bool:
@@ -1175,18 +1172,18 @@ class StreamDataset(Dataset):
 
                 item = ()
 
-                while (
-                    (self._last_accessed_id < i) and not
-                    (i == len(self) - 1 and self._last_accessed_id == -1)
+                while (self._last_accessed_id < i) and not (
+                    i == len(self) - 1 and self._last_accessed_id == -1
                 ):
                     item = self.__read_item()
-                
+
                 return item
             else:
                 raise Exception("Random access is not allowed")
 
     def close(self):
         self.__stream.close()
+
 
 ########## Handy decorators ####################
 
@@ -1217,8 +1214,10 @@ def _make_dataset_element_transforming(
             ]
 
         return Dataset(
-            downstream_getter=ds, item_transform_fn=item_transform_fn,
-            operation="transform", stats=stats
+            downstream_getter=ds,
+            item_transform_fn=item_transform_fn,
+            operation="transform",
+            stats=stats,
         )
 
     return wrapped
@@ -1239,7 +1238,6 @@ def _dataset_element_transforming(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-
         stats: List[Optional[ElemStats]] = []
         if maintain_stats and hasattr(ds, "_item_stats"):
             # maintain stats on other elements, and optionally on this one
@@ -1252,7 +1250,7 @@ def _dataset_element_transforming(
             downstream_getter=ds,
             item_transform_fn=item_transform_fn,
             operation="transform",
-            stats=stats
+            stats=stats,
         )
 
     return wrapped

@@ -93,8 +93,7 @@ class Cache:
             raise Exception("No cache for identifier=" + identifier)
 
         entry = next(
-            x for x in self.database["entries"]
-            if x["identifier"] == identifier
+            x for x in self.database["entries"] if x["identifier"] == identifier
         )
 
         cache_id = entry["cache_id"]

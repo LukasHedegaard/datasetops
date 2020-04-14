@@ -108,8 +108,7 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(
-                    tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
@@ -291,8 +290,7 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all(
-        [s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
