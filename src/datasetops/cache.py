@@ -35,14 +35,14 @@ class Cache:
         if path is None:
             path = Cache.DEFAULT_PATH
 
-        self.path = path
+        self.path = Path(path)
 
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        if not self.path.exists():
+            self.path.mkdir(parents=True, exist_ok=True)
             with open(Path(self.path) / ".gitignore", "w") as file:
                 file.write("# Created by datasetops automatically. \n*\n")
 
-        self.database_path = self.path + "/database.json"
+        self.database_path = self.path / "database.json"
         self.database = self.__load_database()
 
     def __load_database(self):
