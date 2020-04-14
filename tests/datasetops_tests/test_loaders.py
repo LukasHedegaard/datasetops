@@ -1,7 +1,7 @@
 import datasetops.loaders as loaders
 import random
 from pathlib import Path
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     DATASET_PATHS,
     RESOURCES_PATH,

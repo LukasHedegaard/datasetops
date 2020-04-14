@@ -2,7 +2,7 @@ from datasetops.dataset import Dataset
 from typing import List
 from datasetops.cache import Cache
 from datasetops import loaders
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     from_dummy_numpy_data,
     read_text,

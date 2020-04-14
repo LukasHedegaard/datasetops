@@ -1,7 +1,7 @@
 import pytest
 from datasetops.examples import domain_adaptation_office31
 import datasetops as do
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     DATASET_PATHS,
     RESOURCES_PATH,

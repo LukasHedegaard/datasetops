@@ -13,7 +13,7 @@ import datasetops.loaders as loaders
 import pytest
 import numpy as np
 from PIL import Image
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     from_dummy_data,
     from_dummy_numpy_data,

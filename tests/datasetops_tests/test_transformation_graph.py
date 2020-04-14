@@ -1,6 +1,6 @@
 from datasetops.dataset import Dataset
 from datasetops import loaders
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     DATASET_PATHS,
     read_text,

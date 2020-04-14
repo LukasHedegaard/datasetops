@@ -4,6 +4,8 @@ from datasetops import loaders
 from testing_utils import (  # type:ignore
     read_lines,
     read_bin,
+    get_test_dataset_path,
+    DATASET_PATHS,
 )
 import numpy as np
 from timeit import timeit
@@ -198,4 +200,4 @@ def benchmark_kitti(kitti_full_path: str):
 
 
 if __name__ == "__main__":
-    benchmark_kitti("/data/sets/kitti")
+    benchmark_kitti(get_test_dataset_path(DATASET_PATHS.KITTI_DATASET))

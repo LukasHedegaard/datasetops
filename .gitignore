@@ -139,9 +139,5 @@ dmypy.json
 .pyre/
 .DS_Store
 
-tests/resources/*
-tests/resources/caching/cache_root/*
-!tests/resources/caching
-!tests/resources/folder_dataset_class_data
-!tests/resources/mat_single_with_multi_data
+tests/resources/
 .datasetops_cache

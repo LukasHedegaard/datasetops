@@ -5,9 +5,7 @@ from datasetops.scaler import (
 )
 from datasetops.dataset import center, standardize, minmax, maxabs  # , normalize
 import numpy as np
-from testing_utils import (  # type:ignore
-    multi_shape_dataset,
-)
+from .testing_utils import multi_shape_dataset
 import pytest
 
 

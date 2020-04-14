@@ -2,7 +2,7 @@ from datasetops.dataset import StreamDataset
 import dill
 from datasetops.cache import Cache
 from datasetops import loaders
-from testing_utils import (  # type:ignore
+from .testing_utils import (
     get_test_dataset_path,
     read_text,
     read_bin,
