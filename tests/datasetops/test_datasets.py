@@ -1,6 +1,5 @@
 from typing import Sequence
 from datasetops.dataset import (
-    Dataset,
     image_resize,
     reshape,
     _custom,
@@ -74,7 +73,6 @@ def test_filter():
     a = [(x, "a") for x in list(range(5))]
     b = [(x, "b") for x in list(range(5, num_total))]
     even_a = [x for x in a if x[0] % 2 == 0]
-    odd_a = [x for x in a if x[0] % 2 == 1]
     even_b = [x for x in b if x[0] % 2 == 0]
     odd_b = [x for x in b if x[0] % 2 == 1]
 
@@ -151,7 +149,7 @@ def test_split_filter():
         [lambda x: x % 2 == 0], label=lambda x: x == "b"
     )
     assert list(ds_even_b) == even_b
-    assert list(ds_not_even_b) == [x for x in list(ds) if not x in even_b]
+    assert list(ds_not_even_b) == [x for x in list(ds) if x not in even_b]
 
     # sample_classwise
     ds_classwise_2, ds_classwise_rest = ds.split_filter(label=allow_unique(2))
@@ -160,7 +158,7 @@ def test_split_filter():
 
     # error scenarios
     with pytest.raises(ValueError):
-        ds_same = ds.split_filter()  # no args
+        _ = ds.split_filter()  # no args
 
     with pytest.raises(ValueError):
         ds.split_filter([None, None, None])  # too many args
@@ -221,7 +219,7 @@ def test_reorder():
     ds = from_dummy_numpy_data()
     ds.named("mydata", "mylabel")
 
-    ## error scenarios
+    # error scenarios
     with pytest.warns(UserWarning):
         # no order given
         ds_ignored = ds.reorder()
@@ -235,7 +233,7 @@ def test_reorder():
         # a keys doesn't exist
         ds_re = ds.reorder("badkey", "mydata")
 
-    ## working scenarios
+    # working scenarios
 
     # using indexes
     ds_re = ds.reorder(1, 0)
@@ -282,7 +280,7 @@ def test_reorder():
         )  # key needs to be unique, but wouldn't be
 
 
-########## Tests relating to stats #########################
+# ========= Tests relating to stats =========
 
 
 def test_counts():
@@ -384,7 +382,6 @@ def test_categorical():
     assert ds.unique("label") == ["a", "b"]
 
     ds_label = ds.categorical(1)
-    ds_label_alt = ds.categorical("label")
 
     # alternative syntaxes
     ds_label = ds.categorical(1)
@@ -406,12 +403,14 @@ def test_categorical():
         assert np.array_equal(l, l3)
         assert np.array_equal(l, e)  # type:ignore
 
-    assert list(ds_label) == [(d, 0 if l == "a" else 1, l2) for d, l, l2 in ds]
+    assert list(ds_label) == [(d, 0 if l1 == "a" else 1, l2) for d, l1, l2 in ds]
 
     ds_label_userdef = ds.categorical("label", lambda x: 1 if x == "a" else 0)
 
     assert ds_label_userdef.unique("label") == [1, 0]
-    assert list(ds_label_userdef) == [(d, 1 if l == "a" else 0, l2) for d, l, l2 in ds]
+    assert list(ds_label_userdef) == [
+        (d, 1 if l1 == "a" else 0, l2) for d, l1, l2 in ds
+    ]
 
     # error scenarios
     with pytest.raises(TypeError):
@@ -490,8 +489,9 @@ def test_categorical_template():
     ds1 = from_dummy_data(with_label=True).named("data", "label")
     ds2 = ds1.shuffle(42)
 
-    # when using categorical encoding on multiple datasets that are used together, the encoding may turn out different
-    # this is because the indexes are built up and mapped as they are loaded (the order matters)
+    # when using categorical encoding on multiple datasets that are used together,
+    # the encoding may turn out different. this is because the indexes are built
+    # up and mapped as they are loaded (the order matters)
     assert set(ds1.transform(label=categorical())) != set(
         ds2.transform(label=categorical())
     )
@@ -514,13 +514,13 @@ def test_transform():
     ds_keywise = ds.transform(data=lambda x: x / 255.0)
     ds_build = ds.transform(lambda x: (x[0] / 255.0, x[1]))
 
-    for (d, l), (di, li), (dk, lk), (db, lb) in zip(
+    for (d, l1), (di, li), (dk, lk), (db, lb) in zip(
         list(ds), list(ds_itemwise), list(ds_keywise), list(ds_build)
     ):
         assert np.array_equal(d / 255.0, di)
         assert np.array_equal(di, dk)
         assert np.array_equal(di, db)
-        assert l == li == lk == lb
+        assert l1 == li == lk == lb
 
     # complex
     ds_complex = ds.transform(
@@ -540,14 +540,13 @@ def test_transform():
         ds.transform([reshape(DUMMY_NUMPY_DATA_SHAPE_2D), None, None])
 
 
-########## Tests relating to numpy data #########################
+# ========= Tests relating to numpy data =========
 
 
 def test_reshape():
     ds = from_dummy_numpy_data().named("data", "label")
     items = list(ds)
 
-    s = ds.shape
     assert ds.shape == (DUMMY_NUMPY_DATA_SHAPE_1D, _DEFAULT_SHAPE)
     assert ds[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_1D
 
@@ -560,12 +559,12 @@ def test_reshape():
     assert ds_r.shape == (DUMMY_NUMPY_DATA_SHAPE_2D, _DEFAULT_SHAPE)
     assert ds_r[0][0].shape == DUMMY_NUMPY_DATA_SHAPE_2D
 
-    for (old_data, l), (new_data, ln), (new_data_alt, lna) in zip(
+    for (old_data, l1), (new_data, ln), (new_data_alt, lna) in zip(
         items, items_r, items_r_alt
     ):
         assert set(old_data) == set(new_data.flatten()) == set(new_data_alt.flatten())
         assert old_data.shape != new_data.shape == new_data_alt.shape
-        assert l == ln == lna
+        assert l1 == ln == lna
 
     # use wildcard
     ds_wild = ds.reshape((-1, DUMMY_NUMPY_DATA_SHAPE_2D[1]))
@@ -617,7 +616,7 @@ def test_reshape():
         ds.reshape((13, 13))
 
 
-########## Tests relating to image data #########################
+# ========= Tests relating to image data =========
 
 
 def test_numpy_image_numpy_conversion():
@@ -727,7 +726,7 @@ def test_image_resize():
         ds.image_resize((4, 4, 4))  # Invalid size
 
 
-########## Framework converters #########################
+# ========= Framework converters =========
 
 
 @pytest.mark.slow
@@ -851,7 +850,8 @@ def test_stats():
 
     for d, l in ds_np:
         old_shape = d.shape
-        # stats are accumulated along 2nd axis in sklearn preprocessing: reshape accordingly
+        # stats are accumulated along 2nd axis in sklearn preprocessing:
+        # reshape accordingly
         dlist = np.swapaxes(  # type:ignore
             np.swapaxes(d, 0, axis).reshape((old_shape[axis], -1)), 0, 1  # type:ignore
         )

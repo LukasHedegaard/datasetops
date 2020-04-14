@@ -54,13 +54,18 @@ def test_fit():
     assert stat0.axis == 0
 
     assert np.array_equal(stat1.mean, np.array([1, 1]))  # type: ignore
-    assert np.array_equal(stat1.std, np.array([0.816496580927726, 0.816496580927726]))  # type: ignore
+    assert np.array_equal(
+        stat1.std, np.array([0.816496580927726, 0.816496580927726])  # type: ignore
+    )
     assert np.array_equal(stat1.min, np.array([0, 0]))  # type: ignore
     assert np.array_equal(stat1.max, np.array([2, 2]))  # type: ignore
     assert stat1.axis == 0
 
     assert np.array_equal(stat2.mean, np.array([1, 1, 1]))  # type: ignore
-    assert np.array_equal(stat2.std, np.array([0.816496580927726, 0.816496580927726, 0.816496580927726]))  # type: ignore
+    assert np.array_equal(
+        stat2.std,  # type: ignore
+        np.array([0.816496580927726, 0.816496580927726, 0.816496580927726]),
+    )
     assert np.array_equal(stat2.min, np.array([0, 0, 0]))  # type: ignore
     assert np.array_equal(stat2.max, np.array([2, 2, 2]))  # type: ignore
     assert stat2.axis == -1
@@ -199,12 +204,16 @@ def test_standardize():
 
 
 # def test_normalize():
-#     # we've tested the api versions in the center above - just check basic functionality
+#     # we've tested the api versions in the center above
+#     # just check basic functionality
 #     SHAPE_1D = (2,)
 #     SHAPE_3D = (5, 4, 3)
 #     ds = multi_shape_dataset(SHAPE_1D, SHAPE_3D).named("str", "d1", "d3", "scalar")
 
-#     ds_norm = ds.transform(d1=normalize(), d3=normalize(axis=-1, norm="l1")).normalize(
+#     ds_norm = ds.transform(
+#         d1=normalize(),
+#         d3=normalize(axis=-1, norm="l1")
+#     ).normalize(
 #         "scalar"
 #     )
 #     v1, v2 = 0.7071067811865475, 0.5773502691896258

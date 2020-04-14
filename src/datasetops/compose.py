@@ -1,25 +1,12 @@
-"""
-Module defining transforms which can be applied to compose two or more datasets.
-
-Examples
---------
-
-  >>> ds_z = zipDataset(ds1,ds2)
-  >>> # TODO
-  >>>
-
-"""
-
 from datasetops.abstract import AbstractDataset
-from datasetops.types import *
 import numpy as np
 import functools
 import math
 import warnings
-from typing import Union
+from typing import Union, Tuple, List, Dict
 
 
-########## Utils ####################
+# ========= Utils =========
 
 
 def _zipped_item_names(*datasets: AbstractDataset):
@@ -34,14 +21,16 @@ def _zipped_item_names(*datasets: AbstractDataset):
         }
 
 
-########## Datasets ####################
+# ========= Datasets =========
 
 
 class ZipDataset(AbstractDataset):
     def __init__(self, *downstream_datasets: AbstractDataset):
         """ Compose datasets by zipping and flattening their items.
-        The resulting dataset will have a length equal to the shortest of provided datasets
-        NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
+        The resulting dataset will have a length equal to the shortest
+        of provided datasets.
+        NB: Any class-specific information will be lost after this transformation,
+        and methods such as classwise_subsampling will not work.
 
         Arguments:
             downstream_datasets {[AbstractDataset]} -- Comma-separated datasets
@@ -68,7 +57,7 @@ class ZipDataset(AbstractDataset):
     def _get_origin(self) -> Union[List[Dict], Dict]:
         result = list(
             map(
-                lambda ds: {"dataset": ds, "operation": {"name": "zip",}},
+                lambda ds: {"dataset": ds, "operation": {"name": "zip"}},
                 self._downstream_datasets,
             )
         )
@@ -81,10 +70,13 @@ class CartesianProductDataset(AbstractDataset):
         """Compose datasets with a cartesian product.
 
         This will produce a dataset containing all combinations of data.
-        Example: For two sets [1,2], ['a','b'] it produces [(1,'a'), (2,'a'), (1,'b'), (2,'b'),].
-        The resulting dataset will have a length equal to the product of the length of the downstream datasets.
+        Example: For two sets [1,2], ['a','b'] it produces
+        [(1,'a'), (2,'a'), (1,'b'), (2,'b'),].
+        The resulting dataset will have a length equal to the product of
+        the length of the downstream datasets.
 
-        NB: Any class-specific information will be lost after this transformation, and methods such as classwise_subsampling will not work.
+        NB: Any class-specific information will be lost after this transformation,
+        and methods such as classwise_subsampling will not work.
 
         Arguments:
             downstream_datasets {[AbstractDataset]} -- Comma-separated datasets
@@ -133,7 +125,7 @@ class CartesianProductDataset(AbstractDataset):
     def _get_origin(self) -> Union[List[Dict], Dict]:
         result = list(
             map(
-                lambda ds: {"dataset": ds, "operation": {"name": "cartesian_product",}},
+                lambda ds: {"dataset": ds, "operation": {"name": "cartesian_product"}},
                 self._downstream_datasets,
             )
         )
@@ -153,12 +145,12 @@ class ConcatDataset(AbstractDataset):
             raise ValueError("No datasets given to compose")
 
         for i in range(len(downstream_datasets) - 1):
-            if (
-                downstream_datasets[i].shape  # type:ignore
-                != downstream_datasets[i + 1].shape  # type:ignore
-            ):
+            if downstream_datasets[i].shape != downstream_datasets[i + 1].shape:
                 warnings.warn(
-                    "Concatenating datasets with different element shapes constitutes undefined behavior"
+                    (
+                        "Concatenating datasets with different element shapes "
+                        "constitutes undefined behavior"
+                    )
                 )
 
         self._downstream_datasets = downstream_datasets
@@ -189,7 +181,7 @@ class ConcatDataset(AbstractDataset):
     def _get_origin(self) -> Union[List[Dict], Dict]:
         result = list(
             map(
-                lambda ds: {"dataset": ds, "operation": {"name": "concat",}},
+                lambda ds: {"dataset": ds, "operation": {"name": "concat"}},
                 self._downstream_datasets,
             )
         )

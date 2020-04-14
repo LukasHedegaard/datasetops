@@ -1,6 +1,5 @@
 from datasetops.dataset import Dataset
 from datasetops import loaders
-import numpy as np
 from testing_utils import (  # type:ignore
     get_test_dataset_path,
     DATASET_PATHS,

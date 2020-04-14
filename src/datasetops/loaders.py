@@ -8,7 +8,8 @@ from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from scipy.io import loadmat
 from datasetops.dataset import Dataset
-from datasetops.types import *
+from datasetops.types import AnyPath, Data
+from typing import Callable, Any, Optional, Union, List, Dict, Tuple
 import numpy as np
 import re
 import warnings
@@ -53,7 +54,7 @@ def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
     Arguments:
         tf_dataset {torch.utils.data.Dataset} -- A Pytorch dataset to load from
         identifier {Optional[str]} -- unique identifier
-    
+
     Returns:
         [Dataset] -- A datasetops.Dataset
 
@@ -75,7 +76,7 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
     Arguments:
         tf_dataset {tf.data.Dataset} -- A Tensorflow dataset to load from
         identifier {Optional[str]} -- unique identifier
-    
+
     Raises:
         AssertionError: Raises error if Tensorflow is not executing eagerly
 
@@ -268,7 +269,7 @@ def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
         path {AnyPath} -- path to nested folder
 
     Returns:
-        List[Dataset] -- A list of datasets, each with data composed from different types, 
+        List[Dataset] -- A list of datasets, each with data composed from different types,
                          e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
     """
     p = Path(path)

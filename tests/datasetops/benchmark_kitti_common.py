@@ -3,7 +3,7 @@ import numba
 
 
 def _extend_matrix(mat):
-    mat = np.concatenate([mat, np.array([[0.0, 0.0, 0.0, 1.0]])], axis=0)
+    mat = np.concatenate([mat, np.array([[0.0, 0.0, 0.0, 1.0]])], axis=0)  # type: ignore
     return mat
 
 
@@ -23,7 +23,7 @@ def parse_calib(lines):
     R0_rect = np.array([float(info) for info in lines[4].split(" ")[1:10]]).reshape(
         [3, 3]
     )
-    rect_4x4 = np.zeros([4, 4], dtype=R0_rect.dtype)
+    rect_4x4 = np.zeros([4, 4], dtype=R0_rect.dtype)  # type: ignore
     rect_4x4[3, 3] = 1.0
     rect_4x4[:3, :3] = R0_rect
     R0_rect = rect_4x4
@@ -89,7 +89,7 @@ def get_label_anno(lines):
         [[float(info) for info in x[4:8]] for x in content]
     ).reshape(-1, 4)
     # dimensions will convert hwl format to standard lhw(camera) format.
-    annotations["dimensions"] = np.array(
+    annotations["dimensions"] = np.array(  # type: ignore
         [[float(info) for info in x[8:11]] for x in content]
     ).reshape(-1, 3)[:, [2, 0, 1]]
     annotations["location"] = np.array(
@@ -132,7 +132,7 @@ def corner_to_surfaces_3d_jit(corners):
 def camera_to_lidar(points, r_rect, velo2cam):
     points_shape = list(points.shape[0:-1])
     if points.shape[-1] == 3:
-        points = np.concatenate([points, np.ones(points_shape + [1])], axis=-1)
+        points = np.concatenate([points, np.ones(points_shape + [1])], axis=-1)  # type: ignore
     lidar_points = points @ np.linalg.inv((r_rect @ velo2cam).T)
     return lidar_points[..., :3]
 
@@ -177,10 +177,10 @@ def surface_equ_3d_jit(polygon_surfaces):
     # polygon_surfaces: [num_polygon, num_surfaces, num_points_of_polygon, 3]
     surface_vec = polygon_surfaces[:, :, :2, :] - polygon_surfaces[:, :, 1:3, :]
     # normal_vec: [..., 3]
-    normal_vec = np.cross(surface_vec[:, :, 0, :], surface_vec[:, :, 1, :])
+    normal_vec = np.cross(surface_vec[:, :, 0, :], surface_vec[:, :, 1, :])  # type: ignore
     # print(normal_vec.shape, points[..., 0, :].shape)
     # d = -np.inner(normal_vec, points[..., 0, :])
-    d = np.einsum("aij, aij->ai", normal_vec, polygon_surfaces[:, :, 0, :])
+    d = np.einsum("aij, aij->ai", normal_vec, polygon_surfaces[:, :, 0, :])  # type: ignore
     return normal_vec, -d
 
 
@@ -248,11 +248,11 @@ def reduce_point_cloud(velodyne, R0_rect, P2, Tr_velo_to_cam, image_shape):
 
 def display_ponit_cloud(points):
     import matplotlib.pyplot as plt
-    import mpl_toolkits.mplot3d
+    import mpl_toolkits.mplot3d  # noqa: F401
 
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.scatter3D(
+    ax = fig.add_subplot(111, projection="3d")  # type: ignore
+    ax.scatter3D(  # type: ignore
         points[:, 0], points[:, 1], points[:, 2], "z", 1 * (0.1 + points[:, 3])
     )
     plt.show()

@@ -1,20 +1,14 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 from datasetops.cache import Cache
 from datasetops import loaders
 from testing_utils import (  # type:ignore
-    get_test_dataset_path,
-    from_dummy_numpy_data,
-    read_text,
     read_lines,
     read_bin,
-    DATASET_PATHS,
 )
 import numpy as np
-from typing import Callable, List
 from timeit import timeit
-from benchmark_kitti_common import (
+from benchmark_kitti_common import (  # type:ignore
     reduce_point_cloud,
-    display_ponit_cloud,
     get_label_anno,
     parse_calib,
 )
@@ -203,4 +197,5 @@ def benchmark_kitti(kitti_full_path: str):
         )
 
 
-benchmark_kitti("/data/sets/kitti")
+if __name__ == "__main__":
+    benchmark_kitti("/data/sets/kitti")

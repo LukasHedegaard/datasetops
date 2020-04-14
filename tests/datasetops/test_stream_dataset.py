@@ -1,11 +1,9 @@
 from datasetops.dataset import StreamDataset
-from typing import List
 import dill
 from datasetops.cache import Cache
 from datasetops import loaders
 from testing_utils import (  # type:ignore
     get_test_dataset_path,
-    from_dummy_numpy_data,
     read_text,
     read_bin,
     DATASET_PATHS,

@@ -1,5 +1,6 @@
 import datasetops as do
-from datasetops.types import *
+from datasetops.types import AnyPath
+from typing import Tuple
 import numpy as np
 
 
@@ -31,10 +32,11 @@ def domain_adaptation_office31(
         for d in [source_train, target_train, target_val, target_test]
     ]
 
-    # Pair up all combinations of the datasets: [(sx1, sy1, tx1, ty1), (sx1, sy1, tx2, ty2) ... ]
+    # Pair up all combinations of the datasets:
+    # [(sx1, sy1, tx1, ty1), (sx1, sy1, tx2, ty2) ... ]
     train_cart = do.cartesian_product(source_train, target_train)
 
-    # Limit the train set to have at most an 1:3 ratio of same-label and different-label pairs
+    # Limit the train set to have at most an 1:3 ratio of same- and diff-label pairs
     train_same, train_diff = train_cart.reorder(
         "s_data", "t_data", "s_label", "t_label"
     ).split_filter(lambda x: np.array_equal(x[2], x[3]))
@@ -45,7 +47,7 @@ def domain_adaptation_office31(
     # Pair each datapoint with itself, (x,x,y,y)
     val, test = [do.zipped(d, d).reorder(0, 2, 1, 3) for d in [target_val, target_test]]
 
-    # Change the data representation into two tuples (in, out) with an extra label in out
+    # Change the data representation into two tuples (in, out) with extra out label
     train, val, test = [
         d.image_resize((240, 240), (240, 240)).transform(
             lambda x: ((x[0], x[1]), (x[2], x[3], x[2] == x[3]))
