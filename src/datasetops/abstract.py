@@ -17,7 +17,7 @@ A simple dataset can be implemented as::
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, List, Dict
+from typing import Tuple
 from datasetops.transformation_graph import TransformationGraph
 
 
@@ -40,6 +40,7 @@ class AbstractDataset(ItemGetter):
     name = ""
     cachable = False
     shape = None
+    _origin = None
 
     @abstractmethod
     def __len__(self) -> int:
@@ -55,13 +56,6 @@ class AbstractDataset(ItemGetter):
 
         Returns:
             Tuple -- A tuple representing the sample
-        """
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        """Returns parent Dataset or list of parent Datasets and description
-        of how it was made
         """
         pass  # pragma: no cover
 

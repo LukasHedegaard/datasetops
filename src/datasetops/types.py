@@ -10,7 +10,9 @@ Data = Any
 IdIndexSet = Dict[Any, List[IdIndex]]
 ItemTransformFn = Callable[[Any], Any]
 DatasetTransformFn = Callable[[int, AbstractDataset], AbstractDataset]
-DatasetTransformFnCreator = Callable[[Any], DatasetTransformFn]
+DatasetTransformFnCreator = Union[
+    Callable[[], DatasetTransformFn], Callable[[Any], DatasetTransformFn]
+]
 AnyPath = Union[str, Path]
 DataPredicate = Callable[[Any], bool]
 Key = Union[int, str]

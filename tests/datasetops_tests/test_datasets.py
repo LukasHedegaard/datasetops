@@ -2,7 +2,6 @@ from typing import Sequence
 from datasetops.dataset import (
     image_resize,
     reshape,
-    _custom,
     allow_unique,
     one_hot,
     categorical,
@@ -414,7 +413,8 @@ def test_categorical():
 
     # error scenarios
     with pytest.raises(TypeError):
-        ds.categorical()  # we need to know what to label
+        # we need to know what to label
+        ds.categorical()  # type: ignore
 
     with pytest.raises(IndexError):
         ds.categorical(42)  # wrong key
@@ -471,7 +471,8 @@ def test_one_hot():
 
     # error scenarios
     with pytest.raises(TypeError):
-        ds.one_hot()  # we need some arguments
+        # we need some arguments
+        ds.one_hot()  # type:ignore
 
     with pytest.raises(IndexError):
         ds.one_hot(42, encoding_size=2)  # wrong key
@@ -605,7 +606,7 @@ def test_reshape():
 
     with pytest.raises(TypeError):
         # bad input
-        ds.reshape("whazzagh")
+        ds.reshape("whazzagh")  # type:ignore
 
     with pytest.warns(UserWarning):
         # Too many inputs
@@ -696,7 +697,7 @@ def test_image_resize():
         assert data.mode == "L"  # grayscale int
 
     # also if they are floats
-    ds_resized_float = ds.transform([_custom(np.float32)]).image_resize(NEW_SIZE)
+    ds_resized_float = ds.transform([lambda x: np.float32(x)]).image_resize(NEW_SIZE)
     for tpl in ds_resized_float:
         data = tpl[0]
         assert data.size == NEW_SIZE

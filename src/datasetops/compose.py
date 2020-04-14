@@ -3,7 +3,7 @@ import numpy as np
 import functools
 import math
 import warnings
-from typing import Union, Tuple, List, Dict
+from typing import Tuple
 
 
 # ========= Utils =========
@@ -41,28 +41,19 @@ class ZipDataset(AbstractDataset):
         self._ids = list(range(self.__len__()))
         self.name = "zipped{}".format([ds.name for ds in self._downstream_datasets])
         self._item_names = _zipped_item_names(*downstream_datasets)
-
-        self.cachable = True
-
-        for ds in self._downstream_datasets:
-            if not ds.cachable:
-                self.cachable = False
-
-    def __len__(self) -> int:
-        return min([len(ds) for ds in self._downstream_datasets])
-
-    def __getitem__(self, idx: int) -> Tuple:
-        return tuple([elem for ds in self._downstream_datasets for elem in ds[idx]])
-
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        result = list(
+        self.cachable = all(ds.cachable for ds in self._downstream_datasets)
+        self._origin = list(
             map(
                 lambda ds: {"dataset": ds, "operation": {"name": "zip"}},
                 self._downstream_datasets,
             )
         )
 
-        return result
+    def __len__(self) -> int:
+        return min([len(ds) for ds in self._downstream_datasets])
+
+    def __getitem__(self, idx: int) -> Tuple:
+        return tuple([elem for ds in self._downstream_datasets for elem in ds[idx]])
 
 
 class CartesianProductDataset(AbstractDataset):
@@ -90,12 +81,13 @@ class CartesianProductDataset(AbstractDataset):
             [ds.name for ds in self._downstream_datasets]
         )
         self._item_names = _zipped_item_names(*downstream_datasets)
-
-        self.cachable = True
-
-        for ds in self._downstream_datasets:
-            if not ds.cachable:
-                self.cachable = False
+        self.cachable = all(ds.cachable for ds in self._downstream_datasets)
+        self._origin = list(
+            map(
+                lambda ds: {"dataset": ds, "operation": {"name": "cartesian_product"}},
+                self._downstream_datasets,
+            )
+        )
 
     def __len__(self) -> int:
         return int(
@@ -121,16 +113,6 @@ class CartesianProductDataset(AbstractDataset):
                 for elem in ds[inds[i]]
             ]
         )
-
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        result = list(
-            map(
-                lambda ds: {"dataset": ds, "operation": {"name": "cartesian_product"}},
-                self._downstream_datasets,
-            )
-        )
-
-        return result
 
 
 class ConcatDataset(AbstractDataset):
@@ -161,12 +143,13 @@ class ConcatDataset(AbstractDataset):
         self._acc_idx_range = functools.reduce(
             lambda acc, ds: acc + [len(ds) + acc[-1]], self._downstream_datasets, [0]
         )
-
-        self.cachable = True
-
-        for ds in self._downstream_datasets:
-            if not ds.cachable:
-                self.cachable = False
+        self.cachable = all(ds.cachable for ds in self._downstream_datasets)
+        self._origin = list(
+            map(
+                lambda ds: {"dataset": ds, "operation": {"name": "concat"}},
+                self._downstream_datasets,
+            )
+        )
 
     def __len__(self) -> int:
         return sum([len(ds) for ds in self._downstream_datasets])
@@ -177,18 +160,3 @@ class ConcatDataset(AbstractDataset):
         )
         index_in_dataset = idx - self._acc_idx_range[dataset_index]
         return self._downstream_datasets[dataset_index][index_in_dataset]
-
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        result = list(
-            map(
-                lambda ds: {"dataset": ds, "operation": {"name": "concat"}},
-                self._downstream_datasets,
-            )
-        )
-
-        return result
-
-
-class InterleaveDataset(AbstractDataset):
-    def __init__(self, *downstream_datasets: AbstractDataset):
-        pass  # pragma: no cover

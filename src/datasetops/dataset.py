@@ -14,7 +14,7 @@ import random
 from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.cache import Cache
 from datasetops.scaler import ElemStats
-
+from datasetops import scaler
 from datasetops.types import (
     ItemNames,
     Key,
@@ -31,11 +31,10 @@ import numpy as np
 from PIL import Image
 import warnings
 import functools
-from inspect import signature
+import inspect
 from pathlib import Path
 from typing import Optional, Tuple, IO
 import dill
-from datasetops import scaler
 
 
 # ========= Local Helpers =========
@@ -145,7 +144,7 @@ def _combine_conditions(
 
 def _optional_argument_indexed_transform(
     shape: Union[Shape, Sequence[Shape]],
-    ds_transform: Callable,
+    ds_transform: Callable[[Any], "Dataset"],
     transform_fn: DatasetTransformFnCreator,
     args: Sequence[Optional[Sequence[Any]]],
 ):
@@ -203,12 +202,12 @@ class Dataset(AbstractDataset):
     def __init__(
         self,
         downstream_getter: Union[ItemGetter, "Dataset"],
-        operation: str,
+        operation_name: str,
         name: str = None,
         ids: Ids = None,
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
-        operation_parameters: Dict = None,
+        operation_parameters: Dict = {},
         stats: List[Optional[ElemStats]] = [],
     ):
         """Initialise.
@@ -221,6 +220,12 @@ class Dataset(AbstractDataset):
             item_transform_fn: {Callable} -- a function
         """
         self._downstream_getter = downstream_getter
+        self.name = ""
+        self._ids = []
+        self._item_names: ItemNames = {}
+        self.cachable = True
+        self._item_transform_fn = item_transform_fn
+        self._item_stats = stats
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
@@ -231,11 +236,6 @@ class Dataset(AbstractDataset):
             )
             self._item_names = getattr(downstream_getter, "_item_names", None)
             self.cachable: bool = getattr(downstream_getter, "cachable", False)
-        else:
-            self.name = ""
-            self._ids = []
-            self._item_names: ItemNames = {}
-            self.cachable = True
 
         if name:
             self.name = name
@@ -244,41 +244,21 @@ class Dataset(AbstractDataset):
         if ids is not None:
             self._ids: Ids = ids
 
-        self._item_transform_fn = item_transform_fn
-        self._item_stats = stats
-
-        if operation == "transform":
-            self.origin = {
-                "dataset": self._downstream_getter,
-                "operation": {
-                    "name": operation,
-                    "parameters": {"function": self._item_transform_fn},
-                },
-            }
-        elif operation == "copy":
-            self.origin = {
-                "dataset": self._downstream_getter,
-                "operation": {"name": operation},
-            }
-        elif operation in ["sample", "shuffle", "split"]:
+        if operation_name in ["sample", "shuffle", "split"]:
             self.cachable = operation_parameters["seed"] is not None
-            self.origin = {
-                "dataset": self._downstream_getter,
-                "operation": {"name": operation, "parameters": operation_parameters},
-            }
-        elif operation in ["filter", "split_filter", "take", "reorder", "repeat"]:
-            self.origin = {
-                "dataset": self._downstream_getter,
-                "operation": {"name": operation, "parameters": operation_parameters},
-            }
-        elif operation in ["cache", "stream"]:
-            self.origin = {
+
+        if operation_name in ["cache", "stream"]:
+            self._origin = {
                 "root": operation_parameters["identifier"],
             }
-        elif operation == "load":
-            pass
         else:
-            raise ValueError("Unknown operation '" + operation + "'")
+            self._origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation_name,
+                    "parameters": operation_parameters,
+                },
+            }
 
     def __len__(self):
         return len(self._ids)
@@ -286,16 +266,12 @@ class Dataset(AbstractDataset):
     def __getitem__(self, i: int) -> Tuple:
         return self._item_transform_fn(self._downstream_getter[self._ids[i]])
 
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        return self.origin
-
     def cached(
         self,
         path: str = None,
         keep_loaded_items: bool = False,
         display_progress: bool = False,
     ):
-
         if not self.cachable:
             raise Exception(
                 "Dataset must be cachable"
@@ -319,7 +295,6 @@ class Dataset(AbstractDataset):
             index = 0
 
             def data_generator():
-
                 nonlocal index
                 nonlocal length
 
@@ -328,12 +303,10 @@ class Dataset(AbstractDataset):
 
                 for data in self:
                     index += 1
-
                     if display_progress:
                         print(
                             "Caching [" + str(index) + "/" + str(length) + "]", end="\r"
                         )
-
                     yield data
 
             generator = data_generator()
@@ -353,7 +326,7 @@ class Dataset(AbstractDataset):
             return Dataset(
                 downstream_getter=self,
                 ids=list(range(len(self))),
-                operation="cache",
+                operation_name="cache",
                 operation_parameters={"identifier": identifier},
             )
 
@@ -512,7 +485,7 @@ class Dataset(AbstractDataset):
         return Dataset(
             downstream_getter=self,
             ids=new_ids,
-            operation="sample",
+            operation_name="sample",
             operation_parameters={"num": num, "seed": seed},
         )
 
@@ -547,7 +520,7 @@ class Dataset(AbstractDataset):
         return Dataset(
             downstream_getter=self,
             ids=new_ids,
-            operation="filter",
+            operation_name="filter",
             operation_parameters={
                 "predicates": predicates,
                 "kwpredicates": kwpredicates,
@@ -590,7 +563,7 @@ class Dataset(AbstractDataset):
                 Dataset(
                     downstream_getter=self,
                     ids=new_ids,
-                    operation="split_filter",
+                    operation_name="split_filter",
                     operation_parameters={
                         "predicates": predicates,
                         "kwpredicates": kwpredicates,
@@ -616,7 +589,7 @@ class Dataset(AbstractDataset):
         return Dataset(
             downstream_getter=self,
             ids=new_ids,
-            operation="shuffle",
+            operation_name="shuffle",
             operation_parameters={"seed": seed},
         )
 
@@ -671,7 +644,7 @@ class Dataset(AbstractDataset):
                 Dataset(
                     downstream_getter=self,
                     ids=new_ids,
-                    operation="split",
+                    operation_name="split",
                     operation_parameters={
                         "fractions": fractions,
                         "seed": seed,
@@ -698,7 +671,7 @@ class Dataset(AbstractDataset):
         return Dataset(
             downstream_getter=self,
             ids=new_ids,
-            operation="take",
+            operation_name="take",
             operation_parameters={"num": num},
         )
 
@@ -723,7 +696,7 @@ class Dataset(AbstractDataset):
         return Dataset(
             downstream_getter=self,
             ids=new_ids,
-            operation="repeat",
+            operation_name="repeat",
             operation_parameters={"times": times, "mode": mode},
         )
 
@@ -773,7 +746,7 @@ class Dataset(AbstractDataset):
             downstream_getter=self,
             item_transform_fn=item_transform_fn,
             item_names=item_names,
-            operation="reorder",
+            operation_name="reorder",
             operation_parameters={"keys": keys},
         )
 
@@ -853,14 +826,17 @@ class Dataset(AbstractDataset):
 
         if bulk:
             return Dataset(
-                downstream_getter=self, item_transform_fn=bulk, operation="transform"
+                downstream_getter=self,
+                item_transform_fn=bulk,
+                operation_name="transform",
+                operation_parameters={"function": bulk.__code__},
             )
 
         for k, v in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
             funcs = v if type(v) in [list, tuple] else [v]
             for f in funcs:
                 if f:
-                    if len(signature(f).parameters) == 1:
+                    if len(inspect.signature(f).parameters) == 1:
                         f = _custom(f)
                     new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
@@ -955,10 +931,7 @@ class Dataset(AbstractDataset):
 
         if any([f is not None and f is not False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape,
-                self.transform,
-                transform_fn=image,  # type: ignore
-                args=positional_flags,
+                self.shape, self.transform, transform_fn=image, args=positional_flags,
             )
         else:
             warnings.warn("Conversion to image skipped. No elements were compatible")
@@ -988,10 +961,7 @@ class Dataset(AbstractDataset):
 
         if any([f is not None and f is not False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape,
-                self.transform,
-                transform_fn=numpy,  # type: ignore
-                args=positional_flags,
+                self.shape, self.transform, transform_fn=numpy, args=positional_flags,
             )
         else:
             warnings.warn(
@@ -1180,7 +1150,7 @@ class StreamDataset(Dataset):
 
         super().__init__(
             self,
-            operation="stream",
+            operation_name="stream",
             operation_parameters={"identifier": identifier},
             ids=list(range(length)),
             item_names={n: i for i, n in enumerate(names)},
@@ -1254,6 +1224,8 @@ def _make_dataset_element_transforming(
     make_fn: Callable[[AbstractDataset, Optional[int]], Callable],
     check: Callable = None,
     maintain_stats=False,
+    operation_name="transform",
+    operation_parameters={},
 ) -> DatasetTransformFn:
     def wrapped(idx: int, ds: AbstractDataset) -> AbstractDataset:
 
@@ -1278,7 +1250,8 @@ def _make_dataset_element_transforming(
         return Dataset(
             downstream_getter=ds,
             item_transform_fn=item_transform_fn,
-            operation="transform",
+            operation_name=operation_name,
+            operation_parameters={**operation_parameters, "idx": idx},
             stats=stats,
         )
 
@@ -1286,7 +1259,11 @@ def _make_dataset_element_transforming(
 
 
 def _dataset_element_transforming(
-    fn: Callable, check: Callable = None, maintain_stats=False
+    fn: Callable,
+    check: Callable = None,
+    maintain_stats=False,
+    operation_name="transform",
+    operation_parameters={},
 ) -> DatasetTransformFn:
     """Applies the function to dataset item elements."""
 
@@ -1311,7 +1288,8 @@ def _dataset_element_transforming(
         return Dataset(
             downstream_getter=ds,
             item_transform_fn=item_transform_fn,
-            operation="transform",
+            operation_name=operation_name,
+            operation_parameters={**operation_parameters, "idx": idx},
             stats=stats,
         )
 
@@ -1427,7 +1405,11 @@ def _custom(
     Returns:
         DatasetTransformFn -- [description]
     """
-    return _dataset_element_transforming(fn=elem_transform_fn, check=elem_check_fn)
+    return _dataset_element_transforming(
+        fn=elem_transform_fn,
+        check=elem_check_fn,
+        operation_parameters={"function": inspect.getsource(elem_transform_fn)},
+    )
 
 
 def reshape(new_shape: Shape) -> DatasetTransformFn:
@@ -1543,7 +1525,10 @@ def numpy() -> DatasetTransformFn:
 
 def image() -> DatasetTransformFn:
     return _dataset_element_transforming(
-        fn=convert2img, check=_check_image_compatibility, maintain_stats=True
+        fn=convert2img,
+        check=_check_image_compatibility,
+        maintain_stats=True,
+        operation_name="image",
     )
 
 
@@ -1552,6 +1537,8 @@ def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
         check=_check_image_compatibility,
+        operation_name="image_resize",
+        operation_parameters={"new_size": new_size, "resample": resample},
     )
 
 
@@ -1575,6 +1562,8 @@ def standardize(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="standardize",
+        operation_parameters={"axis": axis},
     )
 
 
@@ -1595,6 +1584,8 @@ def center(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="center",
+        operation_parameters={"axis": axis},
     )
 
 
@@ -1619,7 +1610,10 @@ def center(axis=0) -> DatasetTransformFn:
 #         return scaler.normalize(shape=ds.shape[idx], axis=axis, norm=norm,)
 
 #     return _make_dataset_element_transforming(
-#         make_fn=make_fn, check=_check_numpy_compatibility(allow_scalars=True),
+#         make_fn=make_fn,
+#         check=_check_numpy_compatibility(allow_scalars=True),
+#         operation_name="center",
+#         operation_parameters={"axis":axis, "norm":norm}
 #     )
 
 
@@ -1647,6 +1641,8 @@ def minmax(axis=0, feature_range=(0, 1)) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="minmax",
+        operation_parameters={"axis": axis, "feature_range": feature_range},
     )
 
 
@@ -1667,6 +1663,8 @@ def maxabs(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="maxabs",
+        operation_parameters={"axis": axis},
     )
 
 
@@ -1676,19 +1674,19 @@ def maxabs(axis=0) -> DatasetTransformFn:
 @_warn_no_args(skip=1)
 def zipped(*datasets: AbstractDataset):
     comp = compose.ZipDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation="copy")
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def cartesian_product(*datasets: AbstractDataset):
     comp = compose.CartesianProductDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation="copy")
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def concat(*datasets: AbstractDataset):
     comp = compose.ConcatDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation="copy")
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 # ========= Converters =========
@@ -1737,7 +1735,7 @@ def to_tensorflow(dataset: Dataset):
     ds = Dataset(
         downstream_getter=dataset,
         item_transform_fn=_tf_item_conversion,
-        operation="transform",
+        operation_name="transform",
     )
     item = ds[0]
     return tf.data.Dataset.from_generator(

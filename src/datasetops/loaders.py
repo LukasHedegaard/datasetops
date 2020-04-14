@@ -31,21 +31,18 @@ class Loader(Dataset):
             def __getitem__(self, i: int):
                 return getdata(i)
 
-        super().__init__(downstream_getter=Getter(), name=name, operation="load")
+        super().__init__(
+            downstream_getter=Getter(), name=name, operation_name="load",
+        )
 
-        if self.identifier is None:
-            self.cachable = False
+        self.cachable = self.identifier is not None
+        self._origin = {"root": self.identifier}
 
     def append(self, identifier: Data):
         self._ids.append(identifier)
 
     def extend(self, ids: Union[List[Data], np.ndarray]):
         self._ids.extend(list(ids))
-
-    def _get_origin(self) -> Union[List[Dict], Dict]:
-        result = {"root": self.identifier}
-
-        return result
 
 
 def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):

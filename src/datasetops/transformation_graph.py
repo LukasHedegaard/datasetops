@@ -2,6 +2,7 @@ from typing import Dict
 import copy
 import dill
 import base64
+import sys
 
 
 class TransformationGraph:
@@ -22,7 +23,7 @@ class TransformationGraph:
 
             built_nodes[dataset] = node
 
-            origin = dataset._get_origin()
+            origin = dataset._origin
 
             if type(origin) == list:
                 node["edge"] = list(
@@ -57,14 +58,14 @@ class TransformationGraph:
 
         self.graph = compute_transformation_graph(dataset)
 
-    def display(self):
+    def display(self, output=sys.stdout):
         def print_graph(node, delta=-1):
             def print_value(edge, delta):
 
                 for i in range(delta - 1):
-                    print("    ", end="")
+                    print("    ", end="", file=output)
                 if delta > 0:
-                    print("|---", end="")
+                    print("|---", end="", file=output)
 
                 value = {}
 
@@ -72,7 +73,7 @@ class TransformationGraph:
                     if key not in ["parent", "dataset"]:
                         value[key] = val
 
-                print(value)
+                print(value, file=output)
 
             current_delta = delta
 

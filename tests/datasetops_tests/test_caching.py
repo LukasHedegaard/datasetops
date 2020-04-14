@@ -9,6 +9,47 @@ from .testing_utils import (
     read_bin,
     DATASET_PATHS,
 )
+import dill
+
+
+def assert_cache(datasets: List[Dataset], cache_path: str = None, clear: bool = True):
+    def are_same(a, b):
+        return dill.dumps(a) == dill.dumps(b)
+
+    if clear:
+        Cache.clear(cache_path)
+
+    for dataset in datasets:
+
+        all_data = []
+
+        for data in dataset:
+            all_data.append(data)
+
+        cached = dataset.cached(cache_path)
+        cached_all_data = []
+
+        assert cached.names == dataset.names
+
+        for data in cached:
+            cached_all_data.append(data)
+
+        for a, c in zip(all_data, cached_all_data):
+            assert are_same(a, c)
+
+        cached2 = dataset.cached(cache_path)
+        cached2_all_data = []
+
+        assert cached2.names == dataset.names
+
+        for data in cached2:
+            cached2_all_data.append(data)
+
+        for a, c2 in zip(all_data, cached2_all_data):
+            assert are_same(a, c2)
+
+        cached.close()
+        cached2.close()
 
 
 def test_cachable():
@@ -42,52 +83,7 @@ def test_cachable():
 
 
 def test_cache():
-
-    import dill
-
     test_cache_path = get_test_dataset_path(DATASET_PATHS.CACHE_ROOT_PATH)
-
-    def assert_cache(
-        datasets: List[Dataset], cache_path: str = None, clear: bool = True
-    ):
-        def are_same(a, b):
-            return dill.dumps(a) == dill.dumps(b)
-
-        if clear:
-            Cache.clear(cache_path)
-
-        for dataset in datasets:
-
-            all_data = []
-
-            for data in dataset:
-                all_data.append(data)
-
-            cached = dataset.cached(cache_path)
-            cached_all_data = []
-
-            assert cached.names == dataset.names
-
-            for data in cached:
-                cached_all_data.append(data)
-
-            for a, c in zip(all_data, cached_all_data):
-                assert are_same(a, c)
-
-            cached2 = dataset.cached(cache_path)
-            cached2_all_data = []
-
-            assert cached2.names == dataset.names
-
-            for data in cached2:
-                cached2_all_data.append(data)
-
-            for a, c2 in zip(all_data, cached2_all_data):
-                assert are_same(a, c2)
-
-            cached.close()
-            cached2.close()
-
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
     test, train = loaders.from_folder_dataset_group_data(path)
 
