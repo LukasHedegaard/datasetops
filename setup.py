@@ -28,6 +28,8 @@ setup(
             "pytest",
             "pytest-cov",
             "flake8",
+            "flake8-black",
+            "numba",
             "tensorflow",
             "torch",
             "torchvision",
