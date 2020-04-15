@@ -5,16 +5,16 @@ import os
 
 
 class Cache:
-    DEFAULT_PATH: str = ".datasetops_cache"
+    DEFAULT_PATH: Path = Path(".datasetops_cache")
 
     @staticmethod
-    def clear(path: str = None):
+    def clear(path: Path = None):
 
         if path is None:
             path = Cache.DEFAULT_PATH
 
-        if not os.path.exists(path):
-            print("No cache at " + path)
+        if not path.is_dir():
+            print(f"No cache at: {path}")
             return
 
         files = os.listdir(path)
@@ -23,12 +23,12 @@ class Cache:
         )
 
         for file in files:
-            os.remove(Path(path) / file)
+            os.remove(path / file)
 
         if len(files) > 0:
             print("Cleared " + str(len(files) - 1) + " cache entries")
         else:
-            print("No cache at " + path)
+            print(f"No cache at: {path}")
 
     def __init__(self, path) -> None:
 

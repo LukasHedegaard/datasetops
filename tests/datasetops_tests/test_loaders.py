@@ -1,4 +1,7 @@
+from collections import namedtuple
+
 import datasetops.loaders as loaders
+from datasetops.loaders import from_iterable
 import random
 from pathlib import Path
 from .testing_utils import (
@@ -197,6 +200,7 @@ def test_tfds():
     assert np.array_equal(mnist_item[0].numpy(), ds_mnist_item[0])
     assert np.array_equal(mnist_item[1].numpy(), ds_mnist_item[1])
 
+
 def test_from_recursive_files():
 
     Patient = namedtuple("Patient", ["blood_pressure", "control"])
@@ -216,6 +220,7 @@ def test_from_recursive_files():
     assert len(ds) == 4
 
     assert ds[0].blood_pressure.shape == (270,)
+
 
 class TestFromIterable:
     def test_list(self):
@@ -263,10 +268,11 @@ class TestFromIterable:
     def test_invalid(self):
 
         with pytest.raises(TypeError):
-            ds = from_iterable(None)
+            _ = from_iterable(None)
 
         with pytest.raises(TypeError):
-            ds = from_iterable(10)
+            _ = from_iterable(10)
+
 
 class TestLoadCSV:
 

@@ -13,9 +13,9 @@ functions or as ``extension`` methods defined on the dataset objects:
 import random
 import warnings
 import functools
-from typing import overload, TypeVar
 from pathlib import Path
-from inspect import signature
+from typing import Tuple, Union, Callable, Sequence, List, Any, Dict, IO, Optional
+import inspect
 
 import numpy as np
 from PIL import Image
@@ -31,17 +31,11 @@ from datasetops.types import (
     DatasetTransformFn,
     DatasetTransformFnCreator,
     Ids,
+    IdxSlice,
     ItemTransformFn,
 )
-from typing import Union, Callable, Sequence, List, Any, Dict
+
 import datasetops.compose as compose
-import numpy as np
-from PIL import Image
-import warnings
-import functools
-import inspect
-from pathlib import Path
-from typing import Optional, Tuple, IO
 import dill
 
 
@@ -211,6 +205,8 @@ _CACHEABLE_OPERATIONS = [
     "maxabs",
     "copy",
     "transform",
+    "supersample",
+    "subsample",
 ]
 
 # ========= Dataset =========
@@ -249,6 +245,7 @@ class Dataset(AbstractDataset):
         self.cachable = True
         self._item_transform_fn = item_transform_fn
         self._item_stats = stats
+        self._shape = None
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
@@ -612,7 +609,7 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate
+        **kwpredicates: DataPredicate,
     ) -> Tuple["Dataset"]:
         """Split a dataset using a predicate function.
 
@@ -1233,7 +1230,7 @@ class SubsampleDataset(Dataset):
         new_ids = list(range(0, len(dataset) * n_ss))
 
         # super().__init__(self, ids=new_ids) # TODO why does every class deriving from Dataset have to define _ids?
-        super().__init__(dataset, ids=new_ids)
+        super().__init__(dataset, ids=new_ids, operation_name="subsample")
 
         self.cached = {}
         self.subsample_func = subsample_func
@@ -1264,7 +1261,7 @@ class SubsampleDataset(Dataset):
             # ensure that subsampling function has returned the correct value of subsamples
             try:
                 n_actual = len(ss)
-            except Exception as e:
+            except Exception:
                 raise RuntimeError(
                     f"subsampling function returned: {n_actual}, this should be an iterable"
                 )
@@ -1299,7 +1296,7 @@ class SubsampleDataset(Dataset):
             ss {Tuple[Any]} -- the items produced by subsampling the downstream dataset at the specified index.
         """
 
-        if self.cache_method == None:
+        if self.cache_method is None:
             return
         elif self.cache_method == "block":
             if (
@@ -1312,7 +1309,7 @@ class SubsampleDataset(Dataset):
             self.last_downstream_idx = ds_idx
 
 
-class SupersampleDataset(AbstractDataset):
+class SupersampleDataset(Dataset):
     def __init__(
         self, dataset, func, sampling_ratio: int, excess_samples_policy="discard"
     ):
@@ -1328,11 +1325,11 @@ class SupersampleDataset(AbstractDataset):
 
         """
 
-        extra_sample_policy_options = {"discard", "error"}
+        excess_sample_policy_options = {"discard", "error"}
 
-        if excess_samples_policy not in extra_sample_policy_options:
+        if excess_samples_policy not in excess_sample_policy_options:
             raise ValueError(
-                f"Illegal value for argument excess_samples_policy: {excess_samples_policy}, possible options are {excess_samples_policy_options}."
+                f"Illegal value for argument excess_samples_policy: {excess_samples_policy}, possible options are {excess_sample_policy_options}."
             )
 
         if sampling_ratio < 1:
@@ -1346,6 +1343,11 @@ class SupersampleDataset(AbstractDataset):
                 f"The specified excess sample policy: {excess_samples} does not permit left over samples, of which: {excess_samples} would exist."
             )
 
+        n_samples = len(dataset) // sampling_ratio
+        new_ids = range(n_samples)
+
+        super().__init__(dataset, ids=new_ids, operation_name="supersample")
+
         self.sampling_ratio = sampling_ratio
         self.func = func
         self.dataset = dataset
@@ -1357,11 +1359,8 @@ class SupersampleDataset(AbstractDataset):
 
         return self.func(ss)
 
-    def __len__(self):
-        return len(self.dataset) // self.sampling_ratio
 
-
-########## Handy decorators ####################
+# Handy decorators ####################
 class StreamDataset(Dataset):
     def __init__(
         self, stream: IO, identifier: str, keep_loaded_items: bool = False
@@ -1916,7 +1915,7 @@ def concat(*datasets: AbstractDataset):
     return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
-########## Sampling ####################
+# Sampling ####################
 def subsample(dataset, func, n_samples: int, cache_method="block") -> Dataset:
     """Divide each sample in the dataset into several sub-samples using a user-defined function.
     The function must take a single sample as an argument and must return a list of samples.

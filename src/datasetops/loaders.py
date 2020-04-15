@@ -7,7 +7,6 @@ from pathlib import Path
 import os
 import re
 import warnings
-from typing import List, Tuple, Iterable
 from collections import namedtuple
 
 
@@ -18,10 +17,7 @@ from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from datasetops.dataset import Dataset
 from datasetops.types import AnyPath, Data
-from typing import Callable, Any, Optional, Union, List, Dict, Tuple
-import numpy as np
-import re
-import warnings
+from typing import Callable, Any, Optional, Union, List, Dict, Tuple, Iterable
 
 
 class Loader(Dataset):
@@ -70,8 +66,6 @@ def from_iterable(iterable: Iterable) -> Dataset:
         AbstractDataset -- a new dataset containing the elements of the iterable.
     """
 
-    len_func = None
-
     """
     https://nelsonslog.wordpress.com/2016/04/06/python3-no-len-for-iterators/
     https://gist.github.com/NelsonMinar/90212fbbfc6465c8e263341b86aa01a8
@@ -87,9 +81,9 @@ def from_iterable(iterable: Iterable) -> Dataset:
         nonlocal itr
         return itr[idx]
 
-    l = Loader(getter)
-    l.extend(range(len(itr)))
-    return l
+    ldr = Loader(getter)
+    ldr.extend(range(len(itr)))
+    return ldr
 
 
 def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
@@ -492,7 +486,6 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
             └── load_2000.csv
 
     """
-    import pandas as pd
 
     p = Path(path)
 
@@ -503,7 +496,7 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
         def predicate_func(path):
             return True
 
-    if load_func is None:
+    if load_func is None:  # noqa: C901
 
         def load_func(path, data):
             return data
@@ -518,19 +511,8 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
     # read csv using pandas
     # if specified the dataframe is converted to a tuple of numpy arrays.
     def read_single_csv(path):
-        data = pd.read_csv(path, **kwargs)
-
-        # convert dataframe to
-        if data_format == "tuple":
-            # try to create named tuple, otherwise create plain tuple
-            try:
-                Row = namedtuple("Row", data.columns)
-                data = Row(*data.to_numpy().T.tolist())
-            except Exception:
-                data = tuple(data.to_numpy().T.tolist())
-        elif data_format == "numpy":
-            data = data.to_numpy()
-
+        nonlocal kwargs
+        data = _read_single_csv(path, data_format, kwargs)
         return load_func(path, data)
 
     if p.is_file():
@@ -544,6 +526,33 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
         )
 
     return ds
+
+
+def _read_single_csv(path: Path, data_format, kwargs):
+    """Read the contents of the specified csv file and format the results
+
+    Arguments:
+        path {Path} -- path to a csv file
+        data_format {[str]} -- string defining how the data should be formatted.
+
+    Returns:
+        [Any] -- data from the csv file in the specified format.
+    """
+    import pandas as pd
+
+    data = pd.read_csv(path, **kwargs)
+    # convert dataframe to
+    if data_format == "tuple":
+        # try to create named tuple, otherwise create plain tuple
+        try:
+            Row = namedtuple("Row", data.columns)
+            data = Row(*data.to_numpy().T.tolist())
+        except Exception:
+            data = tuple(data.to_numpy().T.tolist())
+    elif data_format == "numpy":
+        data = data.to_numpy()
+
+    return data
 
 
 def from_files_list(files, load_func):

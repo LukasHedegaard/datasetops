@@ -15,9 +15,6 @@ from datasetops.dataset import (
     _DEFAULT_SHAPE,
 )
 import datasetops.loaders as loaders
-import pytest
-import numpy as np
-from PIL import Image
 from .testing_utils import (
     get_test_dataset_path,
     from_dummy_data,

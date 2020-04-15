@@ -1,5 +1,5 @@
 """
-This module provides a number of commonly used datasets. 
+This module provides a number of commonly used datasets.
 These may be used as reference or to experiment with various preprocessing steps.
 """
 
@@ -7,8 +7,6 @@ from collections import namedtuple
 
 import numpy as np
 
-from datasetops.types import DatasetTransformFnCreator
-from datasetops.abstract import AbstractDataset
 from datasetops.dataset import Dataset
 from datasetops.loaders import Loader
 
