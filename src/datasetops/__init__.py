@@ -1,5 +1,6 @@
 """
-Dataset Ops is a library that enables the loading and processing of datasets stored in various formats.
+Dataset Ops is a library that enables the loading and processing of
+datasets stored in various formats.
 It does so by providing::
 1. Loaders for various storage formats
 2. Transformations which may chained to transform the data into the desired form.
@@ -16,7 +17,7 @@ https://datasetops.readthedocs.io/en/latest/
 """
 
 
-from .dataset import (
+from .dataset import (  # noqa: F401
     Dataset,
     allow_unique,
     reshape,
@@ -33,7 +34,7 @@ from .dataset import (
     to_pytorch,
 )
 
-from .loaders import (
+from .loaders import (  # noqa: F401
     Loader,
     from_pytorch,
     from_folder_data,

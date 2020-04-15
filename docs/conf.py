@@ -35,12 +35,12 @@ extensions = [
     "recommonmark",
     "sphinx_rtd_theme",
 ]
-doctest_global_setup = '''
+doctest_global_setup = """
 try:
     import datasetops as do
 except ImportError:
     do = None
-'''
+"""
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,9 +66,7 @@ html_theme = "sphinx_rtd_theme"
 html_logo = "pics/logo.svg"
 html_favicon = "pics/html_icon.png"
 
-html_theme_options = {
-    "logo_only": True
-}
+html_theme_options = {"logo_only": True}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

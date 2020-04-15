@@ -8,7 +8,8 @@ from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from scipy.io import loadmat
 from datasetops.dataset import Dataset
-from datasetops.types import *
+from datasetops.types import AnyPath, Data
+from typing import Callable, Any, Optional, Union, List, Dict, Tuple
 import numpy as np
 import re
 import warnings
@@ -16,16 +17,28 @@ import warnings
 
 class Loader(Dataset):
     def __init__(
-        self, getdata: Callable[[Any], Any], name: str = None,
+        self,
+        getdata: Callable[[Any], Any],
+        identifier: Optional[str] = None,
+        name: str = None,
     ):
         if not callable(getdata):
             raise TypeError("get_data should be callable")
+
+        self.identifier = identifier
 
         class Getter(ItemGetter):
             def __getitem__(self, i: int):
                 return getdata(i)
 
-        super().__init__(downstream_getter=Getter(), name=name)
+        super().__init__(
+            downstream_getter=Getter(),
+            name=name,
+            operation_name="load",
+            operation_parameters={"identifier": identifier},
+        )
+
+        self.cachable = self.identifier is not None
 
     def append(self, identifier: Data):
         self._ids.append(identifier)
@@ -34,11 +47,12 @@ class Loader(Dataset):
         self._ids.extend(list(ids))
 
 
-def from_pytorch(pytorch_dataset):
+def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
     """Create dataset from a Pytorch dataset
 
     Arguments:
         tf_dataset {torch.utils.data.Dataset} -- A Pytorch dataset to load from
+        identifier {Optional[str]} -- unique identifier
 
     Returns:
         [Dataset] -- A datasetops.Dataset
@@ -50,16 +64,17 @@ def from_pytorch(pytorch_dataset):
         item = pytorch_dataset[i]
         return tuple([x.numpy() if hasattr(x, "numpy") else x for x in item])
 
-    ds = Loader(get_data)
+    ds = Loader(get_data, identifier)
     ds.extend(list(range(len(pytorch_dataset))))
     return ds
 
 
-def from_tensorflow(tf_dataset):
+def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
     """Create dataset from a Tensorflow dataset
 
     Arguments:
         tf_dataset {tf.data.Dataset} -- A Tensorflow dataset to load from
+        identifier {Optional[str]} -- unique identifier
 
     Raises:
         AssertionError: Raises error if Tensorflow is not executing eagerly
@@ -93,14 +108,13 @@ def from_tensorflow(tf_dataset):
             tf_item = [tf_item]
         item = tuple(
             [
-                tf_item[k].numpy() if hasattr(
-                    tf_item[k], "numpy") else tf_item[k]
+                tf_item[k].numpy() if hasattr(tf_item[k], "numpy") else tf_item[k]
                 for k in keys
             ]
         )
         return item
 
-    ds = Loader(get_data)
+    ds = Loader(get_data, identifier)
     ds.extend(list(range(len(tf_ds))))
     if type(keys[0]) == str:
         ds = ds.named([str(k) for k in keys])
@@ -129,7 +143,9 @@ def from_folder_data(path: AnyPath) -> Dataset:
         nonlocal p
         return (str(p / i),)
 
-    ds = Loader(get_data, "Data Getter for folder with structure 'root/data'")
+    ds = Loader(
+        get_data, str(path), "Data Getter for folder with structure 'root/data'"
+    )
     ds.extend(ids)
 
     return ds
@@ -162,7 +178,8 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
         return (str(p / i), re.split(r"/|\\", i)[0])
 
     ds = Loader(
-        get_data, "Data Getter for folder with structure 'root/classes/data'")
+        get_data, str(path), "Data Getter for folder with structure 'root/classes/data'"
+    )
 
     for c in classes:
         ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
@@ -196,10 +213,11 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
     datasets = []
 
     for group in groups:
-        ds = from_folder_data(group) \
-            .named(re.split(r"/|\\", str(group))[-1])
+        ds = from_folder_data(group).named(group.name)
 
         datasets.append(ds)
+
+    datasets.sort(key=lambda val: val.names[0])
 
     return zipped(*datasets)
 
@@ -235,15 +253,23 @@ def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
 def from_folder_dataset_group_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
-    TODO
+        nested_folder
+        |- dataset1
+            |- group1
+                |- sample1.jpg
+                |- sample2.jpg
+            |- group2
+                |- sample1.txt
+                |- sample2.txt
+        |- dataset2
+            |- ...
 
     Arguments:
         path {AnyPath} -- path to nested folder
 
     Returns:
-        List[Dataset] -- A list of labelled datasets, each with data paths and corresponding class labels,
-                         e.g. ('nested_folder/class1/sample1.jpg', 'class1')
-
+        List[Dataset] -- A list of datasets, each with data composed from different types,
+                         e.g. ('nested_folder/group1/sample1.jpg', 'nested_folder/group2/sample1.txt')
     """
     p = Path(path)
     dataset_paths = sorted([x for x in p.glob("[!._]*")])
@@ -255,6 +281,7 @@ def _dataset_from_np_dict(
     data_keys: List[str],
     label_key: str = None,
     name: str = None,
+    identifier: str = None,
 ) -> Dataset:
     all_keys = [*data_keys, label_key]
     shapes_list = [data[k].shape for k in data_keys]
@@ -263,8 +290,7 @@ def _dataset_from_np_dict(
 
     # search for common dimension
     all_shapes = list(set([i for l in shapes_list for i in l]))
-    common_shapes = [s for s in all_shapes if all(
-        [s in l for l in shapes_list])]
+    common_shapes = [s for s in all_shapes if all([s in l for l in shapes_list])]
 
     if len(common_shapes) > 1:
         warnings.warn(
@@ -295,7 +321,7 @@ def _dataset_from_np_dict(
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = Loader(get_data, name=name)
+    ds = Loader(get_data, identifier, name=name)
 
     # populate data getter
     if label_key:
@@ -348,6 +374,7 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     LABEL_INDICATORS = ["y", "lbl", "lbls", "label", "labels"]
 
     # create a dataset for each suffix
+
     datasets: List[Dataset] = []
     for suffix, keys in keys_by_suffix.items():
         label_keys = list(
@@ -366,7 +393,11 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
 
         datasets.append(
             _dataset_from_np_dict(
-                data=mat, data_keys=data_keys, label_key=label_key, name=suffix
+                data=mat,
+                data_keys=data_keys,
+                label_key=label_key,
+                name=suffix,
+                identifier=str(Path(path) / suffix),
             )
         )
 
