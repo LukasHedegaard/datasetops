@@ -1,15 +1,13 @@
 from typing import List, Optional, Callable
 from datasetops.cache import Cache
 from datasetops import loaders
-from testing_utils import (  # type:ignore
+from ..datasetops_tests.testing_utils import (
     read_lines,
     read_bin,
-    get_test_dataset_path,
-    DATASET_PATHS,
 )
 import numpy as np
 from timeit import timeit
-from benchmark_kitti_common import (  # type:ignore
+from .benchmark_kitti_common import (
     reduce_point_cloud,
     get_label_anno,
     parse_calib,
@@ -200,4 +198,5 @@ def benchmark_kitti(kitti_full_path: str):
 
 
 if __name__ == "__main__":
-    benchmark_kitti(get_test_dataset_path(DATASET_PATHS.KITTI_DATASET))
+    full_kitti_dataset_path = "Add/your/path/to/the/full/KITTI/dataset/here"
+    benchmark_kitti(full_kitti_dataset_path)
