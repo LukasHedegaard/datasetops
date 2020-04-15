@@ -31,14 +31,14 @@ Specific files may be skipped by returning None from the callback.
 .. doctest::
 
     >>> def func(path):
-    >>>     if(path.suffix != ".txt"):
-    >>>         return None
-    >>>     data = np.loadtxt(path)
-    >>>     blood_pressure = data[:,0]
-    >>>     is_control = path.parent != "control"
-    >>>     return (blood_pressure, is_control)
+    ...     if(path.suffix != ".txt"):
+    ...         return None
+    ...     data = np.loadtxt(path)
+    ...     blood_pressure = data[:,0]
+    ...     is_control = path.parent != "control"
+    ...     return (blood_pressure, is_control)
     >>>
-    >>> ds = load_files_recursive("patients", func)
+    >>> ds = do.loaders.from_files_recursive("patients", func)
     >>> len(ds)
     4
     >>> ds[0][0].shape

@@ -1,13 +1,6 @@
 """
 Module defining operations which may be applied to transform the
-data of a single dataset. The transforms are available as free
-functions or as ``extension`` methods defined on the dataset objects:
-
-  >>> ds.shuffle(seed=0)
-  >>> ds_s = shuffle(ds,seed=0)
-  >>> ds.idx == ds_s.idx
-  True
-
+data of a single dataset.
 """
 
 import random

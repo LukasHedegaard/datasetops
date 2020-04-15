@@ -11,12 +11,12 @@ Shuffles a dataset such that samples are returned in random order when read.
 
 .. doctest::
 
-    >>> ds_shuffled = ds_mnist.shuffle(seed=0)
-    >>> ds_mnist[0] == ds_mnist[0]
-    True
-    >>> ds_mnist[0] == ds_shuffled[0]
-    False
-
+    >>> ds = do.loaders.from_iterable(range(10))
+    >>> list(ds)
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    >>> ds_shuffled = ds.shuffle(seed=0)
+    >>> list(ds_shuffled)
+    [7, 8, 1, 5, 3, 4, 2, 0, 9, 6]
 
 Split
 ~~~~~
@@ -25,24 +25,27 @@ This may be used for creating a training and validation split.
 
 .. doctest::
 
-    >>> train, val = ds_mnist.split([0.5,0.5])
-    >>> len(train) == len(ds_mnist)/2
+    >>> ds = do.loaders.from_iterable(range(10))
+    >>> train, val = ds.split([0.7,0.3])
+    >>> len(train) == 7
     True
-    >>> len(val) == len(ds_mnist)/2
+    >>> len(val) == 3
     True
 
 Split Filter
 ~~~~~~~~~~~~
 Splits the dataset based on a predicate evaluated on each sample.
-For example the MNIST dataset may be split into the samples corresponding to zero and all others.
 
 .. doctest::
 
+    >>> ds = do.loaders.from_iterable(range(10))
     >>> def func(s):
-    >>>     return s.lbl == 0
+    ...     return s == 0
     >>>
-    >>> zeros, others = ds_mnist.split_filter(func)
-    >>> all([s.lbl == 0 for s in zeros])
+    >>> zeros, others = ds.split_filter(func)
+    >>> len(zeros) == 1
+    True
+    >>> len(others) == 9
     True
 
 Changing Data
@@ -56,15 +59,19 @@ The function must take an sample as argument and in turn return a new sample.
 .. doctest::
 
     >>> def func1(s):
-    >>>     img, lbl = s
-    >>>     img += np.Random.randn(img.shape)
-    >>>     return (img,lbl)
-    >>> 
-    >>> def func2(img):
-    >>>     return img + np.Random.randn(img.shape)
-    >>>
-    >>> ds1 = ds_mnist.transform(func1)
-    >>> ds2 = ds_mnist.transform("img",func2)
+    ...     name, age = s
+    ...     return (name, age + 1)
+    ... 
+    >>> def func2(age):
+    ...     return age + 1
+    ...
+    >>> ds = do.loaders.from_iterable([("James",30),("Freddy",24)])
+    >>> ds_named = ds.named("name","age")
+    >>> ds1 = ds.transform(func1)
+    >>> ds2 = ds_named.transform("age", func2)
+    >>> ds1[0] == ("James", 31)
+    True
+    >>> ds2[0] == ("James", 31)
     True
 
 .. _tf_subsample:

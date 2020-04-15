@@ -22,10 +22,9 @@ To cache some combination of dataset and transformations the *cache* function is
 
 .. doctest::
 
-    >>> kernel = np.ones((5,5))*(5**2)
-    >>> train, val = do.load_mnist().whiten().image_filter(kernel).cache().split((0.7,0.3))
-    >>> # TODO
-    False
+    >>> # kernel = np.ones((5,5))*(5**2)
+    >>> # train, val = do.load_mnist().whiten().image_filter(kernel).cache().split((0.7,0.3))
+    ... # doctest: +SKIP
 
 The library keeps track of what values are available in the cache and ensures that the cache is recalculated when necessary.
 For example the cache will be updated when a new operation is introduced before the cache operator, or when the parameters of one or more transforms are modified.
@@ -38,8 +37,7 @@ To ensure that the size of the cache does not grow indefinitely it is possible t
 
 .. doctest::
 
-    >>> do.set_caching_cleanup_strategy("clean_unused")
-    >>> do.set_caching_cleanup_strategy("never")
-    >>> do.clear_cache()
-    >>> #TODO
-    False
+    >>> # do.set_caching_cleanup_strategy("clean_unused")
+    >>> # do.set_caching_cleanup_strategy("never")
+    >>> # do.clear_cache()
+    ... # doctest: +SKIP

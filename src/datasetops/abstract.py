@@ -5,15 +5,24 @@ Examples
 --------
 A simple dataset can be implemented as::
 
-  >>> class DummyDataset(AbstractDataset):
-  >>>     def __len__(self):
-  >>>         return 10
-  >>>     def __getitem__(self, idx):
-  >>>         return idx
-  >>>
-  >>> ds = DummyDataset()
-  >>> ds.__getitem__(0)
-  0
+ >>> class DummyDataset(AbstractDataset):
+ ...    def __init__(self, size):
+ ...       self.size = size
+ ...
+ ...    def __len__(self):
+ ...       return self.size
+ ...
+ ...    def __getitem__(self, key):
+ ...       return list(range(self.size))[key]
+ ...
+ >>> ds = DummyDataset(10)
+ >>> len(ds)
+ 10
+ >>> ds[0]
+ 0
+ >>> ds[0:5]
+ [0, 1, 2, 3, 4]
+
 """
 
 from abc import ABC, abstractmethod
@@ -76,3 +85,17 @@ class AbstractDataset(ItemGetter):
                 yield d
 
         return g
+
+
+class DummyDataset:
+    def __init__(self, size):
+        self.size = size
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, key):
+        return list(range(self.size))[key]
+
+
+ds = DummyDataset(10)
