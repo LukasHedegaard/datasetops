@@ -13,7 +13,6 @@ functions or as ``extension`` methods defined on the dataset objects:
 import random
 from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.cache import Cache
-from datasetops.scaler import ElemStats
 from datasetops import scaler
 from datasetops.types import (
     ItemNames,
@@ -38,8 +37,6 @@ import dill
 
 
 # ========= Local Helpers =========
-
-_DEFAULT_SHAPE = tuple()
 
 
 def _warn_no_args(skip=0):
@@ -68,14 +65,6 @@ def _raise_no_args(skip=0):
         return wrapped
 
     return with_args
-
-
-# def _dummy_arg_receiving(fn):
-#     @functools.wraps(fn)
-#     def wrapped(dummy, *args, **kwargs):
-#         return fn(*args, **kwargs)
-
-#     return wrapped
 
 
 def _key_index(item_names: ItemNames, key: Key) -> int:
@@ -190,6 +179,31 @@ def _keyarg2list(
     return args
 
 
+# ========= Constants =========
+
+_DEFAULT_SHAPE = tuple()
+_ROOT_OPERATIONS = ["cache", "stream", "load"]
+_MAYBE_CACHEABLE_OPERATIONS = ["sample", "shuffle", "split"]
+_CACHEABLE_OPERATIONS = [
+    "filter",
+    "split_filter",
+    "take",
+    "reorder",
+    "repeat",
+    "image",
+    "image_resize",
+    "numpy",
+    "reshape",
+    "categorical",
+    "one_hot",
+    "standardize",
+    "center",
+    "minmax",
+    "maxabs",
+    "copy",
+    "transform",
+]
+
 # ========= Dataset =========
 
 
@@ -208,7 +222,7 @@ class Dataset(AbstractDataset):
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
         operation_parameters: Dict = {},
-        stats: List[Optional[ElemStats]] = [],
+        stats: List[Optional[scaler.ElemStats]] = [],
     ):
         """Initialise.
 
@@ -244,14 +258,14 @@ class Dataset(AbstractDataset):
         if ids is not None:
             self._ids: Ids = ids
 
-        if operation_name in ["sample", "shuffle", "split"]:
+        if operation_name in _MAYBE_CACHEABLE_OPERATIONS:
             self.cachable = operation_parameters["seed"] is not None
 
-        if operation_name in ["cache", "stream"]:
+        if operation_name in _ROOT_OPERATIONS:
             self._origin = {
                 "root": operation_parameters["identifier"],
             }
-        else:
+        elif operation_name in _CACHEABLE_OPERATIONS + _MAYBE_CACHEABLE_OPERATIONS:
             self._origin = {
                 "dataset": self._downstream_getter,
                 "operation": {
@@ -259,6 +273,8 @@ class Dataset(AbstractDataset):
                     "parameters": operation_parameters,
                 },
             }
+        else:
+            raise ValueError("Unknown operation '{}'".format(operation_name))
 
     def __len__(self):
         return len(self._ids)
@@ -1239,7 +1255,7 @@ def _make_dataset_element_transforming(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-        stats: List[Optional[ElemStats]] = []
+        stats: List[Optional[scaler.ElemStats]] = []
         if maintain_stats and hasattr(ds, "_item_stats"):
             # maintain stats on other elements, and optionally on this one
             stats = [
@@ -1277,7 +1293,7 @@ def _dataset_element_transforming(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-        stats: List[Optional[ElemStats]] = []
+        stats: List[Optional[scaler.ElemStats]] = []
         if maintain_stats and hasattr(ds, "_item_stats"):
             # maintain stats on other elements, and optionally on this one
             stats = [

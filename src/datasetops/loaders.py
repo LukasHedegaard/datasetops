@@ -32,11 +32,13 @@ class Loader(Dataset):
                 return getdata(i)
 
         super().__init__(
-            downstream_getter=Getter(), name=name, operation_name="load",
+            downstream_getter=Getter(),
+            name=name,
+            operation_name="load",
+            operation_parameters={"identifier": identifier},
         )
 
         self.cachable = self.identifier is not None
-        self._origin = {"root": self.identifier}
 
     def append(self, identifier: Data):
         self._ids.append(identifier)
