@@ -10,19 +10,21 @@ A simple dataset can be implemented as::
   >>>         return 10
   >>>     def __getitem__(self, idx):
   >>>         return idx
-  >>>     
+  >>>
   >>> ds = DummyDataset()
   >>> ds.__getitem__(0)
   0
 """
 
 from abc import ABC, abstractmethod
-
 from typing import Tuple
+from datasetops.transformation_graph import TransformationGraph
 
 
 class ItemGetter(ABC):
-    """Abstract base class implemented by classes that implement a index based get method"""
+    """Abstract base class implemented by classes that implement
+    an index based get method
+    """
 
     @abstractmethod
     def __getitem__(self, i: int) -> Tuple:
@@ -36,6 +38,9 @@ class AbstractDataset(ItemGetter):
         pass  # pragma: no cover
 
     name = ""
+    cachable = False
+    shape = None
+    _origin = None
 
     @abstractmethod
     def __len__(self) -> int:
@@ -54,8 +59,14 @@ class AbstractDataset(ItemGetter):
         """
         pass  # pragma: no cover
 
+    def get_transformation_graph(self) -> TransformationGraph:
+        """Returns TransformationGraph of current dataset
+        """
+        return TransformationGraph(self)
+
     def __iter__(self):
         for i in range(self.__len__()):
+
             yield self.__getitem__(i)
 
     @property

@@ -22,12 +22,14 @@ setup(
     ],
     packages=find_packages("src"),
     package_dir={"": "src"},
-    install_requires=["numpy", "pillow", "pandas", "scikit-learn"],
+    install_requires=["numpy", "pillow", "pandas", "scikit-learn", "dill"],
     extras_require={
         "tests": [
             "pytest",
             "pytest-cov",
             "flake8",
+            "flake8-black",
+            "numba",
             "tensorflow",
             "torch",
             "torchvision",

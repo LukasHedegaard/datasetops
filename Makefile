@@ -41,6 +41,9 @@ test:
 	py.test --cov datasetops --cov-report xml:coverage.xml 
 	py.test --cov datasetops --cov-report term-missing
 
+## Lint the code
+lint:
+	flake8 . --max-complexity=12 --max-line-length=88 --select=C,E,F,W,B,B950,BLK --ignore=E203,E231,E501,W503
 
 ## Build library
 build:

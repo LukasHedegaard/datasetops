@@ -1,6 +1,7 @@
 """
-Module defining operations which may be applied to transform the data of a single dataset.
-The transforms are available as free functions or as ``extension`` methods defined on the dataset objects:
+Module defining operations which may be applied to transform the
+data of a single dataset. The transforms are available as free
+functions or as ``extension`` methods defined on the dataset objects:
 
   >>> ds.shuffle(seed=0)
   >>> ds_s = shuffle(ds,seed=0)
@@ -20,15 +21,31 @@ import numpy as np
 from PIL import Image
 
 from datasetops.abstract import ItemGetter, AbstractDataset
-from datasetops.scaler import ElemStats
-from datasetops.types import *
-import datasetops.compose as compose
-from datasetops.abstract import AbstractDataset
+from datasetops.cache import Cache
 from datasetops import scaler
+from datasetops.types import (
+    ItemNames,
+    Key,
+    Shape,
+    DataPredicate,
+    DatasetTransformFn,
+    DatasetTransformFnCreator,
+    Ids,
+    ItemTransformFn,
+)
+from typing import Union, Callable, Sequence, List, Any, Dict
+import datasetops.compose as compose
+import numpy as np
+from PIL import Image
+import warnings
+import functools
+import inspect
+from pathlib import Path
+from typing import Optional, Tuple, IO
+import dill
 
-########## Local Helpers ####################
 
-_DEFAULT_SHAPE = tuple()
+# ========= Local Helpers =========
 
 
 def _warn_no_args(skip=0):
@@ -59,21 +76,14 @@ def _raise_no_args(skip=0):
     return with_args
 
 
-# def _dummy_arg_receiving(fn):
-#     @functools.wraps(fn)
-#     def wrapped(dummy, *args, **kwargs):
-#         return fn(*args, **kwargs)
-
-#     return wrapped
-
-
 def _key_index(item_names: ItemNames, key: Key) -> int:
     if type(key) == int:
         return int(key)
     else:
         if not item_names:
             raise ValueError(
-                "Items cannot be identified by name when no names are given. Hint: Use `Dataset.named('name1', 'name2', ...)`"
+                "Items cannot be identified by name when no names are given. "
+                "Hint: Use `Dataset.named('name1', 'name2', ...)`"
             )
         return item_names[str(key)]
 
@@ -105,7 +115,7 @@ def _combine_conditions(
         raise ValueError("Too many predicates given")
 
     for k in kwpredicates.keys():
-        if not k in item_names:
+        if k not in item_names:
             raise KeyError("Key {} is not an item name".format(k))
 
     # clean up predicates
@@ -132,7 +142,7 @@ def _combine_conditions(
 
 def _optional_argument_indexed_transform(
     shape: Union[Shape, Sequence[Shape]],
-    ds_transform: Callable,
+    ds_transform: Callable[[Any], "Dataset"],
     transform_fn: DatasetTransformFnCreator,
     args: Sequence[Optional[Sequence[Any]]],
 ):
@@ -141,7 +151,7 @@ def _optional_argument_indexed_transform(
     if len(shape) < len(args):
         raise ValueError("Unable to perform transform: Too many arguments given")
 
-    tfs = [transform_fn(*a) if (a != None) else None for a in args]
+    tfs = [transform_fn(*a) if (a is not None) else None for a in args]
     return ds_transform(tfs)
 
 
@@ -153,7 +163,7 @@ def _keywise(item_names: Dict[str, int], l: Sequence, d: Dict):
 
 def _itemwise(item_names: Dict[str, int], l: Sequence, d: Dict):
     keywise = _keywise(item_names, l, d)
-    keywise = {k: v for k, v in keywise.items() if v != None}
+    keywise = {k: v for k, v in keywise.items() if v is not None}
     if keywise:
         itemwise = [
             ([keywise[i]] if i in keywise else None)
@@ -178,7 +188,32 @@ def _keyarg2list(
     return args
 
 
-########## Dataset ####################
+# ========= Constants =========
+
+_DEFAULT_SHAPE = tuple()
+_ROOT_OPERATIONS = ["cache", "stream", "load"]
+_MAYBE_CACHEABLE_OPERATIONS = ["sample", "shuffle", "split"]
+_CACHEABLE_OPERATIONS = [
+    "filter",
+    "split_filter",
+    "take",
+    "reorder",
+    "repeat",
+    "image",
+    "image_resize",
+    "numpy",
+    "reshape",
+    "categorical",
+    "one_hot",
+    "standardize",
+    "center",
+    "minmax",
+    "maxabs",
+    "copy",
+    "transform",
+]
+
+# ========= Dataset =========
 
 
 class Dataset(AbstractDataset):
@@ -190,42 +225,65 @@ class Dataset(AbstractDataset):
     def __init__(
         self,
         downstream_getter: Union[ItemGetter, "Dataset"],
+        operation_name: str,
         name: str = None,
         ids: Ids = None,
         item_transform_fn: ItemTransformFn = lambda x: x,
         item_names: Dict[str, int] = None,
-        stats: List[Optional[ElemStats]] = [],
+        operation_parameters: Dict = {},
+        stats: List[Optional[scaler.ElemStats]] = [],
     ):
         """Initialise.
 
         Keyword Arguments:
-            downstream_getter {ItemGetter} -- Any object which implements the __getitem__ function (default: {None})
+            downstream_getter {ItemGetter} --
+                Any object which implements the __getitem__ function (default: {None})
             name {str} -- A name for the dataset
             ids {Ids} -- List of ids used in the downstream_getter (default: {None})
             item_transform_fn: {Callable} -- a function
         """
         self._downstream_getter = downstream_getter
+        self.name = ""
+        self._ids = []
+        self._item_names: ItemNames = {}
+        self.cachable = True
+        self._item_transform_fn = item_transform_fn
+        self._item_stats = stats
 
         if issubclass(type(downstream_getter), AbstractDataset):
             self.name = self._downstream_getter.name  # type: ignore
-            # type: ignore
-            self._ids = list(range(len(self._downstream_getter._ids)))
+            self._ids = (
+                list(range(len(self._downstream_getter._ids)))  # type: ignore
+                if ids is None
+                else ids
+            )
             self._item_names = getattr(downstream_getter, "_item_names", None)
-        else:
-            self.name = ""
-            self._ids = []
-            self._item_names: ItemNames = {}
+            self.cachable: bool = getattr(downstream_getter, "cachable", False)
 
         if name:
             self.name = name
         if item_names:
             self._item_names = item_names
-        if ids:
+        if ids is not None:
             self._ids: Ids = ids
 
-        self._item_transform_fn = item_transform_fn
-        self._item_stats = stats
-        self._shape = None
+        if operation_name in _MAYBE_CACHEABLE_OPERATIONS:
+            self.cachable = operation_parameters["seed"] is not None
+
+        if operation_name in _ROOT_OPERATIONS:
+            self._origin = {
+                "root": operation_parameters["identifier"],
+            }
+        elif operation_name in _CACHEABLE_OPERATIONS + _MAYBE_CACHEABLE_OPERATIONS:
+            self._origin = {
+                "dataset": self._downstream_getter,
+                "operation": {
+                    "name": operation_name,
+                    "parameters": operation_parameters,
+                },
+            }
+        else:
+            raise ValueError("Unknown operation '{}'".format(operation_name))
 
     def __len__(self):
         return len(self._ids)
@@ -248,14 +306,79 @@ class Dataset(AbstractDataset):
                 for ii in ids
             )
 
+    def cached(
+        self,
+        path: str = None,
+        keep_loaded_items: bool = False,
+        display_progress: bool = False,
+    ):
+        if not self.cachable:
+            raise Exception(
+                "Dataset must be cachable"
+                + "(Provide identifiers for memory-based Loaders)"
+            )
+
+        if path is None:
+            path = Cache.DEFAULT_PATH
+
+        cache = Cache(path)
+        identifier = self.get_transformation_graph().serialize()
+
+        if cache.is_cached(identifier):
+            if display_progress:
+                print("Loaded from cache")
+
+            stream = cache.create_stream(identifier)
+            return StreamDataset(stream, identifier, keep_loaded_items)
+        else:
+            length = len(self)
+            index = 0
+
+            def data_generator():
+                nonlocal index
+                nonlocal length
+
+                yield len(self)
+                yield self.names
+
+                for data in self:
+                    index += 1
+                    if display_progress:
+                        print(
+                            "Caching [" + str(index) + "/" + str(length) + "]", end="\r"
+                        )
+                    yield data
+
+            generator = data_generator()
+
+            def saver(file):
+                try:
+                    val = next(generator)
+                    dill.dump(val, file)
+                    return True
+                except StopIteration:
+                    if display_progress:
+                        print("Cached")
+                    return False
+
+            cache.save(identifier, saver)
+
+            return Dataset(
+                downstream_getter=self,
+                ids=list(range(len(self))),
+                operation_name="cache",
+                operation_parameters={"identifier": identifier},
+            )
+
     def item_stats(self, item_key: Key, axis=None) -> scaler.ElemStats:
         """Compute the statistics (mean, std, min, max) for an item element
 
         Arguments:
-            item_key {Key} -- index of string identifyer for element on which the stats should be computed
+            item_key {Key} -- index of string identifyer for element on which
+                              the stats should be computed
 
         Keyword Arguments:
-            axis {[type]} -- the axis on which to accumulate statistics (default: {None})
+            axis {[type]} -- the axis on which to compute statistics (default: {None})
 
         Raises:
             TypeError: if statistics cannot be computed on the element type
@@ -336,10 +459,14 @@ class Dataset(AbstractDataset):
         Warning: this operation may be expensive for large datasets
 
         Arguments:
-            itemkeys {Union[str, int]} -- The item keys (str) or indexes (int) to be checked for uniqueness. If no key is given, all item-parts must match for them to be considered equal
+            itemkeys {Union[str, int]} --
+                The item keys (str) or indexes (int) to be checked for uniqueness.
+                If no key is given, all item-parts must match for them to be
+                considered equal
 
         Returns:
-            List[Tuple[Any,int]] -- List of tuples, each containing the unique value and its number of occurences
+            List[Tuple[Any,int]] -- List of tuples, each containing the unique value
+                                    and its number of occurences
         """
         inds: List[int] = [_key_index(self._item_names, k) for k in itemkeys]
 
@@ -362,7 +489,7 @@ class Dataset(AbstractDataset):
         for item in iter(self):
             selected = selector(item)
             h = hash(str(selected))
-            if not h in unique_items.keys():
+            if h not in unique_items.keys():
                 unique_items[h] = selected
                 item_counts[h] = 1
             else:
@@ -415,7 +542,8 @@ class Dataset(AbstractDataset):
         """Sample data randomly from the dataset.
 
         Arguments:
-            num {int} -- Number of samples. If the number of samples is larger than the dataset size, some samples may be samples multiple times
+            num {int} -- Number of samples. If the number of samples is larger than the
+                         dataset size, some samples may be samples multiple times
 
         Keyword Arguments:
             seed {int} -- Random seed (default: {None})
@@ -425,15 +553,20 @@ class Dataset(AbstractDataset):
         """
         if seed:
             random.seed(seed)
-        l = self.__len__()
-        if l >= num:
-            new_ids = random.sample(range(l), num)
+        length = self.__len__()
+        if length >= num:
+            new_ids = random.sample(range(length), num)
         else:
             # TODO: determine if we should warn of raise an error instead
-            new_ids = random.sample(range(l), l) + random.sample(
-                range(l), num - l
+            new_ids = random.sample(range(length), length) + random.sample(
+                range(length), num - length
             )  # Supersample.
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self,
+            ids=new_ids,
+            operation_name="sample",
+            operation_parameters={"num": num, "seed": seed},
+        )
 
     @_warn_no_args(skip=1)
     def filter(
@@ -446,8 +579,13 @@ class Dataset(AbstractDataset):
         """Filter a dataset using a predicate function.
 
         Keyword Arguments:
-            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} -- either a single or a list of functions taking a single dataset item and returning a bool if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise element-wise predicates can also be passed, if item_names have been named.
-            kwpredicates {DataPredicate} -- TODO
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} --
+                either a single or a list of functions taking a single dataset item
+                and returning a bool if a single function is passed, it is applied to
+                the whole item, if a list is passed, the functions are applied itemwise
+                element-wise predicates can also be passed, if item_names have been
+                named.
+            kwpredicates {DataPredicate} -- Predicates passed by keyword
 
         Returns:
             [Dataset] -- A filtered Dataset
@@ -455,8 +593,18 @@ class Dataset(AbstractDataset):
         condition = _combine_conditions(
             self._item_names, self.shape, predicates, **kwpredicates
         )
-        new_ids = list(filter(lambda i: condition(self.__getitem__(i)), self._ids))
-        return Dataset(downstream_getter=self, ids=new_ids)
+        new_ids = list(
+            filter(lambda i: condition(self.__getitem__(i)), range(len(self._ids)))
+        )
+        return Dataset(
+            downstream_getter=self,
+            ids=new_ids,
+            operation_name="filter",
+            operation_parameters={
+                "predicates": predicates,
+                "kwpredicates": kwpredicates,
+            },
+        )
 
     @_raise_no_args(skip=1)
     def split_filter(
@@ -464,12 +612,16 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate,
-    ):
+        **kwpredicates: DataPredicate
+    ) -> Tuple["Dataset"]:
         """Split a dataset using a predicate function.
 
         Keyword Arguments:
-            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} -- either a single or a list of functions taking a single dataset item and returning a bool. if a single function is passed, it is applied to the whole item, if a list is passed, the functions are applied itemwise
+            predicates {Union[DataPredicate, Sequence[Optional[DataPredicate]]]} --
+                either a single or a list of functions taking a single dataset item
+                and returning a bool. if a single function is passed, it is applied
+                to the whole item, if a list is passed, the functions are applied
+                itemwise
             element-wise predicates can also be passed, if item_names have been named.
 
         Returns:
@@ -479,14 +631,26 @@ class Dataset(AbstractDataset):
             self._item_names, self.shape, predicates, **kwpredicates
         )
         ack, nack = [], []
-        for i in self._ids:
+        for i in range(len(self._ids)):
             if condition(self.__getitem__(i)):
                 ack.append(i)
             else:
                 nack.append(i)
 
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids) for new_ids in [ack, nack]]
+            [
+                Dataset(
+                    downstream_getter=self,
+                    ids=new_ids,
+                    operation_name="split_filter",
+                    operation_parameters={
+                        "predicates": predicates,
+                        "kwpredicates": kwpredicates,
+                        "index": idx,
+                    },
+                )
+                for idx, new_ids in enumerate([ack, nack])
+            ]
         )
 
     def shuffle(self, seed: int = None):
@@ -501,23 +665,31 @@ class Dataset(AbstractDataset):
         random.seed(seed)
         new_ids = list(range(len(self)))
         random.shuffle(new_ids)
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self,
+            ids=new_ids,
+            operation_name="shuffle",
+            operation_parameters={"seed": seed},
+        )
 
-    def split(self, fractions: List[float], seed: int = None):
+    def split(self, fractions: List[float], seed: int = None) -> Tuple["Dataset", ...]:
         """Split dataset into multiple datasets, determined by the fractions
         given.
 
         A wildcard (-1) may be given at a single position, to fill in the rest.
-        If fractions don't add up, the last fraction in the list receives the remainding data.
+        If fractions don't add up, the last fraction in the list receives the
+        remainding data.
 
         Arguments:
-            fractions {List[float]} -- a list or tuple of floats i the interval ]0,1[. One of the items may be a -1 wildcard.
+            fractions {List[float]} -- a list or tuple of floats i the interval ]0,1[
+            One of the items may be a -1 wildcard.
 
         Keyword Arguments:
             seed {int} -- Random seed (default: {None})
 
         Returns:
-            List[Dataset] -- Datasets with the number of samples corresponding to the fractions given
+            List[Dataset] -- Datasets with the number of samples corresponding to the
+            fractions given
         """
         if seed:
             random.seed(seed)
@@ -547,7 +719,19 @@ class Dataset(AbstractDataset):
 
         # create datasets corresponding to each split
         return tuple(
-            [Dataset(downstream_getter=self, ids=new_ids,) for new_ids in split_ids]
+            [
+                Dataset(
+                    downstream_getter=self,
+                    ids=new_ids,
+                    operation_name="split",
+                    operation_parameters={
+                        "fractions": fractions,
+                        "seed": seed,
+                        "index": idx,
+                    },
+                )
+                for idx, new_ids in enumerate(split_ids)
+            ]
         )
 
     def take(self, num: int):
@@ -563,14 +747,20 @@ class Dataset(AbstractDataset):
             raise ValueError("Can't take more elements than are available in dataset")
 
         new_ids = list(range(num))
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self,
+            ids=new_ids,
+            operation_name="take",
+            operation_parameters={"num": num},
+        )
 
     def repeat(self, times=1, mode="itemwise"):
         """Repeat the dataset elements.
 
         Keyword Arguments:
             times {int} -- Number of times an element is repeated (default: {1})
-            mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole' (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
+            mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole'
+                          (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
 
         Returns:
             [type] -- [description]
@@ -582,13 +772,19 @@ class Dataset(AbstractDataset):
             ],
         }[mode]()
 
-        return Dataset(downstream_getter=self, ids=new_ids)
+        return Dataset(
+            downstream_getter=self,
+            ids=new_ids,
+            operation_name="repeat",
+            operation_parameters={"times": times, "mode": mode},
+        )
 
     def reorder(self, *keys: Key):
         """Reorder items in the dataset (similar to numpy.transpose).
 
         Arguments:
-            new_inds {Union[int,str]} -- positioned item index or key (if item names were previously set) of item
+            new_inds {Union[int,str]} -- positioned item index or key (if item names
+                                         were previously set) of item
 
         Returns:
             [Dataset] -- Dataset with items whose elements have been reordered
@@ -604,9 +800,10 @@ class Dataset(AbstractDataset):
         for i in inds:
             if i > len(self.shape):
                 raise ValueError(
-                    "reorder index {} is out of range (maximum allowed index is {})".format(
-                        i, len(self.shape)
-                    )
+                    (
+                        "reorder index {} is out of range"
+                        "(maximum allowed index is {})"
+                    ).format(i, len(self.shape))
                 )
 
         def item_transform_fn(item: Tuple):
@@ -616,7 +813,8 @@ class Dataset(AbstractDataset):
         if self._item_names:
             if len(set(keys)) < len(keys):
                 warnings.warn(
-                    "discarding item_names due to otherwise non-unique labels on transformed dataset"
+                    "discarding item_names due to otherwise non-unique labels on "
+                    "transformed dataset"
                 )
             else:
                 item_names = {
@@ -627,6 +825,8 @@ class Dataset(AbstractDataset):
             downstream_getter=self,
             item_transform_fn=item_transform_fn,
             item_names=item_names,
+            operation_name="reorder",
+            operation_parameters={"keys": keys},
         )
 
     def named(self, first: Union[str, Sequence[str]], *rest: str):
@@ -649,7 +849,7 @@ class Dataset(AbstractDataset):
 
         names.extend(rest)
 
-        assert len(names) <= len(self.shape)
+        assert (len(names) <= len(self.shape)) or len(self) == 0
         self._item_names = {n: i for i, n in enumerate(names)}
         return self
 
@@ -679,9 +879,13 @@ class Dataset(AbstractDataset):
         as argument).
 
         Arguments:
-            If a single function taking one input given, e.g. transform(lambda x: x), it will be applied to the whole item.
-            If a list of functions are given, e.g. transform([image(), one_hot()]) they will be applied to the elements of the item corresponding to the position.
-            If key is used, e.g. transform(data=lambda x:-x), the item associated with the key i transformed.
+            If a single function taking one input given, e.g. transform(lambda x: x),
+                it will be applied to the whole item.
+            If a list of functions are given, e.g. transform([image(), one_hot()]) they
+                will be applied to the elements of the item corresponding to the
+                position.
+            If key is used, e.g. transform(data=lambda x:-x), the item associated with
+                the key i transformed.
 
         Raises:
             ValueError: If more functions are passed than there are elements in an item.
@@ -694,26 +898,32 @@ class Dataset(AbstractDataset):
 
         if bool(bulk) + len(itemwise) + len(kwfns) > len(self.shape):
             raise ValueError(
-                "More transforms ({}) given than can be performed on item with {} elements".format(
-                    bool(bulk) + len(itemwise) + len(kwfns), len(self.shape)
-                )
+                (
+                    "More transforms ({}) given than can be "
+                    "performed on item with {} elements"
+                ).format(bool(bulk) + len(itemwise) + len(kwfns), len(self.shape))
             )
         new_dataset: AbstractDataset = self
 
         if bulk:
-            return Dataset(downstream_getter=self, item_transform_fn=bulk)
+            return Dataset(
+                downstream_getter=self,
+                item_transform_fn=bulk,
+                operation_name="transform",
+                operation_parameters={"function": bulk.__code__},
+            )
 
         for k, v in list(enumerate(itemwise)) + list(kwfns.items()):  # type:ignore
             funcs = v if type(v) in [list, tuple] else [v]
             for f in funcs:
                 if f:
-                    if len(signature(f).parameters) == 1:
+                    if len(inspect.signature(f).parameters) == 1:
                         f = _custom(f)
                     new_dataset = f(_key_index(self._item_names, k), new_dataset)
 
         return new_dataset
 
-    ########## Label transforming methods #########################
+    # ========= Label transforming methods =========
 
     def categorical(self, key: Key, mapping_fn: Callable[[Any], int] = None):
         """Transform elements into categorical categoricals (int).
@@ -722,10 +932,12 @@ class Dataset(AbstractDataset):
             key {Key} -- Index of name for the element to be transformed
 
         Keyword Arguments:
-            mapping_fn {Callable[[Any], int]} -- User defined mapping function (default: {None})
+            mapping_fn {Callable[[Any], int]} -- User defined mapping function
+                                                 (default: {None})
 
         Returns:
-            [Dataset] -- Dataset with items that have been transformed to categorical labels
+            [Dataset] -- Dataset with items that have been transformed to categorical
+                         labels
         """
         idx: int = _key_index(self._item_names, key)
         mapping_fn = mapping_fn or categorical_template(self, key)
@@ -747,12 +959,18 @@ class Dataset(AbstractDataset):
             key {Key} -- Index of name for the element to be transformed
 
         Keyword Arguments:
-            encoding_size {int} -- The number of positions in the one-hot vector. If size it not provided, it we be automatically inferred (with a O(N) runtime cost) (default: {None})
-            mapping_fn {Callable[[Any], int]} -- User defined mapping function (default: {None})
-            dtype {str} -- Numpy datatype for the one-hot encoded data (default: {'bool'})
+            encoding_size {int} --
+                The number of positions in the one-hot vector.
+                If size it not provided, it we be automatically inferred
+                with a O(N) runtime cost (default: {None})
+            mapping_fn {Callable[[Any], int]} --
+                User defined mapping function (default: {None})
+            dtype {str} --
+                Numpy datatype for the one-hot encoded data (default: {'bool'})
 
         Returns:
-            [Dataset] -- Dataset with items that have been transformed to categorical labels
+            [Dataset] --
+                Dataset with items that have been transformed to categorical labels
         """
         enc_size = encoding_size or len(self.unique(key))
         mapping_fn = mapping_fn or categorical_template(self, key)
@@ -765,7 +983,7 @@ class Dataset(AbstractDataset):
             args=args,
         )
 
-    ########## Conversion methods #########################
+    # ========= Conversion methods =========
 
     # TODO: reconsider API
     def image(self, *positional_flags: Any):
@@ -773,7 +991,9 @@ class Dataset(AbstractDataset):
         strings into a PIL.Image.Image.
 
         Arguments:
-            positional flags, e.g. (True, False) denoting which element should be converted. If no flags are supplied, all data that can be converted will be converted.
+            positional flags, e.g. (True, False) denoting which element should
+            be converted. If no flags are supplied, all data that can be converted
+            will be converted.
 
         Returns:
             [Dataset] -- Dataset with PIL.Image.Image elements
@@ -785,12 +1005,14 @@ class Dataset(AbstractDataset):
                 try:
                     _check_image_compatibility(elem)
                     positional_flags.append([])  # didn't raise error
-                except:
+                except Exception:
                     positional_flags.append(None)
+        else:
+            positional_flags = list(map(lambda a: [] if a else None, positional_flags))
 
-        if any([f != None and f != False for f in positional_flags]):
+        if any([f is not None and f is not False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape, self.transform, transform_fn=image, args=positional_flags,  # type: ignore
+                self.shape, self.transform, transform_fn=image, args=positional_flags,
             )
         else:
             warnings.warn("Conversion to image skipped. No elements were compatible")
@@ -801,7 +1023,9 @@ class Dataset(AbstractDataset):
         """Transforms elements into numpy.ndarray.
 
         Arguments:
-            positional flags, e.g. (True, False) denoting which element should be converted. If no flags are supplied, all data that can be converted will be converted.
+            positional flags, e.g. (True, False) denoting which element should be
+            converted. If no flags are supplied, all data that can be converted will
+            be converted.
 
         Returns:
             [Dataset] -- Dataset with np.ndarray elements
@@ -813,12 +1037,12 @@ class Dataset(AbstractDataset):
                 try:
                     _check_numpy_compatibility()(elem)
                     positional_flags.append([])  # didn't raise error
-                except:
+                except Exception:
                     positional_flags.append(None)
 
-        if any([f != None and f != False for f in positional_flags]):
+        if any([f is not None and f is not False for f in positional_flags]):
             return _optional_argument_indexed_transform(
-                self.shape, self.transform, transform_fn=numpy, args=positional_flags,  # type: ignore
+                self.shape, self.transform, transform_fn=numpy, args=positional_flags,
             )
         else:
             warnings.warn(
@@ -826,7 +1050,7 @@ class Dataset(AbstractDataset):
             )
             return self
 
-    ########## Composition methods #########################
+    # ========= Composition methods =========
 
     def zip(self, *datasets):
         return zipped(self, *datasets)
@@ -837,7 +1061,7 @@ class Dataset(AbstractDataset):
     def concat(self, *datasets):
         return concat(self, *datasets)
 
-    ########## Methods relating to numpy data #########################
+    # ========= Methods relating to numpy data =========
 
     def reshape(self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]):
         return _optional_argument_indexed_transform(
@@ -850,7 +1074,7 @@ class Dataset(AbstractDataset):
     # def add_noise(self, noise):
     #     pass
 
-    ########## Methods below assume data is an image ##########
+    # ========= Methods below assume data is an image =========
 
     def image_resize(self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]):
         return _optional_argument_indexed_transform(
@@ -866,13 +1090,14 @@ class Dataset(AbstractDataset):
     # def img_filter(self, filter_fn):
     #     pass
 
-    ########## Dataset scalers #########################
+    # ========= Dataset scalers =========
 
     def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
         """Standardize features by removing the mean and scaling to unit variance
 
         Arguments:
-            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+            key_or_keys {Union[Key, Sequence[Key]]} --
+                The keys on which the Max Abs scaling should be performed
 
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
@@ -891,7 +1116,8 @@ class Dataset(AbstractDataset):
         """Centers features by removing the mean
 
         Arguments:
-            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+            key_or_keys {Union[Key, Sequence[Key]]} --
+                The keys on which the Max Abs scaling should be performed
 
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
@@ -913,7 +1139,8 @@ class Dataset(AbstractDataset):
     #     """Normalize samples individually to unit norm.
 
     #     Arguments:
-    #         key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+    #         key_or_keys {Union[Key, Sequence[Key]]} --
+    #             The keys on which the Max Abs scaling should be performed
 
     #     Keyword Arguments:
     #         axis {int} -- Axis on which to accumulate statistics (default: {0})
@@ -937,7 +1164,8 @@ class Dataset(AbstractDataset):
         """Transform features by scaling each feature to a given range.
 
         Arguments:
-            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+            key_or_keys {Union[Key, Sequence[Key]]} --
+                The keys on which the Max Abs scaling should be performed
 
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
@@ -959,7 +1187,8 @@ class Dataset(AbstractDataset):
         """Scale each feature by its maximum absolute value.
 
         Arguments:
-            key_or_keys {Union[Key, Sequence[Key]]} -- The keys on which the Max Abs scaling should be performed
+            key_or_keys {Union[Key, Sequence[Key]]} --
+                The keys on which the Max Abs scaling should be performed
 
         Keyword Arguments:
             axis {int} -- Axis on which to accumulate statistics (default: {0})
@@ -974,7 +1203,10 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis]),
         )
 
-    ########## Framework converters #########################
+    def close(self):
+        pass
+
+    # ========= Framework converters =========
 
     def to_tensorflow(self):
         return to_tensorflow(self)
@@ -1130,12 +1362,97 @@ class SupersampleDataset(AbstractDataset):
 
 
 ########## Handy decorators ####################
+class StreamDataset(Dataset):
+    def __init__(
+        self, stream: IO, identifier: str, keep_loaded_items: bool = False
+    ) -> None:
+
+        self._last_accessed_id: int = -1
+        self.__loaded_items: List[Tuple] = []
+        self.__stream: IO = stream
+        self.keep_loaded_items: bool = keep_loaded_items
+
+        length: int = self.__read_once()
+        names: List[str] = self.__read_once()
+
+        super().__init__(
+            self,
+            operation_name="stream",
+            operation_parameters={"identifier": identifier},
+            ids=list(range(length)),
+            item_names={n: i for i, n in enumerate(names)},
+        )
+
+        self.cachable = True
+
+    @property
+    def allow_random_access(self) -> bool:
+        return self.keep_loaded_items
+
+    def __skip_header(self):
+        for i in range(2):
+            self.__read_once()
+
+    def __read_once(self):
+        return dill.load(self.__stream)
+
+    def __reset(self, clear_loaded_items: bool = False):
+        self._last_accessed_id = -1
+        self.__stream.seek(0)
+        self.__skip_header()
+
+        if clear_loaded_items:
+            self.__loaded_items.clear()
+
+    def __read_item(self):
+        self._last_accessed_id += 1
+
+        item = self.__read_once()
+
+        if self.keep_loaded_items:
+            self.__loaded_items.append(item)
+
+        if self._last_accessed_id + 1 == len(self):
+            self.__reset()
+
+        return item
+
+    def __getitem__(self, i: int) -> Tuple:
+
+        if len(self.__loaded_items) > i:
+            return self.__loaded_items[i]
+        else:
+            is_next = i == (self._last_accessed_id + 1)
+
+            if is_next:
+                item = self.__read_item()
+                return item
+            elif self.allow_random_access:
+
+                item = ()
+
+                while (self._last_accessed_id < i) and not (
+                    i == len(self) - 1 and self._last_accessed_id == -1
+                ):
+                    item = self.__read_item()
+
+                return item
+            else:
+                raise Exception("Random access is not allowed")
+
+    def close(self):
+        self.__stream.close()
+
+
+# ========= Handy decorators =========
 
 
 def _make_dataset_element_transforming(
     make_fn: Callable[[AbstractDataset, Optional[int]], Callable],
     check: Callable = None,
     maintain_stats=False,
+    operation_name="transform",
+    operation_parameters={},
 ) -> DatasetTransformFn:
     def wrapped(idx: int, ds: AbstractDataset) -> AbstractDataset:
 
@@ -1149,7 +1466,7 @@ def _make_dataset_element_transforming(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-        stats: List[Optional[ElemStats]] = []
+        stats: List[Optional[scaler.ElemStats]] = []
         if maintain_stats and hasattr(ds, "_item_stats"):
             # maintain stats on other elements, and optionally on this one
             stats = [
@@ -1158,14 +1475,22 @@ def _make_dataset_element_transforming(
             ]
 
         return Dataset(
-            downstream_getter=ds, item_transform_fn=item_transform_fn, stats=stats,
+            downstream_getter=ds,
+            item_transform_fn=item_transform_fn,
+            operation_name=operation_name,
+            operation_parameters={**operation_parameters, "idx": idx},
+            stats=stats,
         )
 
     return wrapped
 
 
 def _dataset_element_transforming(
-    fn: Callable, check: Callable = None, maintain_stats=False
+    fn: Callable,
+    check: Callable = None,
+    maintain_stats=False,
+    operation_name="transform",
+    operation_parameters={},
 ) -> DatasetTransformFn:
     """Applies the function to dataset item elements."""
 
@@ -1179,7 +1504,7 @@ def _dataset_element_transforming(
                 [fn(elem) if i == idx else elem for i, elem in enumerate(item)]
             )
 
-        stats: List[Optional[ElemStats]] = []
+        stats: List[Optional[scaler.ElemStats]] = []
         if maintain_stats and hasattr(ds, "_item_stats"):
             # maintain stats on other elements, and optionally on this one
             stats = [
@@ -1188,7 +1513,11 @@ def _dataset_element_transforming(
             ]
 
         return Dataset(
-            downstream_getter=ds, item_transform_fn=item_transform_fn, stats=stats,
+            downstream_getter=ds,
+            item_transform_fn=item_transform_fn,
+            operation_name=operation_name,
+            operation_parameters={**operation_parameters, "idx": idx},
+            stats=stats,
         )
 
     return wrapped
@@ -1198,9 +1527,10 @@ def _check_shape_compatibility(shape: Shape):
     def check(elem):
         if not hasattr(elem, "shape"):
             raise ValueError(
-                "{} needs a shape attribute for shape compatibility to be checked".format(
-                    elem
-                )
+                (
+                    "{} needs a shape attribute for shape compatibility "
+                    "to be checked"
+                ).format(elem)
             )
 
         if (
@@ -1208,9 +1538,10 @@ def _check_shape_compatibility(shape: Shape):
             and not (-1 in shape)
         ) or any([s > np.prod(elem.shape) for s in shape]):
             raise ValueError(
-                "Cannot reshape dataset with shape '{}' to shape '{}'. Dimensions cannot be matched".format(
-                    elem.shape, shape
-                )
+                (
+                    "Cannot reshape dataset with shape '{}' to shape '{}'. "
+                    "Dimensions cannot be matched"
+                ).format(elem.shape, shape)
             )
 
     return check
@@ -1252,14 +1583,15 @@ def _check_numpy_compatibility(allow_scalars=False):
     return fn
 
 
-########## Predicate implementations ####################
+# ========= Predicate implementations ===================
 
 
 def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
     """Predicate used for filtering/sampling a dataset classwise.
 
     Keyword Arguments:
-        max_num_duplicates {int} -- max number of samples to take that share the same value (default: {1})
+        max_num_duplicates {int} --
+            max number of samples to take that share the same value (default: {1})
 
     Returns:
         Callable[[Any], bool] -- Predicate function
@@ -1269,7 +1601,7 @@ def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
     def fn(x):
         nonlocal mem_counts
         h = hash(str(x))
-        if not h in mem_counts.keys():
+        if h not in mem_counts.keys():
             mem_counts[h] = 1
             return True
         if mem_counts[h] < max_num_duplicates:
@@ -1280,7 +1612,7 @@ def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
     return fn
 
 
-########## Transform implementations ####################
+# ========= Transform implementations =========
 
 
 def _custom(
@@ -1290,15 +1622,22 @@ def _custom(
     """Create a user defined transform.
 
     Arguments:
-        fn {Callable[[Any], Any]} -- A user defined function, which takes the element as only argument
+        fn {Callable[[Any], Any]} --
+            A user defined function, which takes the element as only argument
 
     Keyword Arguments:
-        check_fn {Callable[[Any]]} -- A function that raises an Exception if the elem is incompatible (default: {None})
+        check_fn {Callable[[Any]]} --
+            A function that raises an Exception if the elem is incompatible
+            (default: {None})
 
     Returns:
         DatasetTransformFn -- [description]
     """
-    return _dataset_element_transforming(fn=elem_transform_fn, check=elem_check_fn)
+    return _dataset_element_transforming(
+        fn=elem_transform_fn,
+        check=elem_check_fn,
+        operation_parameters={"function": inspect.getsource(elem_transform_fn)},
+    )
 
 
 def reshape(new_shape: Shape) -> DatasetTransformFn:
@@ -1312,7 +1651,9 @@ def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
     """Transform data into a categorical int label.
 
     Arguments:
-        mapping_fn {Callable[[Any], int]} -- A function transforming the input data to the integer label. If not specified, labels are automatically inferred from the data.
+        mapping_fn {Callable[[Any], int]} --
+            A function transforming the input data to the integer label.
+            If not specified, labels are automatically inferred from the data.
 
     Returns:
         DatasetTransformFn -- A function to be passed to the Dataset.transform()
@@ -1322,7 +1663,7 @@ def categorical(mapping_fn: Callable[[Any], int] = None) -> DatasetTransformFn:
     def auto_label(x: Any) -> int:
         nonlocal mem, maxcount
         h = hash(str(x))
-        if not h in mem.keys():
+        if h not in mem.keys():
             maxcount += 1
             mem[h] = maxcount
         return mem[h]
@@ -1369,7 +1710,9 @@ def one_hot(
 
     Arguments:
         encoding_size {int} -- The size of the encoding
-        mapping_fn {Callable[[Any], int]} -- A function transforming the input data to an integer label. If not specified, labels are automatically inferred from the data.
+        mapping_fn {Callable[[Any], int]} --
+            A function transforming the input data to an integer label.
+            If not specified, labels are automatically inferred from the data.
 
     Returns:
         DatasetTransformFn -- A function to be passed to the Dataset.transform()
@@ -1379,13 +1722,14 @@ def one_hot(
     def auto_label(x: Any) -> int:
         nonlocal mem, maxcount, encoding_size
         h = hash(str(x))
-        if not h in mem.keys():
+        if h not in mem.keys():
             maxcount += 1
             if maxcount >= encoding_size:
                 raise ValueError(
-                    "More unique labels found than were specified by the encoding size ({} given)".format(
-                        encoding_size
-                    )
+                    (
+                        "More unique labels found than were specified by "
+                        "the encoding size ({} given)"
+                    ).format(encoding_size)
                 )
             mem[h] = maxcount
         return mem[h]
@@ -1409,7 +1753,10 @@ def numpy() -> DatasetTransformFn:
 
 def image() -> DatasetTransformFn:
     return _dataset_element_transforming(
-        fn=convert2img, check=_check_image_compatibility, maintain_stats=True
+        fn=convert2img,
+        check=_check_image_compatibility,
+        maintain_stats=True,
+        operation_name="image",
     )
 
 
@@ -1418,10 +1765,12 @@ def image_resize(new_size: Shape, resample=Image.NEAREST) -> DatasetTransformFn:
     return _dataset_element_transforming(
         fn=lambda x: convert2img(x).resize(size=new_size, resample=resample),
         check=_check_image_compatibility,
+        operation_name="image_resize",
+        operation_parameters={"new_size": new_size, "resample": resample},
     )
 
 
-########## Dataset scalers #########################
+# ========= Dataset scalers =========
 
 
 def standardize(axis=0) -> DatasetTransformFn:
@@ -1441,6 +1790,8 @@ def standardize(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="standardize",
+        operation_parameters={"axis": axis},
     )
 
 
@@ -1461,6 +1812,8 @@ def center(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="center",
+        operation_parameters={"axis": axis},
     )
 
 
@@ -1484,7 +1837,10 @@ def center(axis=0) -> DatasetTransformFn:
 #         return scaler.normalize(shape=ds.shape[idx], axis=axis, norm=norm,)
 
 #     return _make_dataset_element_transforming(
-#         make_fn=make_fn, check=_check_numpy_compatibility(allow_scalars=True),
+#         make_fn=make_fn,
+#         check=_check_numpy_compatibility(allow_scalars=True),
+#         operation_name="center",
+#         operation_parameters={"axis":axis, "norm":norm}
 #     )
 
 
@@ -1512,6 +1868,8 @@ def minmax(axis=0, feature_range=(0, 1)) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="minmax",
+        operation_parameters={"axis": axis, "feature_range": feature_range},
     )
 
 
@@ -1532,28 +1890,30 @@ def maxabs(axis=0) -> DatasetTransformFn:
         make_fn=make_fn,
         check=_check_numpy_compatibility(allow_scalars=True),
         maintain_stats=True,
+        operation_name="maxabs",
+        operation_parameters={"axis": axis},
     )
 
 
-########## Compose functions ####################
+# ========= Compose functions ===================
 
 
 @_warn_no_args(skip=1)
 def zipped(*datasets: AbstractDataset):
     comp = compose.ZipDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def cartesian_product(*datasets: AbstractDataset):
     comp = compose.CartesianProductDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def concat(*datasets: AbstractDataset):
     comp = compose.ConcatDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids,)
+    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
 
 
 ########## Sampling ####################
@@ -1574,7 +1934,7 @@ def subsample(dataset, func, n_samples: int, cache_method="block") -> Dataset:
     return SubsampleDataset(dataset, func, n_samples, cache_method)
 
 
-########## Converters ####################
+# ========= Converters =========
 
 
 def _tf_compute_type(item: Any):
@@ -1617,7 +1977,11 @@ def _tf_item_conversion(item: Any):
 def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
-    ds = Dataset(downstream_getter=dataset, item_transform_fn=_tf_item_conversion)
+    ds = Dataset(
+        downstream_getter=dataset,
+        item_transform_fn=_tf_item_conversion,
+        operation_name="transform",
+    )
     item = ds[0]
     return tf.data.Dataset.from_generator(
         generator=dataset.generator,
