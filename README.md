@@ -130,12 +130,11 @@ What follows here is a list of implemented and planned features.
 ## Bibtex
 To cite the framework use:
 ```bibtex
-@misc{Hedegaard2020,
-  author = {Hedegaard, L. et al.},
+@misc{hedegaard2020datasetops,
+  author = {Hedegaard, Lukas and Leegaard, Christian M. and Oleksiienko, Illia},
   title = {Dataset Ops},
   year = {2020},
-  publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/LukasHedegaard/datasetops}}
+  howpublished = {\url{https://github.com/lukashedegaard/datasetops}}
 }
 ```
