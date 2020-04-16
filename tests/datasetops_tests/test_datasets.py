@@ -288,8 +288,7 @@ def test_reorder():
 
 
 class TestSubsample:
-
-    cars = from_csv(get_test_dataset_path(DATASET_PATHS.csv / "cars"))
+    cars = from_csv(get_test_dataset_path(DATASET_PATHS.CSV + "/cars"))
 
     def test_subsample(self):
         def func(s):
