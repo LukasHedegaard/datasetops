@@ -268,10 +268,10 @@ class TestFromIterable:
     def test_invalid(self):
 
         with pytest.raises(TypeError):
-            _ = from_iterable(None)
+            _ = from_iterable(None)  # type:ignore
 
         with pytest.raises(TypeError):
-            _ = from_iterable(10)
+            _ = from_iterable(10)  # type:ignore
 
 
 class TestLoadCSV:
@@ -284,16 +284,16 @@ class TestLoadCSV:
 
         assert len(ds) == 1
         s = ds[0]
-        s.a == [1, 2]
-        s.b == [2, 4]
-        s.c == [3, 6]
+        s.a == [1, 2]  # TODO: this should not be a named tuple
+        s.b == [2, 4]  # TODO: this should not be a named tuple
+        s.c == [3, 6]  # TODO: this should not be a named tuple
 
     def test_single_default(self):
         ds = loaders.from_csv(TestLoadCSV.cars / "car_1" / "load_1000.csv")
         assert len(ds) == 1
         s = ds[0]
-        assert s.speed == [1, 2, 3]
-        assert s.vibration == [0.5, 1.0, 1.5]
+        assert s.speed == [1, 2, 3]  # TODO: this should not be a named tuple
+        assert s.vibration == [0.5, 1.0, 1.5]  # TODO: this should not be a named tuple
 
     def test_nested_default(self):
         ds = loaders.from_csv(TestLoadCSV.cars)
