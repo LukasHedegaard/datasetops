@@ -18,8 +18,3 @@ After applying the transformations to the dataset it can be used as is or it can
 
 
 An overview of the available loaders and transforms can be found in:
-
-.. doctest::
-
-   >>> from datasetops.external_datasets import load_mnist
-   >>> ds = load_mnist()
