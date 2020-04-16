@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Callable, IO
+from datasetops.types import AnyPath
 import os
 
 
@@ -8,10 +9,12 @@ class Cache:
     DEFAULT_PATH: Path = Path(".datasetops_cache")
 
     @staticmethod
-    def clear(path: Path = None):
+    def clear(path: AnyPath = None):
 
         if path is None:
             path = Cache.DEFAULT_PATH
+
+        path = Path(path)
 
         if not path.is_dir():
             print(f"No cache at: {path}")

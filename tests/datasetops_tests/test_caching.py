@@ -52,34 +52,34 @@ def assert_cache(datasets: List[Dataset], cache_path: str = None, clear: bool = 
         cached2.close()
 
 
-def test_cachable():
+def test_cacheable():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATASET_GROUP_DATA)
     test, _ = loaders.from_folder_dataset_group_data(path)
 
-    assert test.cachable
+    assert test._cacheable
 
     test = test.image(False, True, False)
-    assert test.cachable
+    assert test._cacheable
 
     test = test.transform((read_text, None, None))
-    assert test.cachable
+    assert test._cacheable
 
     test = test.transform((None, None, read_bin))
-    assert test.cachable
+    assert test._cacheable
 
     test = test.image_resize(None, (10, 10), None)
-    assert test.cachable
+    assert test._cacheable
 
     test1, test2 = test.split([0.3, -1])
-    assert not test1.cachable
-    assert not test2.cachable
+    assert not test1._cacheable
+    assert not test2._cacheable
 
     test3, test4 = test.split([0.3, -1], 2605)
-    assert test3.cachable
-    assert test4.cachable
+    assert test3._cacheable
+    assert test4._cacheable
 
     unidentified = from_dummy_numpy_data()
-    assert not unidentified.cachable
+    assert not unidentified._cacheable
 
 
 def test_cache():

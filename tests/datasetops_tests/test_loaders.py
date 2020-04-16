@@ -12,8 +12,6 @@ from .testing_utils import (
 import numpy as np
 import pytest
 
-# tests ##########################
-
 
 def test_folder_data():
     path = get_test_dataset_path(DATASET_PATHS.FOLDER_DATA)

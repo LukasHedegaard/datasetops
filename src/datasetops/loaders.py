@@ -41,14 +41,14 @@ class Loader(Dataset):
                 return len(ids)
 
         super().__init__(
-            downstream_getter=Getter(),
+            parent=Getter(),
             name=name,
             ids=ids,
             operation_name="load",
             operation_parameters={"identifier": identifier},
         )
 
-        self.cachable = self.identifier is not None
+        self._cacheable = self.identifier is not None
 
 
 def from_iterable(iterable: Iterable, identifier: str = None) -> Dataset:

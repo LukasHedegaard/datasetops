@@ -51,8 +51,8 @@ class AbstractDataset(ItemGetter):
         pass  # pragma: no cover
 
     name = ""
-    cachable = False
     shape = None
+    _cacheable = False
     _origin = None
 
     @abstractmethod
