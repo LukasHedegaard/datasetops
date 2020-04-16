@@ -16,14 +16,15 @@ from scipy.io import loadmat
 from datasetops.dataset import zipped
 from datasetops.abstract import ItemGetter
 from datasetops.dataset import Dataset
-from datasetops.types import AnyPath, Data
-from typing import Callable, Any, Optional, Union, List, Dict, Tuple, Iterable
+from datasetops.types import AnyPath
+from typing import Callable, Any, Optional, Sequence, List, Dict, Tuple, Iterable
 
 
 class Loader(Dataset):
     def __init__(
         self,
         getdata: Callable[[Any], Any],
+        ids: Sequence[Any],
         identifier: Optional[str] = None,
         name: str = None,
     ):
@@ -36,24 +37,22 @@ class Loader(Dataset):
             def __getitem__(self, i: int):
                 return getdata(i)
 
+            def __len__(self):
+                return len(ids)
+
         super().__init__(
             downstream_getter=Getter(),
             name=name,
+            ids=ids,
             operation_name="load",
             operation_parameters={"identifier": identifier},
         )
 
         self.cachable = self.identifier is not None
 
-    def append(self, identifier: Data):
-        self._ids.append(identifier)
 
-    def extend(self, ids: Union[List[Data], np.ndarray]):
-        self._ids.extend(list(ids))
-
-
-def from_iterable(iterable: Iterable) -> Dataset:
-    """Creates a new dataset from the elements of the iterable.
+def from_iterable(iterable: Iterable, identifier: str = None) -> Dataset:
+    """Creates a new dataset from the elements of the sequence.
 
     An iterable must must implement implement at least one of the following
     functions:
@@ -61,6 +60,7 @@ def from_iterable(iterable: Iterable) -> Dataset:
 
     Arguments:
         iterable {Iterable} -- an iterable containing the samples
+        identifier {Optional[str]} -- unique identifier
 
     Returns:
         AbstractDataset -- a new dataset containing the elements of the iterable.
@@ -72,17 +72,13 @@ def from_iterable(iterable: Iterable) -> Dataset:
     It appears the most effective way of getting length of a iterable is to
     convert it to a tuple or list"""
 
-    if hasattr(iterable, "__getitem__"):
-        itr = iterable
-    else:
-        itr = tuple(iterable)
+    itr = [i for i in iterable]
 
     def getter(idx):
         nonlocal itr
         return itr[idx]
 
-    ldr = Loader(getter)
-    ldr.extend(range(len(itr)))
+    ldr = Loader(getdata=getter, ids=range(len(itr)), identifier=identifier)
     return ldr
 
 
@@ -103,8 +99,7 @@ def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
         item = pytorch_dataset[i]
         return tuple([x.numpy() if hasattr(x, "numpy") else x for x in item])
 
-    ds = Loader(get_data, identifier)
-    ds.extend(list(range(len(pytorch_dataset))))
+    ds = Loader(get_data, ids=range(len(pytorch_dataset)), identifier=identifier)
     return ds
 
 
@@ -155,8 +150,7 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
         )
         return item
 
-    ds = Loader(get_data, identifier)
-    ds.extend(list(range(len(tf_ds))))
+    ds = Loader(get_data, ids=range(len(tf_ds)), identifier=identifier)
     if type(keys[0]) == str:
         ds = ds.named([str(k) for k in keys])
     return ds
@@ -180,16 +174,21 @@ def from_folder_data(path: AnyPath) -> Dataset:
 
     """
     p = Path(path)
+    full_p = str(p.absolute())
     ids = [str(x.relative_to(p)) for x in p.glob("[!._]*")]
 
-    def get_data(i) -> Tuple:
+    def getdata(i) -> Tuple:
         nonlocal p
         return (str(p / i),)
 
     ds = Loader(
-        get_data, str(path), "Data Getter for folder with structure 'root/data'"
+        getdata,
+        ids,
+        full_p,
+        "Data Getter for folder with structure 'root/data' and path '{}'".format(
+            full_p
+        ),
     )
-    ds.extend(ids)
 
     return ds
 
@@ -214,19 +213,25 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
                    e.g. ('nested_folder/class1/sample1.jpg', 'class1')
     """
     p = Path(path)
+    full_p = str(p.absolute())
     classes = [x for x in p.glob("[!._]*")]
 
     def get_data(i) -> Tuple:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(
-        get_data, str(path), "Data Getter for folder with structure 'root/classes/data'"
-    )
-
+    ids = []
     for c in classes:
-        ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
-        ds.extend(ids)
+        ids.extend([str(x.relative_to(p)) for x in c.glob("[!._]*")])
+
+    ds = Loader(
+        get_data,
+        ids,
+        full_p,
+        "Data Getter for folder with structure 'root/classes/data' and path '{}'".format(
+            full_p
+        ),
+    )
 
     return ds
 
@@ -366,9 +371,8 @@ def _dataset_from_np_dict(
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = Loader(get_data, identifier, name=name)
-
     # populate data getter
+    ids = []
     if label_key:
         unique_labels = np.unique(reshaped_data[label_key])
 
@@ -377,9 +381,11 @@ def _dataset_from_np_dict(
                 condition=reshaped_data[label_key].squeeze() == lbl,
                 arr=reshaped_data[label_key].squeeze(),
             )
-            ds.extend(lbl_inds)
+            ids.extend(lbl_inds)
     else:
-        ds.extend(list(range(common_shape)))
+        ids.extend(list(range(common_shape)))
+
+    ds = Loader(get_data, ids, identifier, name=name)
 
     return ds
 
@@ -575,9 +581,12 @@ def from_files_list(files, load_func):
         sample = load_func(ids_to_file[i])
         return sample
 
-    ds = Loader(get_data, "files_list")
-    ds.extend(ids_to_file.keys())
-
+    ds = Loader(
+        get_data,
+        ids=list(ids_to_file.keys()),
+        name="files_list",
+        identifier=str(hash(frozenset(ids_to_file.items()))),
+    )
     return ds
 
 

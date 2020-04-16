@@ -35,17 +35,22 @@ def test_generator():
 
 
 def test_shuffle():
-    seed = 42
+
+    # empty set
+    ds = loaders.Loader(lambda i: i, [])
+    ds.shuffle()
+    assert len(ds) == 0
+
     ds = from_dummy_data()
-    expected_items = [i for i in ds]
-    ds_shuffled = ds.shuffle(seed)
-    found_items = [i for i in ds_shuffled]
 
-    # same data
-    assert set(expected_items) == set(found_items)
+    # no seed
+    ds_shuffled = ds.shuffle()
+    assert set(ds) == set(ds_shuffled)  # same data
+    assert list(ds) != list(ds_shuffled)  # different sequence
 
-    # different sequence
-    assert expected_items != found_items
+    ds_shuffled = ds.shuffle(seed=42)
+    assert set(ds) == set(ds_shuffled)  # same data
+    assert list(ds) != list(ds_shuffled)  # different sequence
 
 
 def test_sample():
@@ -409,11 +414,11 @@ def test_shape():
         return i, i
 
     # no shape yet
-    ds = loaders.Loader(get_data)
+    ds = loaders.Loader(get_data, ids=[])
     assert ds.shape == _DEFAULT_SHAPE
 
     # shape given
-    ds.append(1)
+    ds = loaders.Loader(get_data, ids=[1])
     assert ds.shape == (_DEFAULT_SHAPE, _DEFAULT_SHAPE)
 
     # numpy data

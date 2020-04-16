@@ -30,7 +30,7 @@ class Cache:
         else:
             print(f"No cache at: {path}")
 
-    def __init__(self, path) -> None:
+    def __init__(self, path: Path) -> None:
 
         if path is None:
             path = Cache.DEFAULT_PATH

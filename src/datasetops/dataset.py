@@ -26,6 +26,7 @@ from datasetops.types import (
     Ids,
     IdxSlice,
     ItemTransformFn,
+    AnyPath,
 )
 
 import datasetops.compose as compose
@@ -241,12 +242,9 @@ class Dataset(AbstractDataset):
         self._shape = None
 
         if issubclass(type(downstream_getter), AbstractDataset):
-            self.name = self._downstream_getter.name  # type: ignore
-            self._ids = (
-                list(range(len(self._downstream_getter._ids)))  # type: ignore
-                if ids is None
-                else ids
-            )
+            dg: AbstractDataset = self._downstream_getter  # type: ignore
+            self.name = dg.name
+            self._ids = range(len(dg)) if ids is None else ids
             self._item_names = getattr(downstream_getter, "_item_names", None)
             self.cachable: bool = getattr(downstream_getter, "cachable", False)
 
@@ -298,7 +296,7 @@ class Dataset(AbstractDataset):
 
     def cached(
         self,
-        path: str = None,
+        path: AnyPath = None,
         keep_loaded_items: bool = False,
         display_progress: bool = False,
     ):
@@ -310,6 +308,7 @@ class Dataset(AbstractDataset):
 
         if path is None:
             path = Cache.DEFAULT_PATH
+        path = Path(path)
 
         cache = Cache(path)
         identifier = self.get_transformation_graph().serialize()
@@ -355,7 +354,7 @@ class Dataset(AbstractDataset):
 
             return Dataset(
                 downstream_getter=self,
-                ids=list(range(len(self))),
+                ids=range(len(self)),
                 operation_name="cache",
                 operation_parameters={"identifier": identifier},
             )
@@ -693,7 +692,7 @@ class Dataset(AbstractDataset):
             fractions = [x if x != -1 else wildcard for x in fractions]
 
         # create shuffled list
-        new_ids = list(range(len(self)))
+        new_ids = list(list(range(len(self))))
         random.shuffle(new_ids)
 
         # split according to fractions
@@ -756,10 +755,8 @@ class Dataset(AbstractDataset):
             [type] -- [description]
         """
         new_ids = {
-            "whole": lambda: [i for _ in range(times) for i in list(range(len(self)))],
-            "itemwise": lambda: [
-                i for i in list(range(len(self))) for _ in range(times)
-            ],
+            "whole": lambda: [i for _ in range(times) for i in range(len(self))],
+            "itemwise": lambda: [i for i in range(len(self)) for _ in range(times)],
         }[mode]()
 
         return Dataset(

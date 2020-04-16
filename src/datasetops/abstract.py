@@ -39,6 +39,10 @@ class ItemGetter(ABC):
     def __getitem__(self, i: int) -> Tuple:
         pass  # pragma: no cover
 
+    @abstractmethod
+    def __len__(self):
+        pass  # pragma: no cover
+
 
 class AbstractDataset(ItemGetter):
     """Abstract base class defining a generic dataset interface."""
