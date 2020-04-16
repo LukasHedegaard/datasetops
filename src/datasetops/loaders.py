@@ -455,7 +455,13 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
     return sorted(datasets, key=lambda d: d.name)
 
 
-def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **kwargs):
+def from_csv(
+    path: AnyPath,
+    load_func=lambda path, data: data,
+    predicate_func=lambda path: True,
+    data_format="tuple",
+    **kwargs,
+):
     """Load data stored as comma-separated values (CSV).
     The csv-data can be stored as either a single file or in several smaller
     files stored in a tree structure.
@@ -492,20 +498,7 @@ def from_csv(path, load_func=None, predicate_func=None, data_format="tuple", **k
             └── load_2000.csv
 
     """
-
     p = Path(path)
-
-    # Since there are no standardized filename extension for CSV files,
-    # we assume that every file is csv unless specified otherwise.
-    if predicate_func is None:
-
-        def predicate_func(path):
-            return True
-
-    if load_func is None:  # noqa: C901
-
-        def load_func(path, data):
-            return data
 
     formats = {"tuple", "numpy", "dataframe"}
 
@@ -561,7 +554,7 @@ def _read_single_csv(path: Path, data_format, kwargs):
     return data
 
 
-def from_files_list(files, load_func):
+def from_files_list(files: Sequence[AnyPath], load_func: Callable[[AnyPath], Any]):
     """Reads a list of files using by invoking a user-defined function on each file.
     The function is invoked with the path of each file and must return a new sample.
 
@@ -590,7 +583,9 @@ def from_files_list(files, load_func):
     return ds
 
 
-def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Dataset:
+def from_recursive_files(
+    root: AnyPath, load_func: Callable[[AnyPath], Any], predicate_func=lambda x: True
+) -> Dataset:
     """Provides functionality to load files stored in a tree structure in a recursively in a generic manner.
     A callback function must be specified which is invoked with the path of each file.
     When called this function should return a sample corresponding to the contents of the file.
@@ -619,13 +614,7 @@ def from_recursive_files(root: AnyPath, load_func, predicate_func=None) -> Datas
             ├── subject_c.txt
             └── subject_d.txt
     """
-
     root_dir = Path(root)
-
-    if predicate_func is None:
-
-        def predicate_func(_):
-            return True
 
     # find all files matching predicate function
     matches = []

@@ -1203,7 +1203,9 @@ class Dataset(AbstractDataset):
 
 
 class SubsampleDataset(Dataset):
-    def __init__(self, dataset: Dataset, subsample_func, n_ss: int, cache_method=None):
+    def __init__(
+        self, dataset: Dataset, subsample_func, n_ss: int, cache_method: str = None
+    ):
 
         if n_ss < 1:
             raise ValueError(
@@ -1217,13 +1219,12 @@ class SubsampleDataset(Dataset):
                 "Unable to perform subsampling, cache method: {cache_methods} is invalid, possible values are {valid_cache_methods}"
             )
 
-        new_ids = list(range(0, len(dataset) * n_ss))
+        new_ids = range(0, len(dataset) * n_ss)
 
-        # super().__init__(self, ids=new_ids) # TODO why does every class deriving from Dataset have to define _ids?
         super().__init__(dataset, ids=new_ids, operation_name="subsample")
 
-        self.cached = {}
-        self.subsample_func = subsample_func
+        self._cached = {}
+        self._subsample_func = subsample_func
         self.n_ss = n_ss
         self.dataset = dataset
         self.cache_method = cache_method
@@ -1246,7 +1247,7 @@ class SubsampleDataset(Dataset):
         else:
 
             ds_sample = self.dataset[ds_idx]
-            ss = self.subsample_func(ds_sample)
+            ss = self._subsample_func(ds_sample)
             n_actual = None
             # ensure that subsampling function has returned the correct value of subsamples
             try:
@@ -1269,14 +1270,14 @@ class SubsampleDataset(Dataset):
         return ss_idx // self.n_ss
 
     def _is_subsample_cached(self, ss_idx):
-        return self._get_downstream_idx(ss_idx) in self.cached
+        return self._get_downstream_idx(ss_idx) in self._cached
 
     def _get_cached_subsample(self, ss_idx):
         assert self._is_subsample_cached(ss_idx)
 
         ds_idx = self._get_downstream_idx(ss_idx)
         ss_relative_idx = ss_idx % self.n_ss
-        return self.cached[ds_idx][ss_relative_idx]
+        return self._cached[ds_idx][ss_relative_idx]
 
     def _do_cache_for(self, ds_idx, ss):
         """Caches the values read from the specified index of the downstream data set.
@@ -1293,9 +1294,9 @@ class SubsampleDataset(Dataset):
                 ds_idx != self.last_downstream_idx
                 and self.last_downstream_idx is not None
             ):
-                del self.cached[self.last_downstream_idx]
+                del self._cached[self.last_downstream_idx]
 
-            self.cached[ds_idx] = ss
+            self._cached[ds_idx] = ss
             self.last_downstream_idx = ds_idx
 
 
@@ -1350,19 +1351,18 @@ class SupersampleDataset(Dataset):
         return self.func(ss)
 
 
-# Handy decorators ####################
 class StreamDataset(Dataset):
     def __init__(
         self, stream: IO, identifier: str, keep_loaded_items: bool = False
     ) -> None:
 
         self._last_accessed_id: int = -1
-        self.__loaded_items: List[Tuple] = []
-        self.__stream: IO = stream
-        self.keep_loaded_items: bool = keep_loaded_items
+        self._loaded_items: List[Tuple] = []
+        self._stream: IO = stream
+        self._keep_loaded_items: bool = keep_loaded_items
 
-        length: int = self.__read_once()
-        names: List[str] = self.__read_once()
+        length: int = self._read_once()
+        names: List[str] = self._read_once()
 
         super().__init__(
             self,
@@ -1375,62 +1375,62 @@ class StreamDataset(Dataset):
         self.cachable = True
 
     @property
-    def allow_random_access(self) -> bool:
-        return self.keep_loaded_items
+    def _allow_random_access(self) -> bool:
+        return self._keep_loaded_items
 
-    def __skip_header(self):
+    def _skip_header(self):
         for i in range(2):
-            self.__read_once()
+            self._read_once()
 
-    def __read_once(self):
-        return dill.load(self.__stream)
+    def _read_once(self):
+        return dill.load(self._stream)
 
-    def __reset(self, clear_loaded_items: bool = False):
+    def _reset(self, clear_loaded_items: bool = False):
         self._last_accessed_id = -1
-        self.__stream.seek(0)
-        self.__skip_header()
+        self._stream.seek(0)
+        self._skip_header()
 
         if clear_loaded_items:
-            self.__loaded_items.clear()
+            self._loaded_items.clear()
 
-    def __read_item(self):
+    def _read_item(self):
         self._last_accessed_id += 1
 
-        item = self.__read_once()
+        item = self._read_once()
 
-        if self.keep_loaded_items:
-            self.__loaded_items.append(item)
+        if self._keep_loaded_items:
+            self._loaded_items.append(item)
 
         if self._last_accessed_id + 1 == len(self):
-            self.__reset()
+            self._reset()
 
         return item
 
     def __getitem__(self, i: int) -> Tuple:
 
-        if len(self.__loaded_items) > i:
-            return self.__loaded_items[i]
+        if len(self._loaded_items) > i:
+            return self._loaded_items[i]
         else:
             is_next = i == (self._last_accessed_id + 1)
 
             if is_next:
-                item = self.__read_item()
+                item = self._read_item()
                 return item
-            elif self.allow_random_access:
+            elif self._allow_random_access:
 
                 item = ()
 
                 while (self._last_accessed_id < i) and not (
                     i == len(self) - 1 and self._last_accessed_id == -1
                 ):
-                    item = self.__read_item()
+                    item = self._read_item()
 
                 return item
             else:
                 raise Exception("Random access is not allowed")
 
     def close(self):
-        self.__stream.close()
+        self._stream.close()
 
 
 # ========= Handy decorators =========
