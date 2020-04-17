@@ -282,16 +282,16 @@ class TestLoadCSV:
 
         assert len(ds) == 1
         s = ds[0]
-        s.a == [1, 2]  # TODO: this should not be a named tuple
-        s.b == [2, 4]  # TODO: this should not be a named tuple
-        s.c == [3, 6]  # TODO: this should not be a named tuple
+        s[0] == [1, 2]
+        s[1] == [2, 4]
+        s[2] == [3, 6]
 
     def test_single_default(self):
         ds = loaders.from_csv(TestLoadCSV.cars / "car_1" / "load_1000.csv")
         assert len(ds) == 1
         s = ds[0]
-        assert s.speed == [1, 2, 3]  # TODO: this should not be a named tuple
-        assert s.vibration == [0.5, 1.0, 1.5]  # TODO: this should not be a named tuple
+        assert s[0] == [1, 2, 3]
+        assert s[1] == [0.5, 1.0, 1.5]
 
     def test_nested_default(self):
         ds = loaders.from_csv(TestLoadCSV.cars)

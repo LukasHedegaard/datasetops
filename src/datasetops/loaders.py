@@ -546,6 +546,7 @@ def _read_single_csv(path: Path, data_format, kwargs):
         try:
             Row = namedtuple("Row", data.columns)
             data = Row(*data.to_numpy().T.tolist())
+            data = tuple(data)
         except Exception:
             data = tuple(data.to_numpy().T.tolist())
     elif data_format == "numpy":

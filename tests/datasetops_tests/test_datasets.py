@@ -299,8 +299,8 @@ class TestSubsample:
         assert len(ds) == 8
 
         s = ds[0]
-        assert len(s.speed) == 3
-        assert len(s.vibration) == 3
+        assert len(s[0]) == 3
+        assert len(s[1]) == 3
 
     def test_invalid_subsample_func(self):
 
