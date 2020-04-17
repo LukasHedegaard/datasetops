@@ -106,7 +106,7 @@ how each sample should be divided. This function must return an iterable consist
     >>> ds = do.loaders.from_iterable([(1,1),(2,2)])
     >>> len(ds)
     2
-    >>> ds = ds.subsample(func, n_samples=2)
+    >>> ds = ds.subsample(func, sampling_ratio=2)
     >>> len(ds)
     4
 
@@ -164,7 +164,7 @@ The transform can be seen as the inverse of :ref:`subsample <tf_subsample>`.
 >>> ds = do.loaders.from_iterable([1,2,3,4,5,6])
 >>> len(ds) == 6
 True
->>> ds = ds.supersample(sum, n_samples=2)
+>>> ds = ds.supersample(sum, sampling_ratio=2)
 >>> len(ds) == 3
 True
 >>> list(ds)

@@ -499,32 +499,32 @@ class Dataset(AbstractDataset):
         """
         return [x[0] for x in self.counts(*itemkeys)]
 
-    def subsample(self, func, n_samples: int, cache_method="block"):
+    def subsample(self, subsample_func, sampling_ratio: int, cache_method="block"):
         """Divide each sample in the dataset into several sub-samples using a user-defined function.
         The function must take a single sample as an argument and must return a list of samples.
 
         Arguments:
-            func {Callable} -- function defining how each sample should divided.
-            n_samples {int} -- the number of sub-samples produced for each sample.
+            subsample_func {Callable} -- function defining how each sample should divided.
+            sampling_ratio {int} -- the number of sub-samples produced for each sample.
             cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
 
         Returns:
             Dataset -- a new dataset containing the subsamples.
         """
-        return SubsampleDataset(self, func, n_samples, cache_method)
+        return SubsampleDataset(self, subsample_func, sampling_ratio, cache_method)
 
-    def supersample(self, func, n_samples: int):
+    def supersample(self, supersample_func, sampling_ratio: int):
         """Combines several samples into a smaller number of samples using a user-defined function.
         The function is invoked with an iterable of and must return a single sample.
 
         Arguments:
-            func {[type]} -- a function used to transform a number of samples into a single supersample
-            n_samples {int} -- number of samples required to produce each supersample
+            supersample_func {[type]} -- a function used to transform a number of samples into a single supersample
+            sampling_ratio {int} -- number of samples required to produce each supersample
 
         Returns:
             [Dataset] -- a new dataset containing the supersamples
         """
-        return SupersampleDataset(self, func, n_samples)
+        return SupersampleDataset(self, supersample_func, sampling_ratio)
 
     def sample(self, num: int, seed: int = None):
         """Sample data randomly from the dataset.
@@ -1203,11 +1203,27 @@ class Dataset(AbstractDataset):
 
 class SubsampleDataset(Dataset):
     def __init__(
-        self, dataset: Dataset, subsample_func, n_ss: int, cache_method: str = None
+        self,
+        dataset: Dataset,
+        subsample_func,
+        sampling_ratio: int,
+        cache_method: str = None,
     ):
-        if n_ss < 1:
+        """Divide each sample in the dataset into several sub-samples using a user-defined function.
+        The function must take a single sample as an argument and must return a list of samples.
+
+        Arguments:
+            dataset {[AbstractDataset]} -- dataset containing the samples which are sub-sampled.
+            subsample_func {Callable} -- function defining how each sample should divided.
+            sampling_ratio {int} -- the number of sub-samples produced for each sample.
+            cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
+
+        Returns:
+            Dataset -- a new dataset containing the subsamples.
+        """
+        if sampling_ratio < 1:
             raise ValueError(
-                "Unable to perform subsampling, value of n_ss should be greater than one."
+                "Unable to perform subsampling, value of sampling_ratio should be greater than one."
             )
 
         valid_cache_methods = {"block", None}
@@ -1217,16 +1233,15 @@ class SubsampleDataset(Dataset):
                 "Unable to perform subsampling, cache method: {cache_methods} is invalid, possible values are {valid_cache_methods}"
             )
 
-        new_ids = range(0, len(dataset) * n_ss)
+        new_ids = range(0, len(dataset) * sampling_ratio)
 
         super().__init__(dataset, ids=new_ids, operation_name="subsample")
 
         self._cached = {}
         self._subsample_func = subsample_func
-        self.n_ss = n_ss
-        self.dataset = dataset
-        self.cache_method = cache_method
-        self.last_downstream_idx = None
+        self._sampling_ratio = sampling_ratio
+        self._cache_method = cache_method
+        self._last_parent_idx = None
 
     def __getitem__(self, ss_idx):
         """Gets the subsample corresponding to the
@@ -1238,13 +1253,13 @@ class SubsampleDataset(Dataset):
             [Any] -- the subsample corresponding to the specified index
         """
 
-        ds_idx = self._get_downstream_idx(ss_idx)
+        ds_idx = self._get_parent_idx(ss_idx)
 
         if self._is_subsample_cached(ss_idx):
             return self._get_cached_subsample(ss_idx)
         else:
 
-            ds_sample = self.dataset[ds_idx]
+            ds_sample = self._parent[ds_idx]
             ss = self._subsample_func(ds_sample)
             n_actual = None
             # ensure that subsampling function has returned the correct value of subsamples
@@ -1255,58 +1270,59 @@ class SubsampleDataset(Dataset):
                     f"subsampling function returned: {n_actual}, this should be an iterable"
                 )
 
-            if n_actual != self.n_ss:
+            if n_actual != self._sampling_ratio:
                 raise RuntimeError(
-                    f"subsampling function returned {n_actual} subsamples, which is different than the expected: {self.n_ss}"
+                    f"subsampling function returned {n_actual} subsamples, which is different than the expected: {self._sampling_ratio}"
                 )
 
             self._do_cache_for(ds_idx, ss)
-            ss_relative_idx = ss_idx % self.n_ss
+            ss_relative_idx = ss_idx % self._sampling_ratio
             return ss[ss_relative_idx]
 
-    def _get_downstream_idx(self, ss_idx):
-        return ss_idx // self.n_ss
+    def _get_parent_idx(self, ss_idx):
+        return ss_idx // self._sampling_ratio
 
     def _is_subsample_cached(self, ss_idx):
-        return self._get_downstream_idx(ss_idx) in self._cached
+        return self._get_parent_idx(ss_idx) in self._cached
 
     def _get_cached_subsample(self, ss_idx):
         assert self._is_subsample_cached(ss_idx)
 
-        ds_idx = self._get_downstream_idx(ss_idx)
-        ss_relative_idx = ss_idx % self.n_ss
+        ds_idx = self._get_parent_idx(ss_idx)
+        ss_relative_idx = ss_idx % self._sampling_ratio
         return self._cached[ds_idx][ss_relative_idx]
 
     def _do_cache_for(self, ds_idx, ss):
-        """Caches the values read from the specified index of the downstream data set.
+        """Caches the values read from the specified index of the parent data set.
 
         Arguments:
-            ds_idx {Idx} -- index of the last read downstream sample
-            ss {Tuple[Any]} -- the items produced by subsampling the downstream dataset at the specified index.
+            ds_idx {Idx} -- index of the last read parent sample
+            ss {Tuple[Any]} -- the items produced by subsampling the parent dataset at the specified index.
         """
 
-        if self.cache_method is None:
+        if self._cache_method is None:
             return
-        elif self.cache_method == "block":
-            if (
-                ds_idx != self.last_downstream_idx
-                and self.last_downstream_idx is not None
-            ):
-                del self._cached[self.last_downstream_idx]
+        elif self._cache_method == "block":
+            if ds_idx != self._last_parent_idx and self._last_parent_idx is not None:
+                del self._cached[self._last_parent_idx]
 
             self._cached[ds_idx] = ss
-            self.last_downstream_idx = ds_idx
+            self._last_parent_idx = ds_idx
 
 
 class SupersampleDataset(Dataset):
     def __init__(
-        self, dataset, func, sampling_ratio: int, excess_samples_policy="discard"
+        self,
+        dataset,
+        supersample_func,
+        sampling_ratio: int,
+        excess_samples_policy="discard",
     ):
         """Performs supersampling on the provided dataset.
 
         Arguments:
             dataset {AbstractDataset} -- the dataset which the supersampling is applied to
-            func {Callable} -- function used to combine several samples into a single supersample.
+            supersample_func {Callable} -- function used to combine several samples into a single supersample.
             sampling_ratio {int} -- the number of samples used to produce a each supersample.
 
         Keyword Arguments:
@@ -1336,16 +1352,15 @@ class SupersampleDataset(Dataset):
 
         super().__init__(dataset, ids=new_ids, operation_name="supersample")
 
-        self.sampling_ratio = sampling_ratio
-        self.func = func
-        self.dataset = dataset
+        self._supersample_func = supersample_func
+        self._sampling_ratio = sampling_ratio
 
     def __getitem__(self, idx):
-        start = idx * self.sampling_ratio
-        end = start + self.sampling_ratio
-        ss = self.dataset[start:end]
+        start = idx * self._sampling_ratio
+        end = start + self._sampling_ratio
+        ss = self._parent[start:end]
 
-        return self.func(ss)
+        return self._supersample_func(ss)
 
 
 class StreamDataset(Dataset):
@@ -1903,21 +1918,42 @@ def concat(*datasets: AbstractDataset):
 
 
 # ========= Sampling ===================
-def subsample(dataset, func, n_samples: int, cache_method="block") -> Dataset:
+def subsample(
+    dataset, subsample_func, sampling_ratio: int, cache_method="block"
+) -> Dataset:
     """Divide each sample in the dataset into several sub-samples using a user-defined function.
     The function must take a single sample as an argument and must return a list of samples.
 
     Arguments:
         dataset {[type]} -- dataset containing the samples which are sub-sampled.
-        func {Callable} -- function defining how each sample should divided.
-        n_samples {int} -- the number of sub-samples produced for each sample.
+        subsample_func {Callable} -- function defining how each sample should divided.
+        sampling_ratio {int} -- the number of sub-samples produced for each sample.
         cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
 
     Returns:
         Dataset -- a new dataset containing the subsamples.
     """
 
-    return SubsampleDataset(dataset, func, n_samples, cache_method)
+    return SubsampleDataset(dataset, subsample_func, sampling_ratio, cache_method)
+
+
+def supersample(
+    dataset, supersample_func, sampling_ratio: int, excess_samples_policy="discard"
+) -> Dataset:
+    """Performs supersampling on the provided dataset.
+
+    Arguments:
+        dataset {AbstractDataset} -- the dataset which the supersampling is applied to
+        supersample_func {Callable} -- function used to combine several samples into a single supersample.
+        sampling_ratio {int} -- the number of samples used to produce a each supersample.
+
+    Keyword Arguments:
+        excess_samples_policy {str} -- defines how left over samples should be treated. Possible values are {"discard","error"} (default: {"discard"})
+    """
+
+    return SupersampleDataset(
+        dataset, supersample_func, sampling_ratio, excess_samples_policy
+    )
 
 
 # ========= Converters =========
