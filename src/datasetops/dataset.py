@@ -79,19 +79,35 @@ def _key_index(item_names: ItemNames, key: Key) -> int:
         return item_names[str(key)]
 
 
+def inds_from_key_sequence(
+    item_names: ItemNames,
+    key_or_list: Union[Key, Sequence[Key]],
+    rest_keys: Sequence[Key],
+) -> List[int]:
+    """Retreive element indices from a sequence of keys"""
+    key_list: List[Key] = (
+        list(key_or_list)  # type:ignore
+        if type(key_or_list) in {list, tuple}
+        else [key_or_list]  # type:ignore
+    ) + list(rest_keys)
+
+    inds = [_key_index(item_names, k) for k in key_list]
+    return inds
+
+
 def _idxSlice_to_ids(idx: IdxSlice, length: int):
     """Convert a single index or a slice to a list of indicies for a iterable of the specified length.
 
-    Arguments:
-        idx {IdxSlice} -- a single index or a slice
-        length {int} -- length of the iterable
+     Arguments:
+         idx {IdxSlice} -- a single index or a slice
+         length {int} -- length of the iterable
 
-    Raises:
-        IndexError: raised if single index is provided that is out of bounds.
+     Raises:
+         IndexError: raised if single index is provided that is out of bounds.
 
-    Returns:
-        List[int] -- a list of indicies
-    """
+     Returns:
+         List[int] -- a list of indicies
+     """
 
     if isinstance(idx, slice):
         ids = [i for i in range(*idx.indices(length))]
@@ -472,26 +488,40 @@ class Dataset(AbstractDataset):
         self._shape = shape
         return shape
 
-    @functools.lru_cache(4)
-    @_warn_no_args(skip=1)
-    def counts(self, *itemkeys: Key) -> List[Tuple[Any, int]]:
+    # @functools.lru_cache(4)
+    def counts(
+        self, key_or_list: Union[Key, Sequence[Key]] = None, *rest_keys: Key
+    ) -> List[Tuple[Any, int]]:
         """Compute the counts of each unique item in the dataset.
 
         Warning: this operation may be expensive for large datasets
 
+        Allows passing arguments as either of
+
+        .. code-block::
+
+            counts(0,1)
+            counts([0,1])
+            counts((0,1))
+            counts("one","two)
+            ...
+
         Arguments:
-            itemkeys {Union[str, int]} --
-                The item keys (str) or indexes (int) to be checked for uniqueness.
-                If no key is given, all item-parts must match for them to be
-                considered equal
+            key_or_list {Union[Key, Sequence[Key]]} --
+                first element can be a single key (int or str) or a sequence of keys
+            rest_keys {Key} --
+                remaining elements are keys
 
         Returns:
             List[Tuple[Any,int]] -- List of tuples, each containing the unique value
                                     and its number of occurences
         """
-        inds: List[int] = [_key_index(self._item_names, k) for k in itemkeys]
+        if key_or_list:
+            inds = inds_from_key_sequence(self._item_names, key_or_list, rest_keys)
+        else:
+            inds = []
 
-        if len(itemkeys) == 0:
+        if len(inds) == 0:
 
             def selector(item):
                 return item
@@ -798,28 +828,29 @@ class Dataset(AbstractDataset):
             operation_parameters={"times": copies, "mode": mode},
         )
 
-<<<<<<< HEAD
-    def reorder(self, *keys: Key) -> "Dataset":
-=======
     def reorder(self, key_or_list: Union[Key, Sequence[Key]], *rest_keys: Key):
->>>>>>> Add option to pass sequence to `reorder`
         """Reorder items in the dataset (similar to numpy.transpose).
 
+        Allows passing arguments as either of
+
+        .. code-block::
+
+            operation(0,1)
+            operation([0,1])
+            operation((0,1))
+            operation("one","two)
+            ...
+
         Arguments:
-            new_inds {Union[int,str]} -- positioned item index or key (if item names
-                                         were previously set) of item
+            key_or_list {Union[Key, Sequence[Key]]} --
+                first element can be a single key (int or str) or a sequence of keys
+            rest_keys {Key} --
+                remaining elements are keys
 
         Returns:
             [Dataset] -- Dataset with items whose elements have been reordered
         """
-
-        key_list: List[Key] = (
-            list(key_or_list)  # type:ignore
-            if type(key_or_list) in {list, tuple}
-            else [key_or_list]  # type:ignore
-        ) + list(rest_keys)
-
-        inds = [_key_index(self._item_names, k) for k in key_list]
+        inds = inds_from_key_sequence(self._item_names, key_or_list, rest_keys)
 
         for i in inds:
             if i > len(self.shape):
@@ -835,14 +866,14 @@ class Dataset(AbstractDataset):
 
         item_names = None
         if self._item_names:
-            if len(set(key_list)) < len(key_list):
+            if len(set(inds)) < len(inds):
                 warnings.warn(
                     "discarding item_names due to otherwise non-unique labels on "
                     "transformed dataset"
                 )
             else:
                 item_names = {
-                    k: inds[v] for k, v in self._item_names.items() if v < len(inds)
+                    lbl: inds.index(idx) for lbl, idx in self._item_names.items() if idx in inds
                 }
 
         return Dataset(
@@ -850,7 +881,7 @@ class Dataset(AbstractDataset):
             item_transform_fn=item_transform_fn,
             item_names=item_names,
             operation_name="reorder",
-            operation_parameters={"keys": key_list},
+            operation_parameters={"keys": inds},
         )
 
     def named(self, first: Union[str, Sequence[str]], *rest: str) -> "Dataset":
@@ -966,7 +997,7 @@ class Dataset(AbstractDataset):
                          labels
         """
         idx: int = _key_index(self._item_names, key)
-        mapping_fn = mapping_fn or categorical_template(self, key)
+        mapping_fn = mapping_fn or categorical_template(self, idx)
         args = [[mapping_fn] or [] if i == idx else None for i in range(idx + 1)]
         return _optional_argument_indexed_transform(
             self.shape, self.transform, transform_fn=categorical, args=args
@@ -1752,6 +1783,9 @@ def categorical_template(ds: Dataset, key: Key) -> Callable[[Any], int]:
         {Callable[[Any],int]} -- mapping_fn for one_hot
     """
     unq = ds.unique(key)
+    if type(unq[0]) == tuple:
+        unq = [t[0] for t in unq]
+
     if type(unq[0]) == np.ndarray:
 
         def mapper(x):

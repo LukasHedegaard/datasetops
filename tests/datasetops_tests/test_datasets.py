@@ -454,14 +454,15 @@ def test_counts():
 
     counts = ds.counts("label")  # name based
     counts_alt = ds.counts(1)  # index based
+    counts_alt1 = ds.counts([1])  # index based
+    counts_alt2 = ds.counts((1,))  # index based
 
     expected_counts = [("a", 5), ("b", num_total - 5)]
-    assert counts == counts_alt == expected_counts
+    assert counts == counts_alt == counts_alt1 == counts_alt2 == expected_counts
 
-    with pytest.warns(UserWarning):
-        counts_all = ds.counts()
-        # count all if no args are given
-        assert set(counts_all) == set([(x, 1) for x in ds])
+    counts_all = ds.counts()
+    # count all if no args are given
+    assert set(counts_all) == set([(x, 1) for x in ds])
 
 
 def test_unique():
@@ -926,7 +927,7 @@ def test_to_tensorflow():
     preds = model.predict(tf_ds)
     pred_labels = np.argmax(preds, axis=1)
 
-    expected_labels = np.array([v[0] for v in ds.reorder("label").categorical(0)])
+    expected_labels = np.array([v[0] for v in ds.reorder("label").categorical("label")])
     assert sum(pred_labels == expected_labels) > len(ds) // 2  # type:ignore
 
 
