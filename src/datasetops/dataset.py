@@ -775,27 +775,27 @@ class Dataset(AbstractDataset):
             operation_parameters={"num": num},
         )
 
-    def repeat(self, times=1, mode="itemwise") -> "Dataset":
+    def repeat(self, copies=1, mode="whole"):
         """Repeat the dataset elements.
 
         Keyword Arguments:
-            times {int} -- Number of times an element is repeated (default: {1})
+            copies {int} -- Number of copies an element is repeated (default: {1})
             mode {str} -- Repeat 'itemwise' (i.e. [1,1,2,2,3,3]) or as a 'whole'
-                          (i.e. [1,2,3,1,2,3]) (default: {'itemwise'})
+                          (i.e. [1,2,3,1,2,3]) (default: {'whole'})
 
         Returns:
             [type] -- [description]
         """
         new_ids = {
-            "whole": lambda: [i for _ in range(times) for i in range(len(self))],
-            "itemwise": lambda: [i for i in range(len(self)) for _ in range(times)],
+            "whole": lambda: [i for _ in range(copies) for i in range(len(self))],
+            "itemwise": lambda: [i for i in range(len(self)) for _ in range(copies)],
         }[mode]()
 
         return Dataset(
             parent=self,
             ids=new_ids,
             operation_name="repeat",
-            operation_parameters={"times": times, "mode": mode},
+            operation_parameters={"times": copies, "mode": mode},
         )
 
     def reorder(self, *keys: Key) -> "Dataset":

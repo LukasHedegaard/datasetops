@@ -200,14 +200,14 @@ def test_repeat():
     ds = from_dummy_data()
 
     # itemwise
-    ds_item = ds.repeat(3)
-    ds_item_alt = ds.repeat(3, mode="itemwise")
+    ds_item = ds.repeat(3, mode="itemwise")
 
-    assert set(ds) == set(ds_item_alt)
-    assert list(ds_item) == list(ds_item_alt)
+    assert set(ds) == set(ds_item)
 
     # whole
     ds_whole = ds.repeat(2, mode="whole")
+    ds_whole_alt = ds.repeat(2)
+    assert list(ds_whole_alt) == list(ds_whole)
     assert set(ds) == set(ds_whole)
     assert list(ds) == list(ds_whole)[: len(ds)] == list(ds_whole)[len(ds) :]
 
