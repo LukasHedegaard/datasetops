@@ -248,6 +248,7 @@ _CACHEABLE_OPERATIONS = [
     "transform",
     "supersample",
     "subsample",
+    "named",
 ]
 
 # ========= Dataset =========
@@ -920,8 +921,13 @@ class Dataset(AbstractDataset):
         names.extend(rest)
 
         assert (len(names) <= len(self.shape)) or len(self) == 0
-        self._item_names = {n: i for i, n in enumerate(names)}
-        return self
+        item_names = {n: i for i, n in enumerate(names)}
+        return Dataset(
+            parent=self,
+            item_names=item_names,
+            operation_name="named",
+            operation_parameters={"names": names},
+        )
 
     @property
     def names(self) -> List[str]:

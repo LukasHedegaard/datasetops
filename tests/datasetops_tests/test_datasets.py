@@ -223,8 +223,7 @@ def test_take():
 
 
 def test_reorder():
-    ds = from_dummy_numpy_data()
-    ds.named("mydata", "mylabel")
+    ds = from_dummy_numpy_data().named("mydata", "mylabel")
 
     # error scenarios
     with pytest.raises(ValueError):
@@ -518,16 +517,17 @@ def test_item_naming():
         ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
     # passed one by one as arguments
-    ds.named(*item_names)
-    assert ds.names == item_names
+    ds_named = ds.named(*item_names)
+    assert ds.names == []  # old dataset is unchanged
+    assert ds_named.names == item_names
 
     # passed in a list, overide previous
     item_names2 = ["moddata", "modlabel"]
-    ds.named(item_names2)  # type: ignore
-    assert ds.names == item_names2
+    ds_named = ds.named(item_names2)  # type: ignore
+    assert ds_named.names == item_names2
 
     # test named transform syntax
-    ds_trans = ds.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+    ds_trans = ds_named.transform(moddata=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
     items_trans = [x for x in ds_trans]
     for (old_data, _), (new_data, _) in zip(items, items_trans):
         assert set(old_data) == set(new_data.flatten())
@@ -535,7 +535,7 @@ def test_item_naming():
 
     # invalid name doesn't work
     with pytest.raises(Exception):
-        ds.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
+        ds_named.transform(badname=reshape(DUMMY_NUMPY_DATA_SHAPE_2D))
 
 
 def test_categorical():
