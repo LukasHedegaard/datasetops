@@ -469,11 +469,11 @@ def test_unique():
     ds = from_dummy_data(with_label=True).named("data", "label")
 
     unique_labels = ds.unique("label")
-    assert unique_labels == ["a", "b"]
+    unique_labels_alt = ds.unique(["label"])
+    assert unique_labels == unique_labels_alt == ["a", "b"]
 
-    with pytest.warns(UserWarning):
-        unique_items = ds.unique()
-        assert unique_items == list(ds)
+    unique_items = ds.unique()
+    assert unique_items == list(ds)
 
 
 def test_shape():

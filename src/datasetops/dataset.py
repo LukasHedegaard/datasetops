@@ -81,10 +81,13 @@ def _key_index(item_names: ItemNames, key: Key) -> int:
 
 def inds_from_key_sequence(
     item_names: ItemNames,
-    key_or_list: Union[Key, Sequence[Key]],
-    rest_keys: Sequence[Key],
+    key_or_list: Union[Key, Sequence[Key]] = None,
+    rest_keys: Sequence[Key] = tuple(),
 ) -> List[int]:
     """Retreive element indices from a sequence of keys"""
+    if key_or_list is None:
+        return []
+
     key_list: List[Key] = (
         list(key_or_list)  # type:ignore
         if type(key_or_list) in {list, tuple}
@@ -516,10 +519,7 @@ class Dataset(AbstractDataset):
             List[Tuple[Any,int]] -- List of tuples, each containing the unique value
                                     and its number of occurences
         """
-        if key_or_list:
-            inds = inds_from_key_sequence(self._item_names, key_or_list, rest_keys)
-        else:
-            inds = []
+        inds = inds_from_key_sequence(self._item_names, key_or_list, rest_keys)
 
         if len(inds) == 0:
 
@@ -548,19 +548,34 @@ class Dataset(AbstractDataset):
 
         return [(unique_items[k], item_counts[k]) for k in unique_items.keys()]
 
-    @_warn_no_args(skip=1)
-    def unique(self, *itemkeys: Key) -> List[Any]:
+    def unique(
+        self, key_or_list: Union[Key, Sequence[Key]] = None, *rest_keys: Key
+    ) -> List[Any]:
         """Compute a list of unique values in the dataset.
 
         Warning: this operation may be expensive for large datasets
 
+        Allows passing arguments as either of
+
+        .. code-block::
+
+            unique(0,1)
+            unique([0,1])
+            unique((0,1))
+            unique("one","two)
+            ...
+
         Arguments:
-            itemkeys {str} -- The item keys to be checked for uniqueness
+            key_or_list {Union[Key, Sequence[Key]]} --
+                first element can be a single key (int or str) or a sequence of keys
+            rest_keys {Key} --
+                remaining elements are keys
 
         Returns:
             List[Any] -- List of the unique items
         """
-        return [x[0] for x in self.counts(*itemkeys)]
+        inds = inds_from_key_sequence(self._item_names, key_or_list, rest_keys)
+        return [x[0] for x in self.counts(inds)]
 
     def subsample(self, subsample_func, sampling_ratio: int, cache_method="block"):
         """Divide each sample in the dataset into several sub-samples using a user-defined function.
