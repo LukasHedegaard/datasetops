@@ -227,11 +227,6 @@ def test_reorder():
     ds.named("mydata", "mylabel")
 
     # error scenarios
-    with pytest.warns(UserWarning):
-        # no order given
-        ds_ignored = ds.reorder()
-        assert ds == ds_ignored
-
     with pytest.raises(ValueError):
         # indexes out of range
         ds_re = ds.reorder(3, 4)
@@ -244,9 +239,16 @@ def test_reorder():
 
     # using indexes
     ds_re = ds.reorder(1, 0)
-    for (ldata, llbl), (rlbl, rdata) in zip(list(ds), list(ds_re)):
+    ds_re_alt = ds.reorder([1, 0])  # wrapped in list
+    ds_re_alt2 = ds.reorder((1, 0))  # wrapped in tuple
+    for (ldata, llbl), (rlbl, rdata), (rlbl1, rdata1), (rlbl2, rdata2) in zip(
+        list(ds), list(ds_re), list(ds_re_alt), list(ds_re_alt2)
+    ):
         assert np.array_equal(ldata, rdata)
         assert llbl == rlbl
+
+        assert np.array_equal(rdata, rdata1) and np.array_equal(rdata, rdata2)
+        assert rlbl == rlbl1 == rlbl2
 
     # same results using keys
     ds_re_key = ds.reorder("mylabel", "mydata")

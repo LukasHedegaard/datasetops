@@ -798,7 +798,11 @@ class Dataset(AbstractDataset):
             operation_parameters={"times": copies, "mode": mode},
         )
 
+<<<<<<< HEAD
     def reorder(self, *keys: Key) -> "Dataset":
+=======
+    def reorder(self, key_or_list: Union[Key, Sequence[Key]], *rest_keys: Key):
+>>>>>>> Add option to pass sequence to `reorder`
         """Reorder items in the dataset (similar to numpy.transpose).
 
         Arguments:
@@ -808,13 +812,14 @@ class Dataset(AbstractDataset):
         Returns:
             [Dataset] -- Dataset with items whose elements have been reordered
         """
-        if len(keys) == 0:
-            warnings.warn(
-                "No indexes given in Dataset.reorder. The dataset remains unchanged"
-            )
-            return self
 
-        inds = [_key_index(self._item_names, k) for k in keys]
+        key_list: List[Key] = (
+            list(key_or_list)  # type:ignore
+            if type(key_or_list) in {list, tuple}
+            else [key_or_list]  # type:ignore
+        ) + list(rest_keys)
+
+        inds = [_key_index(self._item_names, k) for k in key_list]
 
         for i in inds:
             if i > len(self.shape):
@@ -830,7 +835,7 @@ class Dataset(AbstractDataset):
 
         item_names = None
         if self._item_names:
-            if len(set(keys)) < len(keys):
+            if len(set(key_list)) < len(key_list):
                 warnings.warn(
                     "discarding item_names due to otherwise non-unique labels on "
                     "transformed dataset"
@@ -845,7 +850,7 @@ class Dataset(AbstractDataset):
             item_transform_fn=item_transform_fn,
             item_names=item_names,
             operation_name="reorder",
-            operation_parameters={"keys": keys},
+            operation_parameters={"keys": key_list},
         )
 
     def named(self, first: Union[str, Sequence[str]], *rest: str) -> "Dataset":
