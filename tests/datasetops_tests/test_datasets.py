@@ -287,6 +287,35 @@ def test_reorder():
         )  # key needs to be unique, but wouldn't be
 
 
+def test_getitem():
+    n = 5
+    itr_int = list(range(n))
+    itr_tuple = [(i,) for i in itr_int]
+    itr_str = [str(i) for i in itr_int]
+
+    def do_test(itr):
+        ds = from_iterable(itr)
+
+        # index access
+        for i in range(n):
+            assert ds[i] == itr[i]
+
+        with pytest.raises(IndexError):
+            ds[n + 1]
+
+        # slice access
+        for i in range(n):
+            for j in range(n):
+                for s in range(n):
+                    assert ds[i:j:n] == itr[i:j:n]
+
+        assert ds[:] == itr[:]
+
+    do_test(itr_int)
+    do_test(itr_tuple)
+    do_test(itr_str)
+
+
 class TestSubsample:
     cars = from_csv(get_test_dataset_path(DATASET_PATHS.CSV + "/cars"))
 
@@ -364,18 +393,54 @@ class TestSubsample:
         ds[1]
         assert cnt == 3
 
+    def test_getitem(self):
+        def func(s):
+            return s, s
+
+        ds = from_iterable([1, 2]).subsample(func, 2)
+
+        # index
+        assert ds[0] == 1
+        assert ds[1] == 1
+        assert ds[2] == 2
+        assert ds[3] == 2
+
+        with pytest.raises(IndexError):
+            ds[4]
+
+        # slicing
+        assert ds[:] == [1, 1, 2, 2]
+        assert ds[0:1] == [1]
+        assert ds[1:2] == [1]
+        assert ds[0:3] == [1, 1, 2]
+        assert ds[4:] == []
+
 
 class TestSupersample:
     def test_supersample(self):
-        def ssum(ss):
-            return sum(ss)
 
-        ds = from_iterable(range(10))
-        assert len(ds) == 10
+        ds = from_iterable([1, 2, 3, 4])
+        assert len(ds) == 4
 
-        ds = ds.supersample(ssum, 10)
-        assert len(ds) == 1
-        assert ds[0] == sum(range(10))
+        ds = ds.supersample(sum, 2)
+        assert len(ds) == 2
+        assert ds[0] == 3
+        assert ds[1] == 7
+
+    def test_getitem(self):
+
+        ds = from_iterable([1, 2, 3, 4]).supersample(sum, 2)
+
+        # index
+        assert ds[0] == 3
+        assert ds[1] == 7
+        with pytest.raises(IndexError):
+            ds[2]
+
+        assert ds[0:1] == [3]
+        assert ds[0:2] == [3, 7]
+        assert ds[:] == [3, 7]
+        assert ds[3:] == []
 
 
 # ========= Tests relating to stats =========

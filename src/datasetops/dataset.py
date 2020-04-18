@@ -76,6 +76,31 @@ def _key_index(item_names: ItemNames, key: Key) -> int:
         return item_names[str(key)]
 
 
+def _idxSlice_to_ids(idx: IdxSlice, length: int):
+    """Convert a single index or a slice to a list of indicies for a iterable of the specified length.
+
+    Arguments:
+        idx {IdxSlice} -- a single index or a slice
+        length {int} -- length of the iterable
+
+    Raises:
+        IndexError: raised if single index is provided that is out of bounds.
+
+    Returns:
+        List[int] -- a list of indicies
+    """
+
+    if isinstance(idx, slice):
+        ids = [i for i in range(*idx.indices(length))]
+        return ids
+    else:
+        if idx > length - 1:
+            raise IndexError(
+                f"index {idx} is out of bounds for axis 0 with size {length}"
+            )
+        return [idx]
+
+
 def _split_bulk_itemwise(
     l: Union[Optional[Callable], Sequence[Optional[Callable]]]
 ) -> Tuple[Optional[Callable], Sequence[Optional[Callable]]]:
@@ -285,13 +310,14 @@ class Dataset(AbstractDataset):
         Returns:
             Tuple -- the element(s) of the dataset specified by the index or slice
         """
+        ids = _idxSlice_to_ids(i, len(self))
+
+        samples = [self._item_transform_fn(self._parent[self._ids[ii]]) for ii in ids]
+
         if isinstance(i, int):
-            return self._item_transform_fn(self._parent[self._ids[i]])
-        else:
-            ids = self._ids[i]
-            return tuple(
-                self._item_transform_fn(self._parent[self._ids[ii]]) for ii in ids
-            )
+            samples = samples[0]
+
+        return samples
 
     def cached(
         self,
@@ -1243,16 +1269,25 @@ class SubsampleDataset(Dataset):
         self._cache_method = cache_method
         self._last_parent_idx = None
 
-    def __getitem__(self, ss_idx):
+    def __getitem__(self, idx: IdxSlice):
         """Gets the subsample corresponding to the
 
         Arguments:
-            ss_idx {[type]} -- index of the subsample
+            idx {int} -- index of the subsample
 
         Returns:
             [Any] -- the subsample corresponding to the specified index
         """
+        ids_subsample = _idxSlice_to_ids(idx, len(self))
 
+        subsamples = [self._get_subsample(i) for i in ids_subsample]
+
+        if isinstance(idx, int):
+            subsamples = subsamples[0]
+
+        return subsamples
+
+    def _get_subsample(self, ss_idx: int):
         ds_idx = self._get_parent_idx(ss_idx)
 
         if self._is_subsample_cached(ss_idx):
@@ -1356,11 +1391,21 @@ class SupersampleDataset(Dataset):
         self._sampling_ratio = sampling_ratio
 
     def __getitem__(self, idx):
-        start = idx * self._sampling_ratio
-        end = start + self._sampling_ratio
-        ss = self._parent[start:end]
+        def parent_start_stop(idx):
+            start = idx * self._sampling_ratio
+            stop = start + self._sampling_ratio
+            return start, stop
 
-        return self._supersample_func(ss)
+        ids_super = _idxSlice_to_ids(idx, len(self))
+        start_stop_parent = [parent_start_stop(i) for i in ids_super]
+
+        samples_parent = [self._parent[start:stop] for start, stop in start_stop_parent]
+        samples_super = [self._supersample_func(s) for s in samples_parent]
+
+        if isinstance(idx, int):
+            samples_super = samples_super[0]
+
+        return samples_super
 
 
 class StreamDataset(Dataset):
