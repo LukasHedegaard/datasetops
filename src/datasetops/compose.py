@@ -1,4 +1,4 @@
-from datasetops.abstract import AbstractDataset
+from datasetops.types import AbstractDataset
 import numpy as np
 import functools
 import math

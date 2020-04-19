@@ -8,15 +8,17 @@ import warnings
 import functools
 from pathlib import Path
 from typing import Tuple, Union, Callable, Sequence, List, Any, Dict, IO, Optional
+import typing
 import inspect
 
 import numpy as np
 from PIL import Image
 
-from datasetops.abstract import ItemGetter, AbstractDataset
 from datasetops.cache import Cache
 from datasetops import scaler
 from datasetops.types import (
+    ItemGetter,
+    AbstractDataset,
     ItemNames,
     Key,
     Shape,
@@ -25,6 +27,7 @@ from datasetops.types import (
     DatasetTransformFnCreator,
     Ids,
     IdxSlice,
+    Sample,
     ItemTransformFn,
     AnyPath,
 )
@@ -301,14 +304,18 @@ class Dataset(AbstractDataset):
     def __len__(self):
         return len(self._ids)
 
-    def __getitem__(self, i: IdxSlice) -> Tuple:
+    @typing.overload
+    def __getitem__(self, i: slice) -> List[Sample]:
+        ...
+
+    def __getitem__(self, i: int) -> Sample:
         """Returns the element at the specified index or slice
 
         Arguments:
             i {IdxSlice} -- An single index or a slice
 
         Returns:
-            Tuple -- the element(s) of the dataset specified by the index or slice
+            Union[Tuple, List[Tuple]] -- the element(s) of the dataset specified by the index or slice
         """
         ids = _idxSlice_to_ids(i, len(self))
 
@@ -539,7 +546,7 @@ class Dataset(AbstractDataset):
         """
         return SubsampleDataset(self, subsample_func, sampling_ratio, cache_method)
 
-    def supersample(self, supersample_func, sampling_ratio: int):
+    def supersample(self, supersample_func, sampling_ratio: int) -> "Dataset":
         """Combines several samples into a smaller number of samples using a user-defined function.
         The function is invoked with an iterable of and must return a single sample.
 
@@ -552,7 +559,7 @@ class Dataset(AbstractDataset):
         """
         return SupersampleDataset(self, supersample_func, sampling_ratio)
 
-    def sample(self, num: int, seed: int = None):
+    def sample(self, num: int, seed: int = None) -> "Dataset":
         """Sample data randomly from the dataset.
 
         Arguments:
@@ -667,7 +674,7 @@ class Dataset(AbstractDataset):
             ]
         )
 
-    def shuffle(self, seed: int = None):
+    def shuffle(self, seed: int = None) -> "Dataset":
         """Shuffle the items in a dataset.
 
         Keyword Arguments:
@@ -748,7 +755,7 @@ class Dataset(AbstractDataset):
             ]
         )
 
-    def take(self, num: int):
+    def take(self, num: int) -> "Dataset":
         """Take the first elements of a dataset.
 
         Arguments:
@@ -768,7 +775,7 @@ class Dataset(AbstractDataset):
             operation_parameters={"num": num},
         )
 
-    def repeat(self, times=1, mode="itemwise"):
+    def repeat(self, times=1, mode="itemwise") -> "Dataset":
         """Repeat the dataset elements.
 
         Keyword Arguments:
@@ -791,7 +798,7 @@ class Dataset(AbstractDataset):
             operation_parameters={"times": times, "mode": mode},
         )
 
-    def reorder(self, *keys: Key):
+    def reorder(self, *keys: Key) -> "Dataset":
         """Reorder items in the dataset (similar to numpy.transpose).
 
         Arguments:
@@ -841,7 +848,7 @@ class Dataset(AbstractDataset):
             operation_parameters={"keys": keys},
         )
 
-    def named(self, first: Union[str, Sequence[str]], *rest: str):
+    def named(self, first: Union[str, Sequence[str]], *rest: str) -> "Dataset":
         """Set the names associated with the elements of an item.
 
         Arguments:
@@ -886,7 +893,7 @@ class Dataset(AbstractDataset):
             ]
         ] = None,
         **kwfns: DatasetTransformFn,
-    ):
+    ) -> "Dataset":
         """Transform the items of a dataset according to some function (passed
         as argument).
 
@@ -937,7 +944,9 @@ class Dataset(AbstractDataset):
 
     # ========= Label transforming methods =========
 
-    def categorical(self, key: Key, mapping_fn: Callable[[Any], int] = None):
+    def categorical(
+        self, key: Key, mapping_fn: Callable[[Any], int] = None
+    ) -> "Dataset":
         """Transform elements into categorical categoricals (int).
 
         Arguments:
@@ -964,7 +973,7 @@ class Dataset(AbstractDataset):
         encoding_size: int = None,
         mapping_fn: Callable[[Any], int] = None,
         dtype="bool",
-    ):
+    ) -> "Dataset":
         """Transform elements into a categorical one-hot encoding.
 
         Arguments:
@@ -998,7 +1007,7 @@ class Dataset(AbstractDataset):
     # ========= Conversion methods =========
 
     # TODO: reconsider API
-    def image(self, *positional_flags: Any):
+    def image(self, *positional_flags: Any) -> "Dataset":
         """Transforms item elements that are either numpy arrays or path
         strings into a PIL.Image.Image.
 
@@ -1031,7 +1040,7 @@ class Dataset(AbstractDataset):
             return self
 
     # TODO: reconsider API
-    def numpy(self, *positional_flags: Any):
+    def numpy(self, *positional_flags: Any) -> "Dataset":
         """Transforms elements into numpy.ndarray.
 
         Arguments:
@@ -1064,18 +1073,20 @@ class Dataset(AbstractDataset):
 
     # ========= Composition methods =========
 
-    def zip(self, *datasets):
+    def zip(self, *datasets) -> "Dataset":
         return zipped(self, *datasets)
 
-    def cartesian_product(self, *datasets):
+    def cartesian_product(self, *datasets) -> "Dataset":
         return cartesian_product(self, *datasets)
 
-    def concat(self, *datasets):
+    def concat(self, *datasets) -> "Dataset":
         return concat(self, *datasets)
 
     # ========= Methods relating to numpy data =========
 
-    def reshape(self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]):
+    def reshape(
+        self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]
+    ) -> "Dataset":
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
@@ -1088,7 +1099,9 @@ class Dataset(AbstractDataset):
 
     # ========= Methods below assume data is an image =========
 
-    def image_resize(self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]):
+    def image_resize(
+        self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]
+    ) -> "Dataset":
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
@@ -1104,7 +1117,7 @@ class Dataset(AbstractDataset):
 
     # ========= Dataset scalers =========
 
-    def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Standardize features by removing the mean and scaling to unit variance
 
         Arguments:
@@ -1124,7 +1137,7 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis]),
         )
 
-    def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Centers features by removing the mean
 
         Arguments:
@@ -1172,7 +1185,7 @@ class Dataset(AbstractDataset):
 
     def minmax(
         self, key_or_keys: Union[Key, Sequence[Key]], axis=0, feature_range=(0, 1),
-    ):
+    ) -> "Dataset":
         """Transform features by scaling each feature to a given range.
 
         Arguments:
@@ -1195,7 +1208,7 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis, feature_range],),
         )
 
-    def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Scale each feature by its maximum absolute value.
 
         Arguments:
@@ -1269,7 +1282,11 @@ class SubsampleDataset(Dataset):
         self._cache_method = cache_method
         self._last_parent_idx = None
 
-    def __getitem__(self, idx: IdxSlice):
+    @typing.overload
+    def __getitem__(self, idx: slice) -> List[Sample]:
+        ...
+
+    def __getitem__(self, idx: IdxSlice) -> Sample:
         """Gets the subsample corresponding to the
 
         Arguments:
@@ -1390,7 +1407,7 @@ class SupersampleDataset(Dataset):
         self._supersample_func = supersample_func
         self._sampling_ratio = sampling_ratio
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Sample:
         def parent_start_stop(idx):
             start = idx * self._sampling_ratio
             stop = start + self._sampling_ratio
@@ -1463,7 +1480,7 @@ class StreamDataset(Dataset):
 
         return item
 
-    def __getitem__(self, i: int) -> Tuple:
+    def __getitem__(self, i: int) -> Sample:
 
         if len(self._loaded_items) > i:
             return self._loaded_items[i]

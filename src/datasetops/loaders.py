@@ -3,21 +3,17 @@ Module defining loaders for several formats which are commonly used to exchange 
 Additionally, the module provides adapters for the dataset types used by various ML frameworks.
 """
 
-from pathlib import Path
-import os
-import re
-import warnings
 from collections import namedtuple
+import os
+from pathlib import Path
+import re
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+import warnings
 
-
+from datasetops.dataset import Dataset, zipped
+from datasetops.types import AnyPath, ItemGetter
 import numpy as np
 from scipy.io import loadmat
-
-from datasetops.dataset import zipped
-from datasetops.abstract import ItemGetter
-from datasetops.dataset import Dataset
-from datasetops.types import AnyPath
-from typing import Callable, Any, Optional, Sequence, List, Dict, Tuple, Iterable
 
 
 class Loader(Dataset):
@@ -539,7 +535,7 @@ def _read_single_csv(path: Path, data_format, kwargs):
     """
     import pandas as pd
 
-    data = pd.read_csv(path, **kwargs)
+    data: pd.DataFrame = pd.read_csv(path, **kwargs)
     # convert dataframe to
     if data_format == "tuple":
         # try to create named tuple, otherwise create plain tuple
