@@ -3,22 +3,24 @@ Module defining loaders for several formats which are commonly used to exchange 
 Additionally, the module provides adapters for the dataset types used by various ML frameworks.
 """
 
+from collections import namedtuple
+import os
 from pathlib import Path
-from datasetops.dataset import zipped
-from datasetops.abstract import ItemGetter
-from scipy.io import loadmat
-from datasetops.dataset import Dataset
-from datasetops.types import AnyPath, Data
-from typing import Callable, Any, Optional, Union, List, Dict, Tuple
-import numpy as np
 import re
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 import warnings
+
+from datasetops.dataset import Dataset, zipped
+from datasetops.types import AnyPath, ItemGetter
+import numpy as np
+from scipy.io import loadmat
 
 
 class Loader(Dataset):
     def __init__(
         self,
         getdata: Callable[[Any], Any],
+        ids: Sequence[Any],
         identifier: Optional[str] = None,
         name: str = None,
     ):
@@ -31,20 +33,49 @@ class Loader(Dataset):
             def __getitem__(self, i: int):
                 return getdata(i)
 
+            def __len__(self):
+                return len(ids)
+
         super().__init__(
-            downstream_getter=Getter(),
+            parent=Getter(),
             name=name,
+            ids=ids,
             operation_name="load",
             operation_parameters={"identifier": identifier},
         )
 
-        self.cachable = self.identifier is not None
+        self._cacheable = self.identifier is not None
 
-    def append(self, identifier: Data):
-        self._ids.append(identifier)
 
-    def extend(self, ids: Union[List[Data], np.ndarray]):
-        self._ids.extend(list(ids))
+def from_iterable(iterable: Iterable, identifier: str = None) -> Dataset:
+    """Creates a new dataset from the elements of the sequence.
+
+    An iterable must must implement implement at least one of the following
+    functions:
+    __next__ or __getitem__
+
+    Arguments:
+        iterable {Iterable} -- an iterable containing the samples
+        identifier {Optional[str]} -- unique identifier
+
+    Returns:
+        AbstractDataset -- a new dataset containing the elements of the iterable.
+    """
+
+    """
+    https://nelsonslog.wordpress.com/2016/04/06/python3-no-len-for-iterators/
+    https://gist.github.com/NelsonMinar/90212fbbfc6465c8e263341b86aa01a8
+    It appears the most effective way of getting length of a iterable is to
+    convert it to a tuple or list"""
+
+    itr = [i for i in iterable]
+
+    def getter(idx):
+        nonlocal itr
+        return itr[idx]
+
+    ldr = Loader(getdata=getter, ids=range(len(itr)), identifier=identifier)
+    return ldr
 
 
 def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
@@ -64,8 +95,7 @@ def from_pytorch(pytorch_dataset, identifier: Optional[str] = None):
         item = pytorch_dataset[i]
         return tuple([x.numpy() if hasattr(x, "numpy") else x for x in item])
 
-    ds = Loader(get_data, identifier)
-    ds.extend(list(range(len(pytorch_dataset))))
+    ds = Loader(get_data, ids=range(len(pytorch_dataset)), identifier=identifier)
     return ds
 
 
@@ -87,10 +117,12 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
 
     if not tf.executing_eagerly():
         raise AssertionError(
-            "Tensorflow must be executing eagerly for `from_tensorflow` to work"
+            """Tensorflow must be executing eagerly
+            for `from_tensorflow` to work"""
         )
 
-    # We could create a mem which is filled up gradually, when samples are needed. However, then we would the to get the number of samples as a parameter
+    # We could create a mem which is filled up gradually, when samples are needed.
+    #  However, then we would the to get the number of samples as a parameter
     # The latency using this solution seems to be acceptable
     tf_ds = list(tf_dataset)
 
@@ -114,8 +146,7 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
         )
         return item
 
-    ds = Loader(get_data, identifier)
-    ds.extend(list(range(len(tf_ds))))
+    ds = Loader(get_data, ids=range(len(tf_ds)), identifier=identifier)
     if type(keys[0]) == str:
         ds = ds.named([str(k) for k in keys])
     return ds
@@ -124,9 +155,11 @@ def from_tensorflow(tf_dataset, identifier: Optional[str] = None):
 def from_folder_data(path: AnyPath) -> Dataset:
     """Load data from a folder with the data structure:
 
-    folder
-    ├ sample1.jpg
-    ├ sample2.jpg
+    .. code-block::
+
+        folder
+        ├ sample1.jpg
+        ├ sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to folder
@@ -137,31 +170,36 @@ def from_folder_data(path: AnyPath) -> Dataset:
 
     """
     p = Path(path)
+    full_p = str(p.absolute())
     ids = [str(x.relative_to(p)) for x in p.glob("[!._]*")]
 
-    def get_data(i) -> Tuple:
+    def getdata(i) -> Tuple:
         nonlocal p
         return (str(p / i),)
 
     ds = Loader(
-        get_data, str(path), "Data Getter for folder with structure 'root/data'"
+        getdata,
+        ids,
+        full_p,
+        "Data Getter for folder with structure 'root/data' and path '{}'".format(
+            full_p
+        ),
     )
-    ds.extend(ids)
 
     return ds
 
 
 def from_folder_class_data(path: AnyPath) -> Dataset:
-    u"""Load data from a folder with the data structure:
+    """Load data from a folder with the data structure:
 
-    ```
-    data
-    ├── class1
-    │   ├── sample1.jpg
-    │   └── sample2.jpg
-    └── class2
-    ****└── sample3.jpg
-    ```
+    .. code-block::
+
+        data
+        ├── class1
+        │   ├── sample1.jpg
+        │   └── sample2.jpg
+        └── class2
+            └── sample3.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -171,33 +209,41 @@ def from_folder_class_data(path: AnyPath) -> Dataset:
                    e.g. ('nested_folder/class1/sample1.jpg', 'class1')
     """
     p = Path(path)
+    full_p = str(p.absolute())
     classes = [x for x in p.glob("[!._]*")]
 
     def get_data(i) -> Tuple:
         nonlocal p
         return (str(p / i), re.split(r"/|\\", i)[0])
 
-    ds = Loader(
-        get_data, str(path), "Data Getter for folder with structure 'root/classes/data'"
-    )
-
+    ids = []
     for c in classes:
-        ids = [str(x.relative_to(p)) for x in c.glob("[!._]*")]
-        ds.extend(ids)
+        ids.extend([str(x.relative_to(p)) for x in c.glob("[!._]*")])
+
+    ds = Loader(
+        get_data,
+        ids,
+        full_p,
+        "Data Getter for folder with structure 'root/classes/data' and path '{}'".format(
+            full_p
+        ),
+    )
 
     return ds
 
 
 def from_folder_group_data(path: AnyPath) -> Dataset:
-    u"""Load data from a folder with the data structure:
+    """Load data from a folder with the data structure:
 
-    data
-    ├── group1
-    │   ├── sample1.jpg
-    │   └── sample2.jpg
-    └── group2
-    ....├── sample1.jpg
-    ....└── sample2.jpg
+    .. code-block::
+
+        data
+        ├── group1
+        │   ├── sample1.jpg
+        │   └── sample2.jpg
+        └── group2
+            ├── sample1.jpg
+            └── sample2.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -225,17 +271,17 @@ def from_folder_group_data(path: AnyPath) -> Dataset:
 def from_folder_dataset_class_data(path: AnyPath) -> List[Dataset]:
     """Load data from a folder with the data structure:
 
-    ```
-    data
-    ├── dataset1
-    │   ├── class1
-    │   │   ├── sample1.jpg
-    │   │   └── sample2.jpg
-    │   └── class2
-    │       └── sample3.jpg
-    └── dataset2
-    ****└── sample3.jpg
-    ```
+    .. code-block::
+
+        data
+        ├── dataset1
+        │   ├── class1
+        │   │   ├── sample1.jpg
+        │   │   └── sample2.jpg
+        │   └── class2
+        │       └── sample3.jpg
+        └── dataset2
+            └── sample3.jpg
 
     Arguments:
         path {AnyPath} -- path to nested folder
@@ -321,9 +367,8 @@ def _dataset_from_np_dict(
 
     get_data = get_labelled_data if label_key else get_unlabelled_data
 
-    ds = Loader(get_data, identifier, name=name)
-
     # populate data getter
+    ids = []
     if label_key:
         unique_labels = np.unique(reshaped_data[label_key])
 
@@ -332,9 +377,11 @@ def _dataset_from_np_dict(
                 condition=reshaped_data[label_key].squeeze() == lbl,
                 arr=reshaped_data[label_key].squeeze(),
             )
-            ds.extend(lbl_inds)
+            ids.extend(lbl_inds)
     else:
-        ds.extend(list(range(common_shape)))
+        ids.extend(list(range(common_shape)))
+
+    ds = Loader(get_data, ids, identifier, name=name)
 
     return ds
 
@@ -402,3 +449,176 @@ def from_mat_single_mult_data(path: AnyPath) -> List[Dataset]:
         )
 
     return sorted(datasets, key=lambda d: d.name)
+
+
+def from_csv(
+    path: AnyPath,
+    load_func=lambda path, data: data,
+    predicate_func=lambda path: True,
+    data_format="tuple",
+    **kwargs,
+):
+    """Load data stored as comma-separated values (CSV).
+    The csv-data can be stored as either a single file or in several smaller
+    files stored in a tree structure.
+
+    Information from the path of the individual CSV files can be incorporated
+    through a user-defined function.
+    The function is invoked with the path to the CSV files and its contents,
+    and must return a new sample.
+
+    Additionally, specific files may be skipped by supplying a predicate function.
+    This function is invoked with the path of each file.
+
+    Arguments:
+        path {AnyPath} -- path to either a single csv file or a directory containing CSV files.
+
+    Keyword Arguments:
+        load_func {Callable} -- optional user-defined function called with the path and contents of each CSV file. (default: {None})
+        predicate_func {Callable} -- optional predicate function used to define files to be skipped. (default: {None})
+        data_format {bool} -- defines how the data read from the csv is formatted. Possible options are {"tuple", "dataframe"}
+        kwargs {Any} -- additional arguments passed to pandas read_csv function
+
+    Examples:
+
+    Consider the example below:
+
+    .. code-block::
+
+        cars
+        ├── car_1
+        │   ├── load_1000.csv
+        │   └── load_2000.csv
+        └── car_2
+            ├── load_1000.csv
+            └── load_2000.csv
+
+    """
+    p = Path(path)
+
+    formats = {"tuple", "numpy", "dataframe"}
+
+    if data_format not in formats:
+        raise ValueError(
+            f"Unable to load the dataset from CSV, the specified data fromat : {data_format} is not recognized. Options are: {formats}"
+        )
+
+    # read csv using pandas
+    # if specified the dataframe is converted to a tuple of numpy arrays.
+    def read_single_csv(path):
+        nonlocal kwargs
+        data = _read_single_csv(path, data_format, kwargs)
+        return load_func(path, data)
+
+    if p.is_file():
+        ds = from_files_list([p], read_single_csv)
+
+    elif p.is_dir():
+        ds = from_recursive_files(p, read_single_csv, predicate_func)
+    else:
+        raise ValueError(
+            f"Unable to load the dataset from CSV, the supplied path: {p} is neither a file or directory"
+        )
+
+    return ds
+
+
+def _read_single_csv(path: Path, data_format, kwargs):
+    """Read the contents of the specified csv file and format the results
+
+    Arguments:
+        path {Path} -- path to a csv file
+        data_format {[str]} -- string defining how the data should be formatted.
+
+    Returns:
+        [Any] -- data from the csv file in the specified format.
+    """
+    import pandas as pd
+
+    data: pd.DataFrame = pd.read_csv(path, **kwargs)
+    # convert dataframe to
+    if data_format == "tuple":
+        # try to create named tuple, otherwise create plain tuple
+        try:
+            Row = namedtuple("Row", data.columns)
+            data = Row(*data.to_numpy().T.tolist())
+            data = tuple(data)
+        except Exception:
+            data = tuple(data.to_numpy().T.tolist())
+    elif data_format == "numpy":
+        data = data.to_numpy()
+
+    return data
+
+
+def from_files_list(files: Sequence[AnyPath], load_func: Callable[[AnyPath], Any]):
+    """Reads a list of files using by invoking a user-defined function on each file.
+    The function is invoked with the path of each file and must return a new sample.
+
+    Arguments:
+        files {[Iterable]} -- an list of files to load
+        load_func {[type]} -- function invoked with the path to each file to produce a sample.
+
+    Returns:
+        Dataset -- The resulting dataset.
+    """
+
+    ids_to_file = {idx: f for idx, f in enumerate(files)}
+
+    def get_data(i):
+        nonlocal ids_to_file
+        nonlocal load_func
+        sample = load_func(ids_to_file[i])
+        return sample
+
+    ds = Loader(
+        get_data,
+        ids=list(ids_to_file.keys()),
+        name="files_list",
+        identifier=str(hash(frozenset(ids_to_file.items()))),
+    )
+    return ds
+
+
+def from_recursive_files(
+    root: AnyPath, load_func: Callable[[AnyPath], Any], predicate_func=lambda x: True
+) -> Dataset:
+    """Provides functionality to load files stored in a tree structure in a recursively in a generic manner.
+    A callback function must be specified which is invoked with the path of each file.
+    When called this function should return a sample corresponding to the contents of the file.
+    Specific files may be skipped by supplying a predicate function.
+
+    Arguments:
+        root {AnyPath} -- Path to the root directory
+        load_func {[type]} -- Function invoked with the path of each file.
+        predicate_func {[type]} -- Predicate function determining
+
+    Returns:
+        Dataset -- The resulting dataset.
+
+    Examples:
+
+    Consider the file structure shown below:
+
+    .. code-block::
+
+        patients
+        ├── control
+        │   ├── somefile.csv
+        │   ├── subject_a.txt
+        │   └── subject_b.txt
+        └── experimental
+            ├── subject_c.txt
+            └── subject_d.txt
+    """
+    root_dir = Path(root)
+
+    # find all files matching predicate function
+    matches = []
+    for root, _, files in os.walk(root_dir):
+        for f in files:
+            p = Path(root) / f
+            if predicate_func(p):
+                matches.append(p)
+
+    return from_files_list(matches, load_func)

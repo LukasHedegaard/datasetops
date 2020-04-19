@@ -8,7 +8,6 @@ from .testing_utils import (
     read_bin,
     DATASET_PATHS,
 )
-from pathlib import Path
 import random
 
 
@@ -27,7 +26,7 @@ def test_read_from_file():
     )
 
     cache_path = get_test_dataset_path(DATASET_PATHS.CACHE_ROOT_PATH)
-    pkl_path = str(Path(cache_path) / "cache_1.pkl")
+    pkl_path = cache_path / "cache_1.pkl"
     Cache.clear(cache_path)
 
     original.cached(cache_path)

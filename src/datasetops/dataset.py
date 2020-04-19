@@ -1,20 +1,24 @@
 """
 Module defining operations which may be applied to transform the
-data of a single dataset. The transforms are available as free
-functions or as ``extension`` methods defined on the dataset objects:
-
-  >>> ds.shuffle(seed=0)
-  >>> ds_s = shuffle(ds,seed=0)
-  >>> ds.idx == ds_s.idx
-  True
-
+data of a single dataset.
 """
 
 import random
-from datasetops.abstract import ItemGetter, AbstractDataset
+import warnings
+import functools
+from pathlib import Path
+from typing import Tuple, Union, Callable, Sequence, List, Any, Dict, IO, Optional
+import typing
+import inspect
+
+import numpy as np
+from PIL import Image
+
 from datasetops.cache import Cache
 from datasetops import scaler
 from datasetops.types import (
+    ItemGetter,
+    AbstractDataset,
     ItemNames,
     Key,
     Shape,
@@ -22,17 +26,13 @@ from datasetops.types import (
     DatasetTransformFn,
     DatasetTransformFnCreator,
     Ids,
+    IdxSlice,
+    Sample,
     ItemTransformFn,
+    AnyPath,
 )
-from typing import Union, Callable, Sequence, List, Any, Dict
+
 import datasetops.compose as compose
-import numpy as np
-from PIL import Image
-import warnings
-import functools
-import inspect
-from pathlib import Path
-from typing import Optional, Tuple, IO
 import dill
 
 
@@ -79,6 +79,31 @@ def _key_index(item_names: ItemNames, key: Key) -> int:
         return item_names[str(key)]
 
 
+def _idxSlice_to_ids(idx: IdxSlice, length: int):
+    """Convert a single index or a slice to a list of indicies for a iterable of the specified length.
+
+    Arguments:
+        idx {IdxSlice} -- a single index or a slice
+        length {int} -- length of the iterable
+
+    Raises:
+        IndexError: raised if single index is provided that is out of bounds.
+
+    Returns:
+        List[int] -- a list of indicies
+    """
+
+    if isinstance(idx, slice):
+        ids = [i for i in range(*idx.indices(length))]
+        return ids
+    else:
+        if idx > length - 1:
+            raise IndexError(
+                f"index {idx} is out of bounds for axis 0 with size {length}"
+            )
+        return [idx]
+
+
 def _split_bulk_itemwise(
     l: Union[Optional[Callable], Sequence[Optional[Callable]]]
 ) -> Tuple[Optional[Callable], Sequence[Optional[Callable]]]:
@@ -97,7 +122,7 @@ def _combine_conditions(
     predicates: Optional[
         Union[DataPredicate, Sequence[Optional[DataPredicate]]]
     ] = None,
-    **kwpredicates: DataPredicate
+    **kwpredicates: DataPredicate,
 ) -> DataPredicate:
 
     bulk, itemwise = _split_bulk_itemwise(predicates)  # type:ignore
@@ -202,6 +227,8 @@ _CACHEABLE_OPERATIONS = [
     "maxabs",
     "copy",
     "transform",
+    "supersample",
+    "subsample",
 ]
 
 # ========= Dataset =========
@@ -215,7 +242,7 @@ class Dataset(AbstractDataset):
 
     def __init__(
         self,
-        downstream_getter: Union[ItemGetter, "Dataset"],
+        parent: Union[ItemGetter, "Dataset"],
         operation_name: str,
         name: str = None,
         ids: Ids = None,
@@ -227,29 +254,27 @@ class Dataset(AbstractDataset):
         """Initialise.
 
         Keyword Arguments:
-            downstream_getter {ItemGetter} --
+            parent {ItemGetter} --
                 Any object which implements the __getitem__ function (default: {None})
             name {str} -- A name for the dataset
-            ids {Ids} -- List of ids used in the downstream_getter (default: {None})
+            ids {Ids} -- List of ids used in the parent (default: {None})
             item_transform_fn: {Callable} -- a function
         """
-        self._downstream_getter = downstream_getter
+        self._parent = parent
         self.name = ""
         self._ids = []
         self._item_names: ItemNames = {}
-        self.cachable = True
+        self._cacheable = True
         self._item_transform_fn = item_transform_fn
         self._item_stats = stats
+        self._shape = None
 
-        if issubclass(type(downstream_getter), AbstractDataset):
-            self.name = self._downstream_getter.name  # type: ignore
-            self._ids = (
-                list(range(len(self._downstream_getter._ids)))  # type: ignore
-                if ids is None
-                else ids
-            )
-            self._item_names = getattr(downstream_getter, "_item_names", None)
-            self.cachable: bool = getattr(downstream_getter, "cachable", False)
+        if issubclass(type(parent), AbstractDataset):
+            dg: AbstractDataset = self._parent  # type: ignore
+            self.name = dg.name
+            self._ids = range(len(dg)) if ids is None else ids
+            self._item_names = getattr(parent, "_item_names", None)
+            self._cacheable: bool = getattr(parent, "_cacheable", False)
 
         if name:
             self.name = name
@@ -259,7 +284,7 @@ class Dataset(AbstractDataset):
             self._ids: Ids = ids
 
         if operation_name in _MAYBE_CACHEABLE_OPERATIONS:
-            self.cachable = operation_parameters["seed"] is not None
+            self._cacheable = operation_parameters["seed"] is not None
 
         if operation_name in _ROOT_OPERATIONS:
             self._origin = {
@@ -267,7 +292,7 @@ class Dataset(AbstractDataset):
             }
         elif operation_name in _CACHEABLE_OPERATIONS + _MAYBE_CACHEABLE_OPERATIONS:
             self._origin = {
-                "dataset": self._downstream_getter,
+                "dataset": self._parent,
                 "operation": {
                     "name": operation_name,
                     "parameters": operation_parameters,
@@ -279,23 +304,43 @@ class Dataset(AbstractDataset):
     def __len__(self):
         return len(self._ids)
 
-    def __getitem__(self, i: int) -> Tuple:
-        return self._item_transform_fn(self._downstream_getter[self._ids[i]])
+    @typing.overload
+    def __getitem__(self, i: slice) -> List[Sample]:
+        ...
+
+    def __getitem__(self, i: int) -> Sample:
+        """Returns the element at the specified index or slice
+
+        Arguments:
+            i {IdxSlice} -- An single index or a slice
+
+        Returns:
+            Union[Tuple, List[Tuple]] -- the element(s) of the dataset specified by the index or slice
+        """
+        ids = _idxSlice_to_ids(i, len(self))
+
+        samples = [self._item_transform_fn(self._parent[self._ids[ii]]) for ii in ids]
+
+        if isinstance(i, int):
+            samples = samples[0]
+
+        return samples
 
     def cached(
         self,
-        path: str = None,
+        path: AnyPath = None,
         keep_loaded_items: bool = False,
         display_progress: bool = False,
     ):
-        if not self.cachable:
+        if not self._cacheable:
             raise Exception(
-                "Dataset must be cachable"
+                "Dataset must be cacheable"
                 + "(Provide identifiers for memory-based Loaders)"
             )
 
         if path is None:
             path = Cache.DEFAULT_PATH
+        path = Path(path)
 
         cache = Cache(path)
         identifier = self.get_transformation_graph().serialize()
@@ -340,8 +385,8 @@ class Dataset(AbstractDataset):
             cache.save(identifier, saver)
 
             return Dataset(
-                downstream_getter=self,
-                ids=list(range(len(self))),
+                parent=self,
+                ids=range(len(self)),
                 operation_name="cache",
                 operation_parameters={"identifier": identifier},
             )
@@ -391,14 +436,23 @@ class Dataset(AbstractDataset):
         return self._item_stats[idx]  # type: ignore
 
     @property
+    # @functools.lru_cache(1)
     def shape(self) -> Sequence[Shape]:
-        """Get the shape of a dataset item.
+        """Get the shape of a dataset's items.
+
+        The process for doing this is picking a single sample from the dataset.
+        Each item in the sample is checked for the presence "shape" or "size"
+        properties. If present they are added to the shape tuple otherwise an
+        empty tuple "()" is added.
 
         Returns:
             Sequence[int] -- Item shapes
         """
         if len(self) == 0:
             return _DEFAULT_SHAPE
+
+        if self._shape is not None:
+            return self._shape
 
         item = self.__getitem__(0)
         if hasattr(item, "__getitem__"):
@@ -411,9 +465,12 @@ class Dataset(AbstractDataset):
                 else:
                     item_shape.append(_DEFAULT_SHAPE)
 
-            return tuple(item_shape)
+            shape = tuple(item_shape)
+        else:
+            shape = _DEFAULT_SHAPE
 
-        return _DEFAULT_SHAPE
+        self._shape = shape
+        return shape
 
     @functools.lru_cache(4)
     @_warn_no_args(skip=1)
@@ -475,7 +532,34 @@ class Dataset(AbstractDataset):
         """
         return [x[0] for x in self.counts(*itemkeys)]
 
-    def sample(self, num: int, seed: int = None):
+    def subsample(self, subsample_func, sampling_ratio: int, cache_method="block"):
+        """Divide each sample in the dataset into several sub-samples using a user-defined function.
+        The function must take a single sample as an argument and must return a list of samples.
+
+        Arguments:
+            subsample_func {Callable} -- function defining how each sample should divided.
+            sampling_ratio {int} -- the number of sub-samples produced for each sample.
+            cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
+
+        Returns:
+            Dataset -- a new dataset containing the subsamples.
+        """
+        return SubsampleDataset(self, subsample_func, sampling_ratio, cache_method)
+
+    def supersample(self, supersample_func, sampling_ratio: int) -> "Dataset":
+        """Combines several samples into a smaller number of samples using a user-defined function.
+        The function is invoked with an iterable of and must return a single sample.
+
+        Arguments:
+            supersample_func {[type]} -- a function used to transform a number of samples into a single supersample
+            sampling_ratio {int} -- number of samples required to produce each supersample
+
+        Returns:
+            [Dataset] -- a new dataset containing the supersamples
+        """
+        return SupersampleDataset(self, supersample_func, sampling_ratio)
+
+    def sample(self, num: int, seed: int = None) -> "Dataset":
         """Sample data randomly from the dataset.
 
         Arguments:
@@ -499,7 +583,7 @@ class Dataset(AbstractDataset):
                 range(length), num - length
             )  # Supersample.
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             ids=new_ids,
             operation_name="sample",
             operation_parameters={"num": num, "seed": seed},
@@ -511,7 +595,7 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate
+        **kwpredicates: DataPredicate,
     ):
         """Filter a dataset using a predicate function.
 
@@ -534,7 +618,7 @@ class Dataset(AbstractDataset):
             filter(lambda i: condition(self.__getitem__(i)), range(len(self._ids)))
         )
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             ids=new_ids,
             operation_name="filter",
             operation_parameters={
@@ -549,7 +633,7 @@ class Dataset(AbstractDataset):
         predicates: Optional[
             Union[DataPredicate, Sequence[Optional[DataPredicate]]]
         ] = None,
-        **kwpredicates: DataPredicate
+        **kwpredicates: DataPredicate,
     ) -> Tuple["Dataset"]:
         """Split a dataset using a predicate function.
 
@@ -577,7 +661,7 @@ class Dataset(AbstractDataset):
         return tuple(
             [
                 Dataset(
-                    downstream_getter=self,
+                    parent=self,
                     ids=new_ids,
                     operation_name="split_filter",
                     operation_parameters={
@@ -590,7 +674,7 @@ class Dataset(AbstractDataset):
             ]
         )
 
-    def shuffle(self, seed: int = None):
+    def shuffle(self, seed: int = None) -> "Dataset":
         """Shuffle the items in a dataset.
 
         Keyword Arguments:
@@ -603,7 +687,7 @@ class Dataset(AbstractDataset):
         new_ids = list(range(len(self)))
         random.shuffle(new_ids)
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             ids=new_ids,
             operation_name="shuffle",
             operation_parameters={"seed": seed},
@@ -640,7 +724,7 @@ class Dataset(AbstractDataset):
             fractions = [x if x != -1 else wildcard for x in fractions]
 
         # create shuffled list
-        new_ids = list(range(len(self)))
+        new_ids = list(list(range(len(self))))
         random.shuffle(new_ids)
 
         # split according to fractions
@@ -658,7 +742,7 @@ class Dataset(AbstractDataset):
         return tuple(
             [
                 Dataset(
-                    downstream_getter=self,
+                    parent=self,
                     ids=new_ids,
                     operation_name="split",
                     operation_parameters={
@@ -671,7 +755,7 @@ class Dataset(AbstractDataset):
             ]
         )
 
-    def take(self, num: int):
+    def take(self, num: int) -> "Dataset":
         """Take the first elements of a dataset.
 
         Arguments:
@@ -685,13 +769,13 @@ class Dataset(AbstractDataset):
 
         new_ids = list(range(num))
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             ids=new_ids,
             operation_name="take",
             operation_parameters={"num": num},
         )
 
-    def repeat(self, times=1, mode="itemwise"):
+    def repeat(self, times=1, mode="itemwise") -> "Dataset":
         """Repeat the dataset elements.
 
         Keyword Arguments:
@@ -703,20 +787,18 @@ class Dataset(AbstractDataset):
             [type] -- [description]
         """
         new_ids = {
-            "whole": lambda: [i for _ in range(times) for i in list(range(len(self)))],
-            "itemwise": lambda: [
-                i for i in list(range(len(self))) for _ in range(times)
-            ],
+            "whole": lambda: [i for _ in range(times) for i in range(len(self))],
+            "itemwise": lambda: [i for i in range(len(self)) for _ in range(times)],
         }[mode]()
 
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             ids=new_ids,
             operation_name="repeat",
             operation_parameters={"times": times, "mode": mode},
         )
 
-    def reorder(self, *keys: Key):
+    def reorder(self, *keys: Key) -> "Dataset":
         """Reorder items in the dataset (similar to numpy.transpose).
 
         Arguments:
@@ -759,14 +841,14 @@ class Dataset(AbstractDataset):
                 }
 
         return Dataset(
-            downstream_getter=self,
+            parent=self,
             item_transform_fn=item_transform_fn,
             item_names=item_names,
             operation_name="reorder",
             operation_parameters={"keys": keys},
         )
 
-    def named(self, first: Union[str, Sequence[str]], *rest: str):
+    def named(self, first: Union[str, Sequence[str]], *rest: str) -> "Dataset":
         """Set the names associated with the elements of an item.
 
         Arguments:
@@ -806,10 +888,12 @@ class Dataset(AbstractDataset):
     def transform(
         self,
         fns: Optional[
-            Union[ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]]]
+            Union[
+                ItemTransformFn, Sequence[Union[ItemTransformFn, DatasetTransformFn]],
+            ]
         ] = None,
-        **kwfns: DatasetTransformFn
-    ):
+        **kwfns: DatasetTransformFn,
+    ) -> "Dataset":
         """Transform the items of a dataset according to some function (passed
         as argument).
 
@@ -842,7 +926,7 @@ class Dataset(AbstractDataset):
 
         if bulk:
             return Dataset(
-                downstream_getter=self,
+                parent=self,
                 item_transform_fn=bulk,
                 operation_name="transform",
                 operation_parameters={"function": bulk.__code__},
@@ -860,7 +944,9 @@ class Dataset(AbstractDataset):
 
     # ========= Label transforming methods =========
 
-    def categorical(self, key: Key, mapping_fn: Callable[[Any], int] = None):
+    def categorical(
+        self, key: Key, mapping_fn: Callable[[Any], int] = None
+    ) -> "Dataset":
         """Transform elements into categorical categoricals (int).
 
         Arguments:
@@ -887,7 +973,7 @@ class Dataset(AbstractDataset):
         encoding_size: int = None,
         mapping_fn: Callable[[Any], int] = None,
         dtype="bool",
-    ):
+    ) -> "Dataset":
         """Transform elements into a categorical one-hot encoding.
 
         Arguments:
@@ -921,7 +1007,7 @@ class Dataset(AbstractDataset):
     # ========= Conversion methods =========
 
     # TODO: reconsider API
-    def image(self, *positional_flags: Any):
+    def image(self, *positional_flags: Any) -> "Dataset":
         """Transforms item elements that are either numpy arrays or path
         strings into a PIL.Image.Image.
 
@@ -954,7 +1040,7 @@ class Dataset(AbstractDataset):
             return self
 
     # TODO: reconsider API
-    def numpy(self, *positional_flags: Any):
+    def numpy(self, *positional_flags: Any) -> "Dataset":
         """Transforms elements into numpy.ndarray.
 
         Arguments:
@@ -987,18 +1073,20 @@ class Dataset(AbstractDataset):
 
     # ========= Composition methods =========
 
-    def zip(self, *datasets):
+    def zip(self, *datasets) -> "Dataset":
         return zipped(self, *datasets)
 
-    def cartesian_product(self, *datasets):
+    def cartesian_product(self, *datasets) -> "Dataset":
         return cartesian_product(self, *datasets)
 
-    def concat(self, *datasets):
+    def concat(self, *datasets) -> "Dataset":
         return concat(self, *datasets)
 
     # ========= Methods relating to numpy data =========
 
-    def reshape(self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]):
+    def reshape(
+        self, *new_shapes: Optional[Shape], **kwshapes: Optional[Shape]
+    ) -> "Dataset":
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
@@ -1011,7 +1099,9 @@ class Dataset(AbstractDataset):
 
     # ========= Methods below assume data is an image =========
 
-    def image_resize(self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]):
+    def image_resize(
+        self, *new_sizes: Optional[Shape], **kwsizes: Optional[Shape]
+    ) -> "Dataset":
         return _optional_argument_indexed_transform(
             self.shape,
             self.transform,
@@ -1027,7 +1117,7 @@ class Dataset(AbstractDataset):
 
     # ========= Dataset scalers =========
 
-    def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def standardize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Standardize features by removing the mean and scaling to unit variance
 
         Arguments:
@@ -1047,7 +1137,7 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis]),
         )
 
-    def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def center(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Centers features by removing the mean
 
         Arguments:
@@ -1070,7 +1160,6 @@ class Dataset(AbstractDataset):
     # When people say normalize, they often mean either minmax or standardize.
     # This implementation follows the scikit-learn terminology
     # Not included in the library for now, because it is used very seldomly in practice
-
     # def normalize(self, key_or_keys: Union[Key, Sequence[Key]], axis=0, norm="l2"):
     #     """Normalize samples individually to unit norm.
 
@@ -1095,8 +1184,8 @@ class Dataset(AbstractDataset):
     #     )
 
     def minmax(
-        self, key_or_keys: Union[Key, Sequence[Key]], axis=0, feature_range=(0, 1)
-    ):
+        self, key_or_keys: Union[Key, Sequence[Key]], axis=0, feature_range=(0, 1),
+    ) -> "Dataset":
         """Transform features by scaling each feature to a given range.
 
         Arguments:
@@ -1119,7 +1208,7 @@ class Dataset(AbstractDataset):
             args=_keyarg2list(self._item_names, key_or_keys, [axis, feature_range],),
         )
 
-    def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0):
+    def maxabs(self, key_or_keys: Union[Key, Sequence[Key]], axis=0) -> "Dataset":
         """Scale each feature by its maximum absolute value.
 
         Arguments:
@@ -1151,18 +1240,203 @@ class Dataset(AbstractDataset):
         return to_pytorch(self)
 
 
+class SubsampleDataset(Dataset):
+    def __init__(
+        self,
+        dataset: Dataset,
+        subsample_func,
+        sampling_ratio: int,
+        cache_method: str = None,
+    ):
+        """Divide each sample in the dataset into several sub-samples using a user-defined function.
+        The function must take a single sample as an argument and must return a list of samples.
+
+        Arguments:
+            dataset {[AbstractDataset]} -- dataset containing the samples which are sub-sampled.
+            subsample_func {Callable} -- function defining how each sample should divided.
+            sampling_ratio {int} -- the number of sub-samples produced for each sample.
+            cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
+
+        Returns:
+            Dataset -- a new dataset containing the subsamples.
+        """
+        if sampling_ratio < 1:
+            raise ValueError(
+                "Unable to perform subsampling, value of sampling_ratio should be greater than one."
+            )
+
+        valid_cache_methods = {"block", None}
+
+        if cache_method not in valid_cache_methods:
+            raise ValueError(
+                "Unable to perform subsampling, cache method: {cache_methods} is invalid, possible values are {valid_cache_methods}"
+            )
+
+        new_ids = range(0, len(dataset) * sampling_ratio)
+
+        super().__init__(dataset, ids=new_ids, operation_name="subsample")
+
+        self._cached = {}
+        self._subsample_func = subsample_func
+        self._sampling_ratio = sampling_ratio
+        self._cache_method = cache_method
+        self._last_parent_idx = None
+
+    @typing.overload
+    def __getitem__(self, idx: slice) -> List[Sample]:
+        ...
+
+    def __getitem__(self, idx: IdxSlice) -> Sample:
+        """Gets the subsample corresponding to the
+
+        Arguments:
+            idx {int} -- index of the subsample
+
+        Returns:
+            [Any] -- the subsample corresponding to the specified index
+        """
+        ids_subsample = _idxSlice_to_ids(idx, len(self))
+
+        subsamples = [self._get_subsample(i) for i in ids_subsample]
+
+        if isinstance(idx, int):
+            subsamples = subsamples[0]
+
+        return subsamples
+
+    def _get_subsample(self, ss_idx: int):
+        ds_idx = self._get_parent_idx(ss_idx)
+
+        if self._is_subsample_cached(ss_idx):
+            return self._get_cached_subsample(ss_idx)
+        else:
+
+            ds_sample = self._parent[ds_idx]
+            ss = self._subsample_func(ds_sample)
+            n_actual = None
+            # ensure that subsampling function has returned the correct value of subsamples
+            try:
+                n_actual = len(ss)
+            except Exception:
+                raise RuntimeError(
+                    f"subsampling function returned: {n_actual}, this should be an iterable"
+                )
+
+            if n_actual != self._sampling_ratio:
+                raise RuntimeError(
+                    f"subsampling function returned {n_actual} subsamples, which is different than the expected: {self._sampling_ratio}"
+                )
+
+            self._do_cache_for(ds_idx, ss)
+            ss_relative_idx = ss_idx % self._sampling_ratio
+            return ss[ss_relative_idx]
+
+    def _get_parent_idx(self, ss_idx):
+        return ss_idx // self._sampling_ratio
+
+    def _is_subsample_cached(self, ss_idx):
+        return self._get_parent_idx(ss_idx) in self._cached
+
+    def _get_cached_subsample(self, ss_idx):
+        assert self._is_subsample_cached(ss_idx)
+
+        ds_idx = self._get_parent_idx(ss_idx)
+        ss_relative_idx = ss_idx % self._sampling_ratio
+        return self._cached[ds_idx][ss_relative_idx]
+
+    def _do_cache_for(self, ds_idx, ss):
+        """Caches the values read from the specified index of the parent data set.
+
+        Arguments:
+            ds_idx {Idx} -- index of the last read parent sample
+            ss {Tuple[Any]} -- the items produced by subsampling the parent dataset at the specified index.
+        """
+
+        if self._cache_method is None:
+            return
+        elif self._cache_method == "block":
+            if ds_idx != self._last_parent_idx and self._last_parent_idx is not None:
+                del self._cached[self._last_parent_idx]
+
+            self._cached[ds_idx] = ss
+            self._last_parent_idx = ds_idx
+
+
+class SupersampleDataset(Dataset):
+    def __init__(
+        self,
+        dataset,
+        supersample_func,
+        sampling_ratio: int,
+        excess_samples_policy="discard",
+    ):
+        """Performs supersampling on the provided dataset.
+
+        Arguments:
+            dataset {AbstractDataset} -- the dataset which the supersampling is applied to
+            supersample_func {Callable} -- function used to combine several samples into a single supersample.
+            sampling_ratio {int} -- the number of samples used to produce a each supersample.
+
+        Keyword Arguments:
+            excess_samples_policy {str} -- defines how left over samples should be treated. Possible values are {"discard","error"} (default: {"discard"})
+
+        """
+        excess_sample_policy_options = {"discard", "error"}
+
+        if excess_samples_policy not in excess_sample_policy_options:
+            raise ValueError(
+                f"Illegal value for argument excess_samples_policy: {excess_samples_policy}, possible options are {excess_sample_policy_options}."
+            )
+
+        if sampling_ratio < 1:
+            raise ValueError(
+                f"Illegal value for argument sampling_ratio: {sampling_ratio}, this must be 1 or greater."
+            )
+
+        excess_samples = len(dataset) % sampling_ratio
+        if excess_samples_policy == "error" and (excess_samples != 0):
+            raise ValueError(
+                f"The specified excess sample policy: {excess_samples} does not permit left over samples, of which: {excess_samples} would exist."
+            )
+
+        n_samples = len(dataset) // sampling_ratio
+        new_ids = range(n_samples)
+
+        super().__init__(dataset, ids=new_ids, operation_name="supersample")
+
+        self._supersample_func = supersample_func
+        self._sampling_ratio = sampling_ratio
+
+    def __getitem__(self, idx) -> Sample:
+        def parent_start_stop(idx):
+            start = idx * self._sampling_ratio
+            stop = start + self._sampling_ratio
+            return start, stop
+
+        ids_super = _idxSlice_to_ids(idx, len(self))
+        start_stop_parent = [parent_start_stop(i) for i in ids_super]
+
+        samples_parent = [self._parent[start:stop] for start, stop in start_stop_parent]
+        samples_super = [self._supersample_func(s) for s in samples_parent]
+
+        if isinstance(idx, int):
+            samples_super = samples_super[0]
+
+        return samples_super
+
+
 class StreamDataset(Dataset):
     def __init__(
         self, stream: IO, identifier: str, keep_loaded_items: bool = False
     ) -> None:
 
         self._last_accessed_id: int = -1
-        self.__loaded_items: List[Tuple] = []
-        self.__stream: IO = stream
-        self.keep_loaded_items: bool = keep_loaded_items
+        self._loaded_items: List[Tuple] = []
+        self._stream: IO = stream
+        self._keep_loaded_items: bool = keep_loaded_items
 
-        length: int = self.__read_once()
-        names: List[str] = self.__read_once()
+        length: int = self._read_once()
+        names: List[str] = self._read_once()
 
         super().__init__(
             self,
@@ -1172,65 +1446,65 @@ class StreamDataset(Dataset):
             item_names={n: i for i, n in enumerate(names)},
         )
 
-        self.cachable = True
+        self._cacheable = True
 
     @property
-    def allow_random_access(self) -> bool:
-        return self.keep_loaded_items
+    def _allow_random_access(self) -> bool:
+        return self._keep_loaded_items
 
-    def __skip_header(self):
+    def _skip_header(self):
         for i in range(2):
-            self.__read_once()
+            self._read_once()
 
-    def __read_once(self):
-        return dill.load(self.__stream)
+    def _read_once(self):
+        return dill.load(self._stream)
 
-    def __reset(self, clear_loaded_items: bool = False):
+    def _reset(self, clear_loaded_items: bool = False):
         self._last_accessed_id = -1
-        self.__stream.seek(0)
-        self.__skip_header()
+        self._stream.seek(0)
+        self._skip_header()
 
         if clear_loaded_items:
-            self.__loaded_items.clear()
+            self._loaded_items.clear()
 
-    def __read_item(self):
+    def _read_item(self):
         self._last_accessed_id += 1
 
-        item = self.__read_once()
+        item = self._read_once()
 
-        if self.keep_loaded_items:
-            self.__loaded_items.append(item)
+        if self._keep_loaded_items:
+            self._loaded_items.append(item)
 
         if self._last_accessed_id + 1 == len(self):
-            self.__reset()
+            self._reset()
 
         return item
 
-    def __getitem__(self, i: int) -> Tuple:
+    def __getitem__(self, i: int) -> Sample:
 
-        if len(self.__loaded_items) > i:
-            return self.__loaded_items[i]
+        if len(self._loaded_items) > i:
+            return self._loaded_items[i]
         else:
             is_next = i == (self._last_accessed_id + 1)
 
             if is_next:
-                item = self.__read_item()
+                item = self._read_item()
                 return item
-            elif self.allow_random_access:
+            elif self._allow_random_access:
 
                 item = ()
 
                 while (self._last_accessed_id < i) and not (
                     i == len(self) - 1 and self._last_accessed_id == -1
                 ):
-                    item = self.__read_item()
+                    item = self._read_item()
 
                 return item
             else:
                 raise Exception("Random access is not allowed")
 
     def close(self):
-        self.__stream.close()
+        self._stream.close()
 
 
 # ========= Handy decorators =========
@@ -1264,7 +1538,7 @@ def _make_dataset_element_transforming(
             ]
 
         return Dataset(
-            downstream_getter=ds,
+            parent=ds,
             item_transform_fn=item_transform_fn,
             operation_name=operation_name,
             operation_parameters={**operation_parameters, "idx": idx},
@@ -1302,7 +1576,7 @@ def _dataset_element_transforming(
             ]
 
         return Dataset(
-            downstream_getter=ds,
+            parent=ds,
             item_transform_fn=item_transform_fn,
             operation_name=operation_name,
             operation_parameters={**operation_parameters, "idx": idx},
@@ -1405,7 +1679,8 @@ def allow_unique(max_num_duplicates=1) -> Callable[[Any], bool]:
 
 
 def _custom(
-    elem_transform_fn: Callable[[Any], Any], elem_check_fn: Callable[[Any], None] = None
+    elem_transform_fn: Callable[[Any], Any],
+    elem_check_fn: Callable[[Any], None] = None,
 ) -> DatasetTransformFn:
     """Create a user defined transform.
 
@@ -1608,7 +1883,6 @@ def center(axis=0) -> DatasetTransformFn:
 # When people say normalize, they often mean either minmax or standardize.
 # This implementation follows the scikit-learn terminology
 # Not included in the library for now, because it is used very seldomly in practice
-
 # def normalize(axis=0, norm="l2") -> DatasetTransformFn:
 #     """Normalize samples individually to unit norm.
 
@@ -1690,19 +1964,58 @@ def maxabs(axis=0) -> DatasetTransformFn:
 @_warn_no_args(skip=1)
 def zipped(*datasets: AbstractDataset):
     comp = compose.ZipDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
+    return Dataset(parent=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def cartesian_product(*datasets: AbstractDataset):
     comp = compose.CartesianProductDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
+    return Dataset(parent=comp, ids=comp._ids, operation_name="copy")
 
 
 @_warn_no_args(skip=1)
 def concat(*datasets: AbstractDataset):
     comp = compose.ConcatDataset(*datasets)
-    return Dataset(downstream_getter=comp, ids=comp._ids, operation_name="copy")
+    return Dataset(parent=comp, ids=comp._ids, operation_name="copy")
+
+
+# ========= Sampling ===================
+def subsample(
+    dataset, subsample_func, sampling_ratio: int, cache_method="block"
+) -> Dataset:
+    """Divide each sample in the dataset into several sub-samples using a user-defined function.
+    The function must take a single sample as an argument and must return a list of samples.
+
+    Arguments:
+        dataset {[type]} -- dataset containing the samples which are sub-sampled.
+        subsample_func {Callable} -- function defining how each sample should divided.
+        sampling_ratio {int} -- the number of sub-samples produced for each sample.
+        cache_method {Any} -- defines the caching method used by the subsampling operation. Possible options are {None, "block"}
+
+    Returns:
+        Dataset -- a new dataset containing the subsamples.
+    """
+
+    return SubsampleDataset(dataset, subsample_func, sampling_ratio, cache_method)
+
+
+def supersample(
+    dataset, supersample_func, sampling_ratio: int, excess_samples_policy="discard"
+) -> Dataset:
+    """Performs supersampling on the provided dataset.
+
+    Arguments:
+        dataset {AbstractDataset} -- the dataset which the supersampling is applied to
+        supersample_func {Callable} -- function used to combine several samples into a single supersample.
+        sampling_ratio {int} -- the number of samples used to produce a each supersample.
+
+    Keyword Arguments:
+        excess_samples_policy {str} -- defines how left over samples should be treated. Possible values are {"discard","error"} (default: {"discard"})
+    """
+
+    return SupersampleDataset(
+        dataset, supersample_func, sampling_ratio, excess_samples_policy
+    )
 
 
 # ========= Converters =========
@@ -1749,7 +2062,7 @@ def to_tensorflow(dataset: Dataset):
     import tensorflow as tf  # type:ignore
 
     ds = Dataset(
-        downstream_getter=dataset,
+        parent=dataset,
         item_transform_fn=_tf_item_conversion,
         operation_name="transform",
     )

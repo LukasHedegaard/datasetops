@@ -1,4 +1,10 @@
 from typing import Sequence
+
+import pytest
+import numpy as np
+from PIL import Image
+
+from datasetops.loaders import from_csv, from_iterable
 from datasetops.dataset import (
     image_resize,
     reshape,
@@ -9,9 +15,6 @@ from datasetops.dataset import (
     _DEFAULT_SHAPE,
 )
 import datasetops.loaders as loaders
-import pytest
-import numpy as np
-from PIL import Image
 from .testing_utils import (
     get_test_dataset_path,
     from_dummy_data,
@@ -32,17 +35,22 @@ def test_generator():
 
 
 def test_shuffle():
-    seed = 42
+
+    # empty set
+    ds = loaders.Loader(lambda i: i, [])
+    ds.shuffle()
+    assert len(ds) == 0
+
     ds = from_dummy_data()
-    expected_items = [i for i in ds]
-    ds_shuffled = ds.shuffle(seed)
-    found_items = [i for i in ds_shuffled]
 
-    # same data
-    assert set(expected_items) == set(found_items)
+    # no seed
+    ds_shuffled = ds.shuffle()
+    assert set(ds) == set(ds_shuffled)  # same data
+    assert list(ds) != list(ds_shuffled)  # different sequence
 
-    # different sequence
-    assert expected_items != found_items
+    ds_shuffled = ds.shuffle(seed=42)
+    assert set(ds) == set(ds_shuffled)  # same data
+    assert list(ds) != list(ds_shuffled)  # different sequence
 
 
 def test_sample():
@@ -279,6 +287,162 @@ def test_reorder():
         )  # key needs to be unique, but wouldn't be
 
 
+def test_getitem():
+    n = 5
+    itr_int = list(range(n))
+    itr_tuple = [(i,) for i in itr_int]
+    itr_str = [str(i) for i in itr_int]
+
+    def do_test(itr):
+        ds = from_iterable(itr)
+
+        # index access
+        for i in range(n):
+            assert ds[i] == itr[i]
+
+        with pytest.raises(IndexError):
+            ds[n + 1]
+
+        # slice access
+        for i in range(n):
+            for j in range(n):
+                for s in range(n):
+                    assert ds[i:j:n] == itr[i:j:n]
+
+        assert ds[:] == itr[:]
+
+    do_test(itr_int)
+    do_test(itr_tuple)
+    do_test(itr_str)
+
+
+class TestSubsample:
+    cars = from_csv(get_test_dataset_path(DATASET_PATHS.CSV + "/cars"))
+
+    def test_subsample(self):
+        def func(s):
+            return (s, s)
+
+        assert len(self.cars) == 4
+        ds = TestSubsample.cars.subsample(func, 2)
+        assert len(ds) == 8
+
+        s = ds[0]
+        assert len(s[0]) == 3
+        assert len(s[1]) == 3
+
+    def test_invalid_subsample_func(self):
+
+        # incorrect number of subsamples returned
+        def func1(s):
+            return (s,)
+
+        with pytest.raises(RuntimeError):
+            ds = TestSubsample.cars.subsample(func1, 3)
+            _ = ds[0]
+
+        # invalid subsample returned
+        def func2(s):
+            return None
+
+        with pytest.raises(RuntimeError):
+            ds = TestSubsample.cars.subsample(func2, 2)
+            _ = ds[0]
+
+    def test_invalid_nsamples(self):
+        def func(s):
+            return s
+
+        with pytest.raises(ValueError):
+            TestSubsample.cars.subsample(func, 0)
+
+        with pytest.raises(ValueError):
+            TestSubsample.cars.subsample(func, -1)
+
+    def test_caching(self):
+
+        cnt = 0
+
+        def func(s):
+            nonlocal cnt
+            cnt += 1
+            return (s, s)
+
+        """no caching, every time a subsample is read
+        the parent sample is read as well"""
+        ds = TestSubsample.cars.subsample(func, 2, cache_method=None)
+        ds[0]
+        ds[1]
+        assert cnt == 2
+
+        """block caching, store the subsamples of produced
+        from the last read of the parent sample. In this case
+        each sample produces 2 subsamples. As such reading idx 0 and 1
+        should result in one read. Reading beyond this will case another read.
+        Going back again the sample 0 and 1 should now be cleared
+        """
+        cnt = 0
+        ds = TestSubsample.cars.subsample(func, 2, cache_method="block")
+        ds[0]
+        ds[1]
+        assert cnt == 1
+        ds[2]
+        assert cnt == 2
+        ds[0]
+        assert cnt == 3
+        ds[1]
+        assert cnt == 3
+
+    def test_getitem(self):
+        def func(s):
+            return s, s
+
+        ds = from_iterable([1, 2]).subsample(func, 2)
+
+        # index
+        assert ds[0] == 1
+        assert ds[1] == 1
+        assert ds[2] == 2
+        assert ds[3] == 2
+
+        with pytest.raises(IndexError):
+            ds[4]
+
+        # slicing
+        assert ds[:] == [1, 1, 2, 2]
+        assert ds[0:1] == [1]
+        assert ds[1:2] == [1]
+        assert ds[0:3] == [1, 1, 2]
+        assert ds[4:] == []
+
+
+class TestSupersample:
+    def test_supersample(self):
+
+        ds = from_iterable([1, 2, 3, 4])
+        assert len(ds) == 4
+
+        ds = ds.supersample(sum, 2)
+        assert len(ds) == 2
+        assert ds[0] == 3
+        assert ds[1] == 7
+
+    def test_getitem(self):
+
+        ds = from_iterable([1, 2, 3, 4]).supersample(sum, 2)
+
+        # index
+        assert ds[0] == 3
+        assert ds[1] == 7
+        with pytest.raises(IndexError):
+            ds[2]
+
+        assert ds[0:1] == [3]
+        assert ds[0:2] == [3, 7]
+        assert ds[:] == [3, 7]
+        assert ds[3:] == []
+
+
 # ========= Tests relating to stats =========
 
 
@@ -314,11 +478,11 @@ def test_shape():
         return i, i
 
     # no shape yet
-    ds = loaders.Loader(get_data)
+    ds = loaders.Loader(get_data, ids=[])
     assert ds.shape == _DEFAULT_SHAPE
 
     # shape given
-    ds.append(1)
+    ds = loaders.Loader(get_data, ids=[1])
     assert ds.shape == (_DEFAULT_SHAPE, _DEFAULT_SHAPE)
 
     # numpy data

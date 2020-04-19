@@ -3,54 +3,52 @@ Dataset Ops documentation
 Friendly dataset operations for your data science needs.
 Dataset Ops provides declarative loading, sampling, splitting and transformation operations for datasets, alongside export options for easy integration with Tensorflow and PyTorch.
 
-.. figure:: pics/pipeline.svg
-   :figwidth: 600
-   :align: center
-   :alt: Dataset Ops pipeline
+.. .. figure:: pics/pipeline.svg
+..    :figwidth: 600
+..    :align: center
+..    :alt: Dataset Ops pipeline
 
-   Illustration Dataset Ops Pipeline. 
-   Several built-in loaders makes it possible to load datasets stored in various formats.
-   Several operators are provided that provide common pre-processing steps to be applied to the data quickly.
-   Finally, the processed data can be used as is or exported in a format to be used with ML frameworks.
+..    Illustration Dataset Ops Pipeline. 
+..    Several built-in loaders makes it possible to load datasets stored in various formats.
+..    Several operators are provided that provide common pre-processing steps to be applied to the data quickly.
+..    Finally, the processed data can be used as is or exported in a format to be used with ML frameworks.
 
 First Steps
 -----------
 Are you looking for ways to install the framework 
 or do you looking for inspiration to get started?
 
-* **Installing**: :doc:`Installing <installing>`
+* **Installing**: :doc:`Installing <getting_started/installing>`
 
-* **Getting Started**: :doc:`Getting started <getting_started>`
+* **Getting Started**: :doc:`Getting started <getting_started/getting_started>`
 
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Getting Started:
+   :caption: Getting Started
 
-   installing
-   getting_started
+   getting_started/installing
+   getting_started/getting_started
 
 Loaders and Transforms
 ----------------------
 
 Get an overview of the available loaders and transforms that can be used with your dataset.
 
-* **Loaders**: :doc:`Standard loaders <loaders/standard>`
+* **Loaders**: :doc:`Loaders <overview/loaders>`
 
-* **Transforms**: :doc:`General <transforms/common>` | :doc:`Image <transforms/images>` | :doc:`Time-series <transforms/timeseries>`
+* **Transforms**: :doc:`Transforms <overview/transforms>`
 
 It is also possible to implement your own loaders and transforms.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Loaders and Transforms
+   :caption: Overview
    
-   loaders/standard
-   transforms/common
-   transforms/images
-   transforms/timeseries
+   overview/loaders
+   overview/transforms
 
 Custom Loaders and Transforms
 -----------------------------
@@ -65,7 +63,7 @@ For how-to guides on how to do this see:
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: How-to guides:
+   :caption: How-to guides
 
    howto/custom_loader
    howto/custom_transform
@@ -106,7 +104,7 @@ See the example section:
 
 .. toctree::
     :maxdepth: 1
-    :caption: Examples:
+    :caption: Examples
     :glob:  
    
     examples/*
@@ -127,7 +125,7 @@ Information on how to the codebase is tested, how it is published, and how to ad
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Contributing:
+   :caption: Contributing
 
    development/communication
    development/codebase

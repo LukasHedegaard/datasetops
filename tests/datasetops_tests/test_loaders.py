@@ -1,4 +1,7 @@
+from collections import namedtuple
+
 import datasetops.loaders as loaders
+from datasetops.loaders import from_iterable
 import random
 from pathlib import Path
 from .testing_utils import (
@@ -8,8 +11,6 @@ from .testing_utils import (
 )
 import numpy as np
 import pytest
-
-# tests ##########################
 
 
 def test_folder_data():
@@ -196,3 +197,102 @@ def test_tfds():
 
     assert np.array_equal(mnist_item[0].numpy(), ds_mnist_item[0])
     assert np.array_equal(mnist_item[1].numpy(), ds_mnist_item[1])
+
+
+def test_from_recursive_files():
+
+    Patient = namedtuple("Patient", ["blood_pressure", "control"])
+
+    root = get_test_dataset_path(DATASET_PATHS.PATIENTS)
+
+    def predicate(path):
+        return path.suffix == ".txt"
+
+    def func(path):
+        blood_pressure = np.loadtxt(path)
+        is_control = path.parent != "control"
+        return Patient(blood_pressure, is_control)
+
+    ds = loaders.from_recursive_files(root, func, predicate)
+
+    assert len(ds) == 4
+
+    assert ds[0].blood_pressure.shape == (270,)
+
+
+class TestFromIterable:
+    def test_list(self):
+
+        ds = from_iterable([0, 1, 2])
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        ds = from_iterable([])
+        assert len(ds) == 0
+
+    def test_tuple(self):
+
+        ds = from_iterable((0, 1, 2))
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        ds = from_iterable(())
+        assert len(ds) == 0
+
+    def test_generator(self):
+        def gen(size):
+            for i in range(size):
+                yield i
+
+        iterator = gen(3)
+        ds = from_iterable(iterator)
+
+        assert len(ds) == 3
+
+        for i in range(len(ds)):
+            assert i == ds[i]
+
+        iterator = gen(0)
+        ds = from_iterable(iterator)
+
+        assert len(ds) == 0
+
+    def test_invalid(self):
+
+        with pytest.raises(TypeError):
+            _ = from_iterable(None)  # type:ignore
+
+        with pytest.raises(TypeError):
+            _ = from_iterable(10)  # type:ignore
+
+
+class TestLoadCSV:
+
+    cars = get_test_dataset_path("csv/cars")
+
+    def test_names_missing(self):
+        p = get_test_dataset_path("csv/weird/no_names.csv")
+        ds = loaders.from_csv(p, names=["a", "b", "c"])
+
+        assert len(ds) == 1
+        s = ds[0]
+        s[0] == [1, 2]
+        s[1] == [2, 4]
+        s[2] == [3, 6]
+
+    def test_single_default(self):
+        ds = loaders.from_csv(TestLoadCSV.cars / "car_1" / "load_1000.csv")
+        assert len(ds) == 1
+        s = ds[0]
+        assert s[0] == [1, 2, 3]
+        assert s[1] == [0.5, 1.0, 1.5]
+
+    def test_nested_default(self):
+        ds = loaders.from_csv(TestLoadCSV.cars)
+        assert len(ds) == 4

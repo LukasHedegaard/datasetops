@@ -35,13 +35,8 @@ extensions = [
     "recommonmark",
     "sphinx_rtd_theme",
 ]
-doctest_global_setup = """
-try:
-    import datasetops as do
-except ImportError:
-    do = None
-"""
 
+numfig = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -78,4 +73,4 @@ html_static_path = ["_static"]
 extensions.append("autoapi.extension")
 autoapi_type = "python"
 autoapi_dirs = ["../src/"]
-autoapi_keep_files = True
+autoapi_keep_files = False
