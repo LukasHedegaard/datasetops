@@ -1,8 +1,7 @@
-from typing import Sequence
-
 import pytest
 import numpy as np
 from PIL import Image
+from typing import Sequence, List, Tuple
 
 from datasetops.loaders import from_csv, from_iterable
 from datasetops.dataset import (
@@ -77,8 +76,8 @@ def test_filter():
     ds = from_dummy_data(num_total=num_total, with_label=True).named("data", "label")
 
     # expected items
-    a = [(x, "a") for x in list(range(5))]
-    b = [(x, "b") for x in list(range(5, num_total))]
+    a: List[Tuple[int, str]] = [(x, "a") for x in list(range(5))]
+    b: List[Tuple[int, str]] = [(x, "b") for x in list(range(5, num_total))]
     even_a = [x for x in a if x[0] % 2 == 0]
     even_b = [x for x in b if x[0] % 2 == 0]
     odd_b = [x for x in b if x[0] % 2 == 1]
@@ -123,8 +122,8 @@ def test_split_filter():
     ds = from_dummy_data(num_total=num_total, with_label=True).named("data", "label")
 
     # expected items
-    a = [(x, "a") for x in list(range(5))]
-    b = [(x, "b") for x in list(range(5, num_total))]
+    a: List[Tuple[int, str]] = [(x, "a") for x in list(range(5))]
+    b: List[Tuple[int, str]] = [(x, "b") for x in list(range(5, num_total))]
     even_a = [x for x in a if x[0] % 2 == 0]
     odd_a = [x for x in a if x[0] % 2 == 1]
     even_b = [x for x in b if x[0] % 2 == 0]
