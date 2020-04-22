@@ -1,7 +1,7 @@
 from typing import List, Optional, Callable
-from datasetops.cache import Cache
-from datasetops import loaders
-from ..datasetops_tests.testing_utils import (
+from datasetops.xcache import Cache
+from datasetops import xloaders as loaders
+from ..datasetops_tests.xtesting_utils import (
     read_lines,
     read_bin,
 )

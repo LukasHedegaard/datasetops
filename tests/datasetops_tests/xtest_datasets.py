@@ -3,8 +3,8 @@ import numpy as np
 from PIL import Image
 from typing import Sequence, List, Tuple
 
-from datasetops.loaders import from_csv, from_iterable
-from datasetops.dataset import (
+from datasetops.xloaders import from_csv, from_iterable
+from datasetops.xdataset import (
     image_resize,
     reshape,
     allow_unique,
@@ -13,8 +13,8 @@ from datasetops.dataset import (
     categorical_template,
     _DEFAULT_SHAPE,
 )
-import datasetops.loaders as loaders
-from .testing_utils import (
+import datasetops.xloaders as loaders
+from .xtesting_utils import (
     get_test_dataset_path,
     from_dummy_data,
     from_dummy_numpy_data,

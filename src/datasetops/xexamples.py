@@ -1,5 +1,5 @@
 import datasetops as do
-from datasetops.types import AnyPath
+from datasetops.xtypes import AnyPath
 from typing import Tuple
 import numpy as np
 

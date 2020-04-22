@@ -2,9 +2,9 @@ import pytest
 import numpy as np
 from typing import Sequence, List, Tuple
 
-from datasetops.new_dataset import Dataset, _DEFAULT_SHAPE
+from datasetops.dataset import Dataset, _DEFAULT_SHAPE
 
-from .new_testing_utils import (
+from .testing_utils import (
     get_test_dataset_path,
     from_dummy_data,
     from_dummy_numpy_data,

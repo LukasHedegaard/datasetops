@@ -1,11 +1,11 @@
-from datasetops.scaler import (
+from datasetops.xscaler import (
     ElemStats,
     _make_scaler_reshapes,
     fit,
 )
-from datasetops.dataset import center, standardize, minmax, maxabs  # , normalize
+from datasetops.xdataset import center, standardize, minmax, maxabs  # , normalize
 import numpy as np
-from .testing_utils import multi_shape_dataset
+from .xtesting_utils import multi_shape_dataset
 import pytest
 
 

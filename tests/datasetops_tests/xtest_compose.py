@@ -1,6 +1,6 @@
 import pytest
-from datasetops.dataset import cartesian_product, zipped, concat, allow_unique
-from .testing_utils import (
+from datasetops.xdataset import cartesian_product, zipped, concat, allow_unique
+from .xtesting_utils import (
     from_dummy_data,
     from_dummy_numpy_data,
 )

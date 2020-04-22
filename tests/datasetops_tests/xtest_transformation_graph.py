@@ -1,13 +1,13 @@
-from datasetops.dataset import Dataset
-from datasetops import loaders
-from .testing_utils import (
+from datasetops.xdataset import Dataset
+from datasetops import xloaders as loaders
+from .xtesting_utils import (
     get_test_dataset_path,
     DATASET_PATHS,
     read_text,
     read_bin,
 )
 import pytest
-from datasetops.dataset import zipped
+from datasetops.xdataset import zipped
 from io import StringIO
 
 

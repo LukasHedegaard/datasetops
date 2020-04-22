@@ -1,4 +1,4 @@
-from datasetops.new_dataset import Dataset
+from datasetops.dataset import Dataset
 from datasetops.interfaces import IDataset, ElemKey, SamplePredicate, ElemPredicate
 from datasetops.helpers import (
     monkeypatch,

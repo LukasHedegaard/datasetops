@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import NamedTuple
-from datasetops.loaders import Loader
+from datasetops.loaders import from_iterable
+from datasetops.dataset import Dataset
+from datasetops.interfaces import ISampleProvider, IDataset
 import numpy as np
+
 
 RESOURCES_PATH = Path(__file__).parent.parent / "resources"
 
@@ -23,31 +26,19 @@ DATASET_PATHS = DatasetPaths()
 
 
 def get_test_dataset_path(dataset_path: str) -> Path:
-    """Returns the path to the dataset relative to the test-resources folder.
-
-    Arguments:
-        dataset_path {str} -- path to the dataset defined relative to the test-resource folder
-
-    Returns:
-        Path -- path to the dataset
-    """
     return Path(__file__).parent.parent / "resources" / dataset_path
 
 
-def from_dummy_data(num_total=11, with_label=False) -> Loader:
-    a_ids = list(range(5))
-    b_ids = list(range(5, num_total))
-    ids = a_ids + b_ids
+def from_dummy_data(num_total=11, with_label=False) -> IDataset:
+    a = list(range(5))
+    b = list(range(5, num_total))
 
-    def get_data(i):
-        return (i,)
+    if not with_label:
+        data = a + b
+    else:
+        data = [(i, str("a")) for i in a] + [(i, str("b")) for i in b]
 
-    def get_labelled_data(i):
-        nonlocal a_ids
-        return i, "a" if i < len(a_ids) else "b"
-
-    ds = Loader(get_labelled_data if with_label else get_data, ids=ids)
-    return ds
+    return from_iterable(data, "from_dummy_data")
 
 
 DUMMY_NUMPY_DATA_SHAPE_1D = (18,)
@@ -55,49 +46,20 @@ DUMMY_NUMPY_DATA_SHAPE_2D = (6, 3)
 DUMMY_NUMPY_DATA_SHAPE_3D = (2, 3, 3)
 
 
-def from_dummy_numpy_data() -> Loader:
+def from_dummy_numpy_data() -> IDataset:
     a_ids = list(range(5))
     b_ids = list(range(5, 11))
     ids = a_ids + b_ids
     labels = [*[1 for _ in a_ids], *[2 for _ in b_ids]]
 
     num_samples = len(a_ids) + len(b_ids)
-    data = np.arange(num_samples * DUMMY_NUMPY_DATA_SHAPE_1D[0]).reshape(
+    np_data = np.arange(num_samples * DUMMY_NUMPY_DATA_SHAPE_1D[0]).reshape(
         (num_samples, DUMMY_NUMPY_DATA_SHAPE_1D[0])
     )
-    # data = data / data.max()
 
     def get_data(idx):
-        return data[idx], labels[idx]
+        return np_data[idx], labels[idx]
 
-    ds = Loader(get_data, ids)
-    return ds
+    data = [get_data(i) for i in ids]
 
-
-def read_text(path):
-    with open(path, "r") as file:
-        return file.read()
-
-
-def read_lines(path):
-    with open(path, "r") as file:
-        return file.readlines()
-
-
-def read_bin(path):
-    return np.fromfile(path, dtype=np.float32, count=-1)  # type:ignore
-
-
-def multi_shape_dataset(SHAPE_1D=(2,), SHAPE_3D=(5, 4, 3)):
-    data = [
-        # (string, 1D, 3D, scalar)
-        ("0", 0 * np.ones(SHAPE_1D), 0 * np.ones(SHAPE_3D), 0),
-        ("1", 1 * np.ones(SHAPE_1D), 1 * np.ones(SHAPE_3D), 1),
-        ("2", 2 * np.ones(SHAPE_1D), 2 * np.ones(SHAPE_3D), 2),
-    ]
-
-    def get_data(idx):
-        return data[idx]
-
-    ds = Loader(get_data, range(len(data)))
-    return ds
+    return Dataset.from_iterable(data, "from_dummy_numpy_data")

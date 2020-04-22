@@ -6,9 +6,8 @@ from sklearn.preprocessing import (
 )
 from sklearn.preprocessing._data import _handle_zeros_in_scale
 import numpy as np
-from datasetops.types import Shape, ItemTransformFn
-from typing import Iterable, Any
-from typing import NamedTuple
+from datasetops.xtypes import Shape, ItemTransformFn
+from typing import Iterable, Any, NamedTuple
 
 
 class ElemStats(NamedTuple):

@@ -1,8 +1,8 @@
-from datasetops.dataset import StreamDataset
+from datasetops.xdataset import StreamDataset
 import dill
-from datasetops.cache import Cache
-from datasetops import loaders
-from .testing_utils import (
+from datasetops.xcache import Cache
+from datasetops import xloaders as loaders
+from .xtesting_utils import (
     get_test_dataset_path,
     read_text,
     read_bin,

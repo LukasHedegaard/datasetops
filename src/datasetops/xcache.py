@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Callable, IO
-from datasetops.types import AnyPath
+from datasetops.xtypes import AnyPath
 import os
 
 

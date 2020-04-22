@@ -1,10 +1,10 @@
 from collections import namedtuple
 
-import datasetops.loaders as loaders
-from datasetops.loaders import from_iterable
+import datasetops.xloaders as loaders
+from datasetops.xloaders import from_iterable
 import random
 from pathlib import Path
-from .testing_utils import (
+from .xtesting_utils import (
     get_test_dataset_path,
     DATASET_PATHS,
     RESOURCES_PATH,
