@@ -1,3 +1,7 @@
+"""
+Interfaces for the Dataset Ops library.
+"""
+
 from abc import ABC, abstractmethod
 from functools import wraps
 from pathlib import Path
@@ -12,9 +16,7 @@ from typing import (
     Iterator,
     Iterable,
     Optional,
-    Collection,
     NamedTuple,
-    # Literal,
 )
 import typing
 import numpy as np
@@ -35,10 +37,11 @@ ElemIndex = int
 ElemKey = Union[ElemIndex, ElemName]
 ElemNameToIndex = Dict[ElemName, ElemIndex]
 
-SampleTransformFn = Callable[[Sample], Sample]
-ElemTransformFn = Callable[[Elem], Elem]
+SampleTransform = Callable[[Sample], Sample]
+ElemTransform = Callable[[Elem], Elem]
 
-Predicate = Callable[[Any], bool]
+ElemPredicate = Callable[[Elem], bool]
+SamplePredicate = Callable[[Sample], bool]
 
 DatasetTransformFn = Callable[[ElemIndex, "IDataset"], "IDataset"]
 Argument = Any
@@ -72,7 +75,7 @@ def interfacemethod(func):
     return wrapper
 
 
-class SampleProvider(ABC):
+class ISampleProvider(ABC):
     @abstractmethod
     def __getitem__(self, i: SampleId) -> Sample:
         ...
@@ -81,8 +84,12 @@ class SampleProvider(ABC):
     def __len__(self):
         ...
 
+    @abstractmethod
+    def trace(self) -> Union[str, Dict[str, Any]]:
+        ...
 
-class IDataset(SampleProvider, Iterable):
+
+class IDataset(ISampleProvider, Iterable):
     """Dataset interface"""
 
     # === Basics. Implemented in `dataset.py` ===
@@ -97,37 +104,37 @@ class IDataset(SampleProvider, Iterable):
 
     @interfacemethod
     def __getitem__(self, idx):
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     def __len__(self) -> int:
         """Return the total number of elements in the dataset."""
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     def __iter__(self) -> Iterator[Sample]:
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     @property
     def generator(self,):
-        ...
+        ...  # TODO: test
 
     # === Basic Info: Implemented in `dataset.py` ===
 
     @interfacemethod
     def named(self, first: Union[str, Sequence[str]], *rest: str) -> "IDataset":
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     @property
     def names(self) -> List[str]:
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     @property
     def shape(self) -> SampleShape:
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     def __str__(self) -> str:
@@ -138,7 +145,7 @@ class IDataset(SampleProvider, Iterable):
         ...  # TODO: Implement
 
     @interfacemethod
-    def trace(self) -> Any:  # Was transformation graph
+    def trace(self) -> Dict:  # Was transformation graph
         ...  # TODO: Decide return type JSON?
 
     # def diagram(self, storage_path: AnyPath) -> None: ... # TODO: implement
@@ -146,50 +153,46 @@ class IDataset(SampleProvider, Iterable):
     # === Data Statistics: Implemented in `stats.py` ===
 
     @interfacemethod
-    def counts(
-        self, key_or_keys: Union[ElemKey, Sequence[ElemKey]] = None, *rest_keys: ElemKey
-    ) -> List[Tuple[Any, int]]:
+    def unique_counts(self, key: ElemKey) -> Dict[Elem, int]:
         ...
 
     @interfacemethod
-    def unique(
-        self, key_or_keys: Union[ElemKey, Sequence[ElemKey]] = None, *rest_keys: ElemKey
-    ) -> List[Any]:
+    def unique(self, key: ElemKey) -> List[Elem]:
         ...
 
     @interfacemethod
-    def statistics(
-        self, key_or_keys: Union[ElemKey, Sequence[ElemKey]] = None, axis=None
-    ) -> Tuple[ElemStats]:
+    def statistics(self, key: ElemKey = None, axis=None) -> ElemStats:
         ...  # TODO: update impl
 
     # === Sampling ===
 
     @interfacemethod
     def sample(self, num: int, seed: int = None) -> "IDataset":
-        ...
+        ...  # TODO: test
 
     # def sample_balanced(self, key: Key, num_per_class: int, comparison_fn = lambda a,b: a == b) -> "IDataset": ... # TODO: implement
 
     @interfacemethod
     def shuffle(self, seed: int = None) -> "IDataset":
-        ...
+        ...  # TODO: test
 
     @interfacemethod
     def filter(
         self,
-        predicates: Optional[Union[Predicate, Sequence[Optional[Predicate]]]],
-        **kwpredicates: Predicate,
+        key_or_samplepredicate: Union[ElemKey, SamplePredicate],
+        elem_predicate: ElemPredicate = lambda e: True,
     ) -> "IDataset":
-        ...  # TODO: reconsider API
+        ...  # TODO: test
 
     @interfacemethod
     def take(self, num: int) -> "IDataset":
-        ...
+        ...  # TODO: test
 
     @interfacemethod
-    def repeat(self, copies=1, mode="whole"):  # mode: Literal["whole", "itemwise"]
-        ...
+    def repeat(
+        self, copies=1, mode="whole"
+    ) -> "IDataset":  # mode: Literal["whole", "itemwise"]
+        ...  # TODO: test
 
     # === Advanced sampling ===
 
@@ -200,7 +203,7 @@ class IDataset(SampleProvider, Iterable):
         num_input_samples: int,
         num_output_samples: int,
     ) -> "IDataset":
-        ...
+        ...  # TODO: decide if we should support this
 
     @interfacemethod
     def split_samples(
@@ -223,15 +226,15 @@ class IDataset(SampleProvider, Iterable):
     def split(
         self, fractions: Sequence[float], seed: int = None
     ) -> Tuple["IDataset", ...]:
-        ...
+        ...  # TODO: impl
 
     @interfacemethod
     def split_filter(
         self,
-        predicates: Union[Predicate, Sequence[Optional[Predicate]]] = None,
-        **kwpredicates: Predicate,
-    ) -> Tuple["IDataset", ...]:
-        ...
+        key_or_samplepredicate: Union[ElemKey, SamplePredicate],
+        elem_predicate: ElemPredicate = None,
+    ) -> Tuple["IDataset", "IDataset"]:
+        ...  # TODO: impl
 
     # def split_train_test(self, ratio=[0.8,0.2], seed:int = None) -> Tuple["IDataset", "IDataset"]: ... # TODO: implement
 
@@ -245,11 +248,11 @@ class IDataset(SampleProvider, Iterable):
 
     @interfacemethod
     def zip(self, *datasets: Sequence["IDataset"]) -> "IDataset":
-        ...
+        ...  # TODO: impl
 
     @interfacemethod
     def concat(self, *datasets: Sequence["IDataset"]) -> "IDataset":
-        ...
+        ...  # TODO: impl
 
     @interfacemethod
     def __add__(self, other: "IDataset") -> "IDataset":
@@ -257,28 +260,23 @@ class IDataset(SampleProvider, Iterable):
 
     @interfacemethod
     def cartesian_product(self, *datasets: Sequence["IDataset"]) -> "IDataset":
-        ...
+        ...  # TODO: impl
 
     # === Free transform ===
 
     @interfacemethod
     def transform(
         self,
-        fns: Optional[
-            Union[
-                SampleTransformFn,
-                Sequence[Union[SampleTransformFn, DatasetTransformFn]],
-            ]
-        ] = None,
-        **kwfns: DatasetTransformFn,
+        key_or_sampletransform: Union[ElemKey, SampleTransform],
+        elem_transform: ElemTransform = lambda e: e,
     ) -> "IDataset":
-        ...  # TODO: reconsider API
+        ...  # TODO: test
 
     @interfacemethod
     def reorder(
         self, key_or_keys: Union[ElemKey, Sequence[ElemKey]], *rest_keys: ElemKey
     ) -> "IDataset":
-        ...
+        ...  # TODO: test
 
     # === Label ===
 
@@ -301,34 +299,26 @@ class IDataset(SampleProvider, Iterable):
     # === Numeric ===
 
     @interfacemethod
-    def numpy(
-        self, key_or_keys: Union[ElemKey, Collection[ElemKey]], *rest_keys: ElemKey
-    ) -> "IDataset":
-        ...  # TODO: update impl
+    def numpy(self, key: ElemKey) -> "IDataset":
+        ...
 
     @interfacemethod
-    def reshape(
-        self, key_or_keys: Union[ElemKey, Collection[ElemKey]], new_shape: ElemShape,
-    ) -> "IDataset":
-        ...  # TODO: update impl
+    def reshape(self, key: ElemKey, new_shape: ElemShape,) -> "IDataset":
+        ...
 
     # === Image: Implemented in `image.py` ===
 
     @interfacemethod
-    def image(
-        self, key_or_keys: Union[ElemKey, Collection[ElemKey]], *rest_keys: ElemKey
-    ) -> "IDataset":
+    def image(self, key: ElemKey) -> "IDataset":
         ...  # TODO: update impl
 
     @interfacemethod
-    def image_resize(
-        self, key_or_keys: Union[ElemKey, Collection[ElemKey]], new_shape: ElemShape,
-    ) -> "IDataset":
+    def image_resize(self, key: ElemKey, new_shape: ElemShape,) -> "IDataset":
         ...  # TODO: update impl
 
     # def image_crop(
     #     self,
-    #     key_or_keys: Union[ElemKey, Collection[ElemKey]],
+    #     key: ElemKey,
     #     upper_left: Tuple[int, int],
     #     bottom_right: Tuple[int, int],
     # ) -> "IDataset":
@@ -336,7 +326,7 @@ class IDataset(SampleProvider, Iterable):
 
     # def image_rotate(
     #     self,
-    #     key_or_keys: Union[ElemKey, Collection[ElemKey]],
+    #     key: ElemKey,
     #     amount: float,
     #     unit: Literal["degrees", "radians", "percentage"] = "degrees",
     #     auto_crop=True,
@@ -353,30 +343,19 @@ class IDataset(SampleProvider, Iterable):
 
     # === Scalers ===
     @interfacemethod
-    def standardize(
-        self, key_or_keys: Union[ElemKey, Collection[ElemKey]], axis=0
-    ) -> "IDataset":
+    def standardize(self, key: ElemKey, axis=0) -> "IDataset":
         ...
 
     @interfacemethod
-    def center(
-        self, key_or_keys: Union[ElemKey, Sequence[ElemKey]], axis=0
-    ) -> "IDataset":
+    def center(self, key: ElemKey, axis=0) -> "IDataset":
         ...
 
     @interfacemethod
-    def minmax(
-        self,
-        key_or_keys: Union[ElemKey, Sequence[ElemKey]],
-        axis=0,
-        feature_range=(0, 1),
-    ) -> "IDataset":
+    def minmax(self, key: ElemKey, axis=0, feature_range=(0, 1),) -> "IDataset":
         ...
 
     @interfacemethod
-    def maxabs(
-        self, key_or_keys: Union[ElemKey, Sequence[ElemKey]], axis=0
-    ) -> "IDataset":
+    def maxabs(self, key: ElemKey, axis=0) -> "IDataset":
         ...
 
     # === Loaders ===
@@ -421,20 +400,20 @@ class IDataset(SampleProvider, Iterable):
     ) -> "IDataset":
         ...
 
-    @interfacemethod
-    @staticmethod
-    def from_csv(path: AnyPath) -> "IDataset":
-        ...  # TODO: decide if it should be public
+    # @interfacemethod
+    # @staticmethod
+    # def from_csv(path: AnyPath) -> "IDataset":
+    #     ...  # TODO: decide if it should be public
 
-    @interfacemethod
-    @staticmethod
-    def from_mat(path: AnyPath) -> "IDataset":
-        ...  # TODO: decide if it should be public
+    # @interfacemethod
+    # @staticmethod
+    # def from_mat(path: AnyPath) -> "IDataset":
+    #     ...  # TODO: decide if it should be public
 
-    @interfacemethod
-    @staticmethod
-    def from_image(path: AnyPath) -> "IDataset":
-        ...  # TODO: decide if it should be public
+    # @interfacemethod
+    # @staticmethod
+    # def from_image(path: AnyPath) -> "IDataset":
+    #     ...  # TODO: decide if it should be public
 
     # def from_url(url) -> "IDataset": ... # TODO: implement
 
