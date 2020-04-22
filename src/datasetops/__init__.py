@@ -20,3 +20,4 @@ from .dataset import Dataset  # noqa: F401
 from . import filters  # noqa: F401
 from . import loaders  # noqa: F401
 from . import samplers  # noqa: F401
+from . import splits  # noqa: F401

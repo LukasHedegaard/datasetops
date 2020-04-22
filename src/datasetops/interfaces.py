@@ -224,23 +224,47 @@ class IDataset(ISampleProvider, Iterable):
     def split(
         self, fractions: Sequence[float], seed: int = None
     ) -> Tuple["IDataset", ...]:
-        ...  # TODO: impl
+        ...  # TODO: test
 
     @interfacemethod
     def split_filter(
         self,
         key_or_samplepredicate: Union[ElemKey, SamplePredicate],
-        elem_predicate: ElemPredicate = None,
+        elem_predicate: ElemPredicate = lambda e: True,
     ) -> Tuple["IDataset", "IDataset"]:
-        ...  # TODO: impl
+        ...  # TODO: test
 
-    # def split_train_test(self, ratio=[0.8,0.2], seed:int = None) -> Tuple["IDataset", "IDataset"]: ... # TODO: implement
+    def split_train_test(
+        self, ratio=[0.8, 0.2], seed: int = None
+    ) -> Tuple["IDataset", "IDataset"]:
+        ...  # TODO: test
 
-    # def split_train_val_test(self, ratio=[0.65,0.15,0.2], seed:int = None) -> Tuple["IDataset", "IDataset", "IDataset"]: ... # TODO: implement
+    def split_train_val_test(
+        self, ratio=[0.65, 0.15, 0.2], seed: int = None
+    ) -> Tuple["IDataset", "IDataset", "IDataset"]:
+        ...  # TODO: test
 
-    # def split_k_fold(self, k=5, seed:int = None) -> Tuple["IDataset", ...]: ...
+    # @typing.overload
+    # def split_k_fold(
+    #     self, k=5, seed: int = None, return_rest=True
+    # ) -> Tuple[Tuple["IDataset", "IDataset"], ...]:
+    #     ...
 
-    # def split_balanced(self, key: Key, num_per_class: int, comparison_fn = lambda a,b: a == b) -> Tuple["IDataset", "IDataset"]: ... # TODO: implement
+    # @typing.overload
+    # def split_k_fold(
+    #     self, k=5, seed: int = None, return_rest=False
+    # ) -> Tuple["IDataset", ...]:
+    #     ...
+
+    # def split_k_fold(
+    #     self, k=5, seed: int = None
+    # ) -> Tuple[Tuple["IDataset", "IDataset"], ...]:
+    #     ...  # TODO: test
+
+    # def split_balanced(
+    #     self, key: ElemKey, num_per_class: int, comparison_fn=lambda a, b: a == b
+    # ) -> Tuple["IDataset", "IDataset"]:
+    #     ...  # TODO: implement
 
     # === Composition ===
 
