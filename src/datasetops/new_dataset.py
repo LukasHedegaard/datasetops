@@ -16,10 +16,11 @@ from datasetops.interfaces import (
     ElemIndex,
 )
 import typing
-from typing import Dict, List, Iterator, Union, Sequence, Tuple, Any
+from typing import Dict, List, Iterator, Union, Sequence, Tuple, Any, Optional
 import numpy as np
 from datasetops.helpers import documents, signature, index_from, inds_from, collect_keys
 from warnings import warn
+from functools import lru_cache
 
 _DEFAULT_SHAPE = tuple()
 
@@ -32,27 +33,29 @@ class Dataset(IDataset):
         operation_name: str = "",
         operation_parameters: Dict = {},
         transform_func: SampleTransform = None,
-        elem_name2index: ElemNameToIndex = None,
-        stats: Dict[ElemIndex, ElemStats] = None,
+        elem_name2index: Optional[ElemNameToIndex] = {},
+        stats: Optional[Dict[ElemIndex, ElemStats]] = {},
     ):
         self._parent = parent
         self._sample_ids = sample_ids
         self._operation_name = operation_name
         self._operation_parameters = operation_parameters
         self._transform_func = transform_func or (lambda x: x)
+        self._elem_name2index = elem_name2index or {}
+        self._stats = stats or {}
 
         # if parent is a Dataset, we can automatically infer some attributes
-        if type(parent) == "Dataset":
-            ds: "Dataset" = parent  # type: ignore
+        if type(parent) == Dataset:
+            ds: Dataset = parent  # type: ignore
             self._sample_ids = sample_ids or range(len(ds))
             self._elem_name2index = elem_name2index or ds._elem_name2index
             self._stats = stats or ds._stats
 
         # allow override with empty fields
-        if elem_name2index is not None:
-            self._elem_name2index = elem_name2index
-        if stats is not None:
-            self._stats = stats
+        if elem_name2index is None:
+            self._elem_name2index = {}
+        if stats is None:
+            self._stats = {}
 
     def __len__(self):
         return len(self._sample_ids)
@@ -70,14 +73,15 @@ class Dataset(IDataset):
             return self._transform_func(self._parent[self._sample_ids[i]])
         elif type(i) == slice:
             return [
-                self._transform_func(self._parent[self._sample_ids[ii]]) for ii in i
+                self._transform_func(self._parent[self._sample_ids[ii]])
+                for ii in range(len(self))[i]  # type: ignore
             ]
         else:
             raise IndexError("Index of type {} is not supported".format(type(i)))
 
     def __iter__(self) -> Iterator[Sample]:
-        for sample in self:
-            yield sample
+        for i in range(len(self)):
+            yield self[i]
 
     @property
     def generator(self):
@@ -133,6 +137,7 @@ class Dataset(IDataset):
 
     @property
     @documents(IDataset)
+    @lru_cache(1)
     def shape(self) -> SampleShape:
         """Get the shape of a sample.
 
@@ -142,8 +147,8 @@ class Dataset(IDataset):
         if len(self) == 0:
             return _DEFAULT_SHAPE
 
-        if self._shape:
-            return self._shape
+        # if hasattr(self, "_shape"):
+        #     return self._shape
 
         item = self.__getitem__(0)
         if hasattr(item, "__getitem__"):
@@ -160,7 +165,7 @@ class Dataset(IDataset):
         else:
             shape = _DEFAULT_SHAPE
 
-        self._shape = shape
+        # self._shape = shape
         return shape
 
     @documents(IDataset)
@@ -203,7 +208,7 @@ class Dataset(IDataset):
 
         for i in inds:
             if i > len(self.shape):
-                raise ValueError(
+                raise IndexError(
                     (
                         "reorder index {} is out of range"
                         "(maximum allowed index is {})"
@@ -258,6 +263,7 @@ class Dataset(IDataset):
             {Dataset} -- dataset
         """
         if callable(key_or_sampletransform):
+            elem_idx = None
             transform_func: SampleTransform = key_or_sampletransform  # type:ignore
             operation_parameters = {"transform_func": signature(transform_func)}
         else:
@@ -271,11 +277,15 @@ class Dataset(IDataset):
                 "transform_func": signature(transform_func),
             }
 
+        # reset - can we infer that it should be passed on?
+        elem_name2index = self._elem_name2index if elem_idx else {}
+        stats = self._stats if elem_idx else {}
+
         return Dataset(
             parent=self,
             transform_func=transform_func,
             operation_name="transform",
             operation_parameters=operation_parameters,
-            elem_name2index={},  # reset - can we infer that it should be passed on?
-            stats={},  # reset - can we infer that it should be passed on?
+            elem_name2index=elem_name2index,
+            stats=stats,
         )

@@ -1,12 +1,12 @@
 from .interfaces import ISampleProvider, IDataset, SampleId, Sample
-from typing import Iterable, Union, Dict, Any
+from typing import Iterable, Union, Dict, Any, List
 from itertools import islice
 from .helpers import monkeypatch, documents
 from .new_dataset import Dataset
 
 
 class SampleProvider(ISampleProvider):
-    def __init__(self, data: list[Sample], identifier: str = None):
+    def __init__(self, data: List[Sample], identifier: str = None):
         self._data = data
         self._identifier = identifier or str(hash(data))
 
@@ -20,9 +20,9 @@ class SampleProvider(ISampleProvider):
         return self._identifier
 
 
+@documents(IDataset)
 @monkeypatch(Dataset)
-@documents(IDataset.from_iterable)
-def from_iterable(iterable: Iterable, identifier: str = None) -> SampleProvider:
+def from_iterable(iterable: Iterable, identifier: str = None) -> IDataset:
     """Creates a SampleProvider from the elements of an iterable.
 
     Arguments:
@@ -32,11 +32,18 @@ def from_iterable(iterable: Iterable, identifier: str = None) -> SampleProvider:
     Returns:
         SampleProvider
     """
-    sample = islice(iterable, 1)
+    try:
+        sample = next(iter(iterable))
+    except StopIteration:
+        raise ValueError("iterable should contain at least one element")
 
     if type(sample) is tuple:
         data = list(iterable)
     else:
-        data = [tuple(s) for s in iterable]
+        data = [(s,) for s in iterable]
 
-    return SampleProvider(data, identifier or "iterable: {}".format(hash(data)))
+    return Dataset(
+        parent=SampleProvider(data, identifier or str(hash(tuple(data)))),
+        sample_ids=range(len(data)),
+        operation_name="from_iterable",
+    )

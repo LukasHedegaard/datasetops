@@ -140,9 +140,9 @@ class IDataset(ISampleProvider, Iterable):
     def __str__(self) -> str:
         ...  # TODO: Implement
 
-    @interfacemethod
-    def __repr__(self) -> str:
-        ...  # TODO: Implement
+    # @interfacemethod
+    # def __repr__(self) -> str:
+    #     ...  # TODO: Implement
 
     @interfacemethod
     def trace(self) -> Dict:  # Was transformation graph
@@ -300,7 +300,7 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     def numpy(self, key: ElemKey) -> "IDataset":
-        ...
+        ...  # TODO: remember to test shape
 
     @interfacemethod
     def reshape(self, key: ElemKey, new_shape: ElemShape,) -> "IDataset":
@@ -310,7 +310,7 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     def image(self, key: ElemKey) -> "IDataset":
-        ...  # TODO: update impl
+        ...  # TODO: remember to test shape
 
     @interfacemethod
     def image_resize(self, key: ElemKey, new_shape: ElemShape,) -> "IDataset":
