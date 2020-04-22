@@ -128,7 +128,7 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     @property
-    def names(self) -> List[str]:
+    def names(self) -> ElemNameToIndex:
         ...
 
     @interfacemethod
@@ -224,7 +224,7 @@ class IDataset(ISampleProvider, Iterable):
     def split(
         self, fractions: Sequence[float], seed: int = None
     ) -> Tuple["IDataset", ...]:
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def split_filter(
@@ -232,17 +232,17 @@ class IDataset(ISampleProvider, Iterable):
         key_or_samplepredicate: Union[ElemKey, SamplePredicate],
         elem_predicate: ElemPredicate = lambda e: True,
     ) -> Tuple["IDataset", "IDataset"]:
-        ...  # TODO: test
+        ...
 
     def split_train_test(
         self, ratio=[0.8, 0.2], seed: int = None
     ) -> Tuple["IDataset", "IDataset"]:
-        ...  # TODO: test
+        ...
 
     def split_train_val_test(
         self, ratio=[0.65, 0.15, 0.2], seed: int = None
     ) -> Tuple["IDataset", "IDataset", "IDataset"]:
-        ...  # TODO: test
+        ...
 
     # @typing.overload
     # def split_k_fold(
@@ -269,11 +269,19 @@ class IDataset(ISampleProvider, Iterable):
     # === Composition ===
 
     @interfacemethod
-    def zip(self, *datasets: Sequence["IDataset"]) -> "IDataset":
+    def zip(
+        self,
+        dataset_or_datasets: Union["IDataset", Sequence["IDataset"]],
+        *rest_datasets: "IDataset"
+    ) -> "IDataset":
         ...  # TODO: impl
 
     @interfacemethod
-    def concat(self, *datasets: Sequence["IDataset"]) -> "IDataset":
+    def concat(
+        self,
+        dataset_or_datasets: Union["IDataset", Sequence["IDataset"]],
+        *rest_datasets: "IDataset"
+    ) -> "IDataset":
         ...  # TODO: impl
 
     @interfacemethod
@@ -281,7 +289,11 @@ class IDataset(ISampleProvider, Iterable):
         ...  # TODO: should implement concat
 
     @interfacemethod
-    def cartesian_product(self, *datasets: Sequence["IDataset"]) -> "IDataset":
+    def cartesian_product(
+        self,
+        dataset_or_datasets: Union["IDataset", Sequence["IDataset"]],
+        *rest_datasets: "IDataset"
+    ) -> "IDataset":
         ...  # TODO: impl
 
     # === Free transform ===
@@ -292,13 +304,13 @@ class IDataset(ISampleProvider, Iterable):
         key_or_sampletransform: Union[ElemKey, SampleTransform],
         elem_transform: ElemTransform = lambda e: e,
     ) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def reorder(
         self, key_or_keys: Union[ElemKey, Sequence[ElemKey]], *rest_keys: ElemKey
     ) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     # === Label ===
 

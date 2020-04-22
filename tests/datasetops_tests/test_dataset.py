@@ -59,15 +59,15 @@ def test_shape():
 def test_item_naming():
     ds = from_dummy_data(with_label=True)
 
-    assert ds.names == []
+    assert ds.names == {}
 
     item_names = ["mydata", "mylabel"]
 
     assert (
-        ds.named(item_names).names
-        == ds.named(*item_names).names
-        == ds.named(tuple(item_names)).names
-        == item_names
+        item_names
+        == list(ds.named(item_names).names.keys())
+        == list(ds.named(*item_names).names.keys())
+        == list(ds.named(tuple(item_names)).names.keys())
     )
 
     # samples don't change

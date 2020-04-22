@@ -21,3 +21,4 @@ from . import filters  # noqa: F401
 from . import loaders  # noqa: F401
 from . import samplers  # noqa: F401
 from . import splits  # noqa: F401
+from . import compose as _compose  # noqa: F401

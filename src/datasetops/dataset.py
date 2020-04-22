@@ -124,46 +124,43 @@ class Dataset(IDataset):
 
     @property
     @documents(IDataset)
-    def names(self) -> List[str]:
+    def names(self) -> ElemNameToIndex:
         """Get the names associated with sample elements
 
         Returns:
             {List[str]} -- names
         """
-        if not self._elem_name2index:
-            return []
-
-        return [x[0] for x in sorted(self._elem_name2index.items(), key=lambda x: x[1])]
+        return self._elem_name2index
 
     @property
-    @documents(IDataset)
     @lru_cache(1)
+    @documents(IDataset)
     def shape(self) -> SampleShape:
         """Get the shape of a sample.
 
         Returns:
             {Tuple[Tuple[int, ...], ...]} -- Sample shape
         """
-        if len(self) == 0:
-            return _DEFAULT_SHAPE
+        # if len(self) == 0:
+        #     return _DEFAULT_SHAPE
 
         # if hasattr(self, "_shape"):
         #     return self._shape
 
         item = self.__getitem__(0)
-        if hasattr(item, "__getitem__"):
-            sample_shape = []
-            for i in item:
-                if hasattr(i, "shape"):  # numpy arrays
-                    sample_shape.append(i.shape)
-                elif hasattr(i, "size"):  # PIL.Image.Image
-                    sample_shape.append(np.array(i).shape)
-                else:
-                    sample_shape.append(_DEFAULT_SHAPE)
+        # if hasattr(item, "__getitem__"):
+        sample_shape = []
+        for i in item:
+            if hasattr(i, "shape"):  # numpy arrays
+                sample_shape.append(i.shape)
+            elif hasattr(i, "size"):  # PIL.Image.Image
+                sample_shape.append(np.array(i).shape)
+            else:
+                sample_shape.append(_DEFAULT_SHAPE)
 
-            shape = tuple(sample_shape)
-        else:
-            shape = _DEFAULT_SHAPE
+        shape: SampleShape = tuple(sample_shape)
+        # else:
+        #     shape = _DEFAULT_SHAPE
 
         # self._shape = shape
         return shape
@@ -218,7 +215,7 @@ class Dataset(IDataset):
         def item_transform_fn(item: Tuple):
             return tuple([item[i] for i in inds])
 
-        elem_name2index = {}
+        elem_name2index: ElemNameToIndex = {}
         if self._elem_name2index:
             if len(set(inds)) < len(inds):
                 warn(

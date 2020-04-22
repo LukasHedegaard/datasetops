@@ -1,4 +1,4 @@
-from typing import Callable, Collection, Dict, Any, Sequence, Union, Set, List
+from typing import Callable, Collection, Dict, Any, Sequence, Union, List
 from functools import reduce
 
 from datasetops.interfaces import (
@@ -13,15 +13,12 @@ from datasetops.interfaces import (
 )
 
 
-# def documents(other_fn):
-#     assert callable(other_fn)
+def named(name):
+    def inner_decorator(fn):
+        fn.__name__ = name
+        return fn
 
-#     def inner_decorator(fn):
-#         other_fn.__doc__ = fn.__doc__
-
-#         return fn
-
-#     return inner_decorator
+    return inner_decorator
 
 
 def documents(cls):
