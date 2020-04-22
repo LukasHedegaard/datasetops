@@ -1,17 +1,12 @@
 import pytest
-import numpy as np
-from typing import Sequence, List, Tuple
 
-from datasetops.dataset import Dataset, _DEFAULT_SHAPE
+from datasetops import Dataset
+from datasetops.dataset import _DEFAULT_SHAPE
 
-from .testing_utils import (
-    get_test_dataset_path,
+from .utils import (
     from_dummy_data,
     from_dummy_numpy_data,
-    DATASET_PATHS,
     DUMMY_NUMPY_DATA_SHAPE_1D,
-    DUMMY_NUMPY_DATA_SHAPE_2D,
-    DUMMY_NUMPY_DATA_SHAPE_3D,
 )
 
 

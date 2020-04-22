@@ -104,32 +104,32 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     def __getitem__(self, idx):
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def __len__(self) -> int:
         """Return the total number of elements in the dataset."""
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def __iter__(self) -> Iterator[Sample]:
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     @property
     def generator(self,):
-        ...  # TODO: test
+        ...
 
     # === Basic Info: Implemented in `dataset.py` ===
 
     @interfacemethod
     def named(self, first: Union[str, Sequence[str]], *rest: str) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     @property
     def names(self) -> List[str]:
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     @property
@@ -146,7 +146,7 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     def trace(self) -> Dict:  # Was transformation graph
-        ...  # TODO: Decide return type JSON?
+        ...
 
     # def diagram(self, storage_path: AnyPath) -> None: ... # TODO: implement
 
@@ -168,13 +168,13 @@ class IDataset(ISampleProvider, Iterable):
 
     @interfacemethod
     def sample(self, num: int, seed: int = None) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     # def sample_balanced(self, key: Key, num_per_class: int, comparison_fn = lambda a,b: a == b) -> "IDataset": ... # TODO: implement
 
     @interfacemethod
     def shuffle(self, seed: int = None) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def filter(
@@ -182,17 +182,15 @@ class IDataset(ISampleProvider, Iterable):
         key_or_samplepredicate: Union[ElemKey, SamplePredicate],
         elem_predicate: ElemPredicate = lambda e: True,
     ) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     @interfacemethod
     def take(self, num: int) -> "IDataset":
-        ...  # TODO: test
+        ...
 
     @interfacemethod
-    def repeat(
-        self, copies=1, mode="whole"
-    ) -> "IDataset":  # mode: Literal["whole", "itemwise"]
-        ...  # TODO: test
+    def repeat(self, copies=1, mode="whole") -> "IDataset":
+        ...
 
     # === Advanced sampling ===
 

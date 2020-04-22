@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import NamedTuple
+from datasetops import Dataset
 from datasetops.loaders import from_iterable
-from datasetops.dataset import Dataset
-from datasetops.interfaces import ISampleProvider, IDataset
+from datasetops.interfaces import IDataset
 import numpy as np
 
 

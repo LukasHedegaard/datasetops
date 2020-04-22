@@ -1,13 +1,9 @@
 from datasetops.dataset import Dataset
-from datasetops.interfaces import IDataset, ElemKey, SamplePredicate, ElemPredicate
+from datasetops.interfaces import IDataset
 from datasetops.helpers import (
     monkeypatch,
     documents,
-    signature,
-    sample_predicate,
-    index_from,
 )
-from typing import Union
 import random
 
 
@@ -71,51 +67,6 @@ def shuffle(self: Dataset, seed: int = None) -> "Dataset":
 
 @documents(IDataset)
 @monkeypatch(Dataset)
-def filter(
-    self: Dataset,
-    key_or_samplepredicate: Union[ElemKey, SamplePredicate],
-    elem_predicate: ElemPredicate = lambda e: True,
-) -> "Dataset":
-    """Filter the dataset samples according to a user-defined condition
-
-    Examples:
-    .. code-block::
-        >>> ds = Dataset.from_iterable([(1,10),(2,20),(3,30)]).named("ones", "tens")
-        >>> ds.filter(0, lambda elem: elem%2 == 0) == [(200,20)]
-        >>> ds.filter("ones", elem x: elem%2 == 0) == [(200,20)]
-        >>> ds.filter(lambda sample: sample[0]%2 == 0) == [(200,20)]
-
-    Arguments:
-        key_or_samplepredicate {Union[ElemKey, SamplePredicate]} -- either a key (string or index) or a function checking the whole sample
-        elem_predicate {Optional[ElemPredicate]} -- function that checks the element selected by the key
-
-    Returns:
-        {Dataset} -- dataset
-    """
-    if callable(key_or_samplepredicate):
-        predicate_func: SamplePredicate = key_or_samplepredicate  # type:ignore
-        operation_parameters = {"predicate_func": signature(predicate_func)}
-    else:
-        elem_idx = index_from(self._elem_name2index, key_or_samplepredicate)
-        predicate_func = sample_predicate(elem_idx, elem_predicate)
-        operation_parameters = {
-            "key": elem_idx,
-            "predicate_func": signature(predicate_func),
-        }
-
-    new_ids = [i for i, sample in enumerate(self) if predicate_func(sample)]
-
-    return Dataset(
-        parent=self,
-        sample_ids=new_ids,
-        operation_name="filter",
-        operation_parameters=operation_parameters,
-        stats={},  # reset - can we infer that it should be passed on?
-    )
-
-
-@documents(IDataset)
-@monkeypatch(Dataset)
 def take(self: Dataset, num: int) -> "Dataset":
     """Take the first elements of a dataset.
 
@@ -126,7 +77,7 @@ def take(self: Dataset, num: int) -> "Dataset":
         Dataset -- A dataset with only the first `num` elements
     """
     if num > len(self):
-        raise ValueError("Can't take more elements than are available in dataset")
+        raise IndexError("Can't take more elements than are available in dataset")
 
     new_ids = range(num)
     return Dataset(

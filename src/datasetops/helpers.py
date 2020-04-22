@@ -102,7 +102,7 @@ def index_from(name2ind: ElemNameToIndex, key: ElemKey) -> ElemIndex:
 
     raise KeyError(
         "Unknown key {}. Should be one of {}".format(
-            key, name2ind.keys() + name2ind.values()  # type: ignore
+            key, list(name2ind.values()) + list(name2ind.keys())  # type:ignore
         )
     )
 
