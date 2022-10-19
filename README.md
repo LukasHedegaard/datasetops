@@ -127,4 +127,15 @@ What follows here is a list of implemented and planned features.
 - [x] `cartesian_product` (create a dataset whose items are all combinations of items (zipped) of the originating datasets)
 
 
-
+## Citation
+If you use this software, please cite it as below:
+```bibtex
+@software{Hedegaard_DatasetOps_2022,
+  author = {Hedegaard, Lukas and Oleksiienko, Illia and Legaard, Christian Møldrup},
+  doi = {10.5281/zenodo.7223644},
+  month = {10},
+  title = {{DatasetOps}},
+  version = {0.0.7},
+  year = {2022}
+}
+```
