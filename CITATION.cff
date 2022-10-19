@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Hedegaard
+    given-names: Lukas
+    orcid: https://orcid.org/0000-0002-2841-864X
+  - family-names: Oleksiienko
+    given-names: Illia
+    orcid: https://orcid.org/0000-0001-7592-365X
+  - family-names: Legaard
+    given-names: Christian Møldrup
+    orcid: https://orcid.org/0000-0002-1914-9863
+title: "DatasetOps"
+version: 0.0.7
+doi: 10.5281/zenodo.7223644
+date-released: 2022-10-19
